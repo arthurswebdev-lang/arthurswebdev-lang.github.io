@@ -39,7 +39,8 @@ describe('GET /tasks without a filter', () => {
   it('returns everything, basic tasks included', async () => {
     const listed = await serviceWith(tasks).listAll({ userId: TEST_USER_ID });
 
-    assert.deepEqual(listed.map((task) => task.name), ['buy milk', 'gym friday', 'gym monday', 'rent']);
+    // Dated first and soonest first; the dateless basic task sits below them.
+    assert.deepEqual(listed.map((task) => task.name), ['gym friday', 'gym monday', 'rent', 'buy milk']);
   });
 });
 
@@ -47,7 +48,7 @@ describe('GET /tasks?filter=...', () => {
   it('actual returns what is relevant right now, dateless tasks included', async () => {
     const listed = await serviceWith(tasks).listAll({ userId: TEST_USER_ID, filter: TaskFilter.ACTUAL });
 
-    assert.deepEqual(listed.map((task) => task.name), ['buy milk', 'rent']);
+    assert.deepEqual(listed.map((task) => task.name), ['rent', 'buy milk']);
   });
 
   it('passed returns what has gone by', async () => {

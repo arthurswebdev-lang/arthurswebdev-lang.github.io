@@ -1,5 +1,6 @@
 import { TaskStatus } from '../enum/task-status.enum.js';
 import { filterTasks, isEventTask } from '../filters/tasks.filters.js';
+import { sortTasks } from '../filters/tasks.sort.js';
 import type { ITaskGeneratorService } from '../interfaces/task-generator.interface.js';
 import type {
   IRepeatedTasksRepository,
@@ -63,7 +64,7 @@ export class TasksService implements ITasksService {
       ? await this.tasksRepository.list(userId)
       : await this.tasksRepository.listBy({ userId, category });
 
-    return this.withConfigs(filterTasks(tasks, filter, this.now()));
+    return this.withConfigs(sortTasks(filterTasks(tasks, filter, this.now())));
   }
 
   /**

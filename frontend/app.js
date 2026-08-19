@@ -12,7 +12,7 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=7';
+} from './api.js?v=9';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -175,7 +175,7 @@ function stepsSection(task) {
       link.href = step.link;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
-      link.textContent = '↗';
+      link.textContent = '🔗';
       link.title = step.link;
       link.setAttribute('aria-label', `Open the link for ${step.name}`);
       item.append(link);
@@ -187,6 +187,20 @@ function stepsSection(task) {
   section.append(list);
 
   return section;
+}
+
+/** A task's link, as the same 🔗 a step carries — tappable, not just a count. */
+function taskLink(task, url) {
+  const link = document.createElement('a');
+  link.className = 'chip chip--link';
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.textContent = '🔗';
+  link.title = url;
+  link.setAttribute('aria-label', `Open ${url} for ${task.name}`);
+
+  return link;
 }
 
 function taskItem(task) {
@@ -221,11 +235,7 @@ function taskItem(task) {
     meta.append(repeat);
   }
 
-  if (task.links?.length) {
-    const links = chip(`🔗 ${String(task.links.length)}`);
-    links.title = task.links.join('\n');
-    meta.append(links);
-  }
+  for (const url of task.links ?? []) meta.append(taskLink(task, url));
 
   // Nothing is said about a basic task having no date: that is what it is.
   body.append(meta);
@@ -465,11 +475,17 @@ function toggleStep(task, step) {
 }
 
 function remove(task) {
-  // Deleting is the one action here with nothing behind it — no undo, and the
-  // server has no trash.
-  const question = task.configTaskId
-    ? `"${task.name}" repeats. Delete the repeat and every event it made?`
-    : `Delete "${task.name}"?`;
+  // Under "passed" the bin means "clear this spent one out of the way", so it
+  // goes without taking its repeat. Everywhere else it still means delete,
+  // which for a generated event takes the whole rule and every event it made.
+  const clearing = activeFilter === 'passed';
+
+  let question = `Delete "${task.name}"?`;
+  if (clearing) question = `Clear "${task.name}" from the list?`;
+  else if (task.configTaskId) {
+    question = `"${task.name}" repeats. Delete the repeat and every event it made?`;
+  }
+
   if (!confirmDelete(question)) return;
 
   apply(
@@ -477,8 +493,10 @@ function remove(task) {
       const index = tasks.indexOf(task);
       if (index !== -1) tasks.splice(index, 1);
     },
-    () => deleteTask(credentials.token, task.id),
-    `${task.name} deleted`,
+    () => (clearing
+      ? clearTasks(credentials.token, [task.id])
+      : deleteTask(credentials.token, task.id)),
+    `${task.name} ${clearing ? 'cleared' : 'deleted'}`,
   );
 }
 
