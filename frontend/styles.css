@@ -428,3 +428,72 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
+
+/* --- categories ---------------------------------------------------------- */
+/* Sits between the filter rule and the list, with a rule of its own beneath.
+   Each button carries its category colour in --cat; it is only ever shown
+   mixed into the surface, so identity survives without neon in a pastel UI. */
+.categories {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.7rem 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.categories::-webkit-scrollbar { display: none; }
+
+.category {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, transform 0.18s;
+}
+
+.category--all {
+  width: auto;
+  padding: 0 0.7rem;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.category:hover { border-color: var(--line-strong); }
+
+.category:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+}
+
+.category__icon { line-height: 1; }
+
+.category[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--cat, var(--accent)) 22%, var(--surface));
+  border-color: color-mix(in srgb, var(--cat, var(--accent)) 55%, var(--line));
+  transform: translateY(-1px);
+}
+
+.category--all[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent-ring);
+  color: var(--accent-ink);
+}
+
+.chip--category {
+  background: color-mix(in srgb, var(--cat) 16%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--cat) 40%, var(--line));
+  color: var(--ink);
+}

@@ -9,6 +9,29 @@
      upcoming  - still ahead, but outside that window
 --------------------------------------------------------------------------- */
 
+/**
+ * Categories, colours and icons carried over from the previous app. Each keeps
+ * its fixed colour slot — adding or removing one never re-shuffles the others.
+ * The neon values are only ever used mixed into the surface (see styles.css),
+ * so they read as identity without breaking the pastel palette.
+ */
+const CATEGORIES = {
+  important: { label: "Important", color: "#fb1919", icon: "⭐" },
+  work: { label: "Work", color: "#13c2f9", icon: "💼" },
+  supplements: { label: "Supplements", color: "#27b621", icon: "💊" },
+  food: { label: "Food", color: "#ffed02", icon: "🍎" },
+  education: { label: "Education", color: "#bce211", icon: "🎓" },
+  selfcare: { label: "Selfcare", color: "#13d4c7", icon: "🧘" },
+  gym: { label: "Gym", color: "#ff8000", icon: "🏋️" },
+  reading: { label: "Reading", color: "#f5228e", icon: "📖" },
+};
+
+/** Category is optional, so tasks without one land in a neutral bucket. */
+const NONE_KEY = "none";
+const NONE_CATEGORY = { label: "Other", color: "#9ca3af", icon: "🗂️" };
+
+const categoryOf = (key) => CATEGORIES[key] ?? NONE_CATEGORY;
+
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 const now = Date.now();
@@ -26,6 +49,7 @@ const at = (offset) => new Date(now + offset).toISOString();
 const tasks = [
   {
     id: "t1",
+    category: "food",
     type: "BASIC",
     name: "Buy milk",
     status: "TODO",
@@ -36,6 +60,7 @@ const tasks = [
   },
   {
     id: "t2",
+    category: "selfcare",
     type: "EVENT",
     name: "Drink water",
     status: "TODO",
@@ -48,6 +73,7 @@ const tasks = [
   },
   {
     id: "t3",
+    category: "selfcare",
     type: "EVENT",
     name: "Drink water",
     status: "DONE",
@@ -60,6 +86,7 @@ const tasks = [
   },
   {
     id: "t4",
+    category: "gym",
     type: "EVENT",
     name: "Stretch before bed",
     status: "TODO",
@@ -72,6 +99,7 @@ const tasks = [
   },
   {
     id: "t5",
+    category: "important",
     type: "EVENT",
     name: "Dentist",
     status: "TODO",
@@ -83,6 +111,7 @@ const tasks = [
   },
   {
     id: "t6",
+    category: "gym",
     type: "EVENT",
     name: "Gym",
     status: "TODO",
@@ -95,6 +124,7 @@ const tasks = [
   },
   {
     id: "t7",
+    category: "important",
     type: "EVENT",
     name: "Pay rent",
     status: "TODO",
@@ -187,6 +217,7 @@ const listEl = document.getElementById("list");
 const summaryEl = document.getElementById("summary");
 const announcer = document.getElementById("announcer");
 let activeFilter = "actual";
+let activeCategory = "all";
 
 function chip(text, modifier) {
   const el = document.createElement("span");
@@ -238,18 +269,22 @@ function taskItem(task) {
     meta.append(chip(overdue ? `Missed · ${whenLabel(task)}` : whenLabel(task), modifier));
   }
 
+  const category = categoryOf(task.category);
+  const categoryChip = chip(`${category.icon} ${category.label}`, "category");
+  categoryChip.style.setProperty("--cat", category.color);
+  meta.append(categoryChip);
+
   if (task.repeat) meta.append(chip(`🔁 ${task.repeat}`, "repeat"));
   if (task.subtasks.length > 0) meta.append(chip(subtaskLabel(task)));
   if (!hasDate(task)) meta.append(chip("No date"));
 
   body.append(meta);
 
+  // Only delete lives here: done/undone is the round check at the start of the
+  // card, and a second control for it was just a duplicate.
   const actions = document.createElement("div");
   actions.className = "task__actions";
-  actions.append(
-    iconButton(done ? `Mark ${task.name} as not done` : `Mark ${task.name} as done`, done ? "↩" : "✓", () => toggleDone(task)),
-    iconButton(`Delete ${task.name}`, "🗑", () => remove(task)),
-  );
+  actions.append(iconButton(`Delete ${task.name}`, "🗑", () => remove(task)));
 
   item.append(check, body, actions);
   return item;
@@ -269,6 +304,52 @@ function emptyState() {
   return wrap;
 }
 
+const categoriesEl = document.getElementById("categories");
+
+function categoryButton(key, { label, icon, color }) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "category";
+  button.dataset.category = key;
+  button.style.setProperty("--cat", color);
+  button.setAttribute("aria-pressed", String(activeCategory === key));
+  button.setAttribute("aria-label", key === "all" ? "All categories" : label);
+  button.title = label;
+  button.innerHTML = `<span class="category__icon" aria-hidden="true"></span>`;
+  button.querySelector(".category__icon").textContent = icon;
+  button.addEventListener("click", () => {
+    activeCategory = key;
+    render();
+  });
+  return button;
+}
+
+function renderCategories() {
+  const all = document.createElement("button");
+  all.type = "button";
+  all.className = "category category--all";
+  all.dataset.category = "all";
+  all.setAttribute("aria-pressed", String(activeCategory === "all"));
+  all.setAttribute("aria-label", "All categories");
+  all.title = "All categories";
+  all.textContent = "All";
+  all.addEventListener("click", () => {
+    activeCategory = "all";
+    render();
+  });
+
+  const buttons = Object.entries(CATEGORIES).map(([key, meta]) => categoryButton(key, meta));
+
+  // "Other" earns a place only while something actually sits in it.
+  const hasUncategorised = tasks.some((task) => !task.category);
+  if (hasUncategorised) buttons.push(categoryButton(NONE_KEY, NONE_CATEGORY));
+
+  categoriesEl.replaceChildren(all, ...buttons);
+}
+
+const inCategory = (task) =>
+  activeCategory === "all" || (task.category ?? NONE_KEY) === activeCategory;
+
 function render() {
   const counts = { passed: 0, actual: 0, upcoming: 0 };
   tasks.forEach((task) => { counts[stateOf(task)] += 1; });
@@ -280,7 +361,9 @@ function render() {
     button.setAttribute("aria-pressed", String(button.dataset.state === activeFilter));
   });
 
-  const shown = tasks.filter((task) => stateOf(task) === activeFilter);
+  renderCategories();
+
+  const shown = tasks.filter((task) => stateOf(task) === activeFilter && inCategory(task));
   const left = shown.filter((task) => task.status !== "DONE").length;
   summaryEl.textContent = shown.length === 0 ? "" : `${left} of ${shown.length} left`;
 
