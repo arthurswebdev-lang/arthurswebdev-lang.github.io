@@ -4,29 +4,29 @@
    Every colour below is a token so no component hard-codes one theme's value.
 --------------------------------------------------------------------------- */
 :root {
-  --ground: #fbf7f1;
-  --surface: #fffcf8;
-  --surface-sunk: #f4ece1;
+  --ground: #f4ecdd;
+  --surface: #fffdf9;
+  --surface-sunk: #eae0cd;
   --line: #e6d8c3;
   --line-strong: #d6c3a7;
   --ink: #4b3a2c;
-  --ink-soft: #8b7a66;
-  --ink-faint: #a8967f;
+  --ink-soft: #6f6252;
+  --ink-faint: #807261;
 
   --accent: #f3cdb0;
   --accent-ink: #6d4726;
   --accent-ring: #e0b18d;
 
   --actual-bg: #f8dcc9;
-  --actual-ink: #9a5732;
+  --actual-ink: #945430;
   --passed-bg: #dde7d7;
-  --passed-ink: #536e49;
+  --passed-ink: #526d48;
   --upcoming-bg: #dfdbf1;
   --upcoming-ink: #5d558f;
   --overdue-bg: #f6d4ce;
-  --overdue-ink: #9d4f47;
+  --overdue-ink: #954b43;
   --done-bg: #d9e7d6;
-  --done-ink: #4d6f46;
+  --done-ink: #4c6e45;
 
   --shadow: 0 1px 2px rgb(75 58 44 / 6%), 0 8px 20px rgb(75 58 44 / 5%);
   --radius: 16px;
@@ -45,7 +45,7 @@
     --line-strong: #5b4c3e;
     --ink: #f2e8dc;
     --ink-soft: #bcaa95;
-    --ink-faint: #8d7d6b;
+    --ink-faint: #a08f7b;
 
     --accent: #8a5f3c;
     --accent-ink: #ffeedd;
@@ -74,7 +74,7 @@
   --line-strong: #5b4c3e;
   --ink: #f2e8dc;
   --ink-soft: #bcaa95;
-  --ink-faint: #8d7d6b;
+  --ink-faint: #a08f7b;
   --accent: #8a5f3c;
   --accent-ink: #ffeedd;
   --accent-ring: #a9784f;
