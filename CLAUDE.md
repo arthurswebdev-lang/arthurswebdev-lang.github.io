@@ -1,5 +1,14 @@
 # tasks-api
 
+A PWA and its API in one repository, deployed to two places:
+
+- `frontend/` — static PWA published to **GitHub Pages** by a workflow, installed to the iOS
+  home screen. Path- and scope-sensitive: see *Frontend* below.
+- `backend/` — the API, deployed to **fly.io**.
+- `docs/` — design notes shared by both.
+
+**Every path below is relative to `backend/`**, and every `npm` command runs from there.
+
 Express 5 + TypeScript (ESM, NodeNext) todo/tasks API, backed by MongoDB via the native driver.
 Layering: `routes → validation middleware → controller → service → repository`, each layer
 receiving its dependency through the constructor, composed in `app.ts`.
@@ -122,6 +131,22 @@ one blank line before a `return` that follows logic.
   nothing to do with the package being added.
 - **`TaskType.REPEATED_DAILY` has the value `'DAILY'`** while its siblings are `'REPEATED_*'`.
   Known inconsistency; it is visible in API responses and the Postman collection.
+
+## Frontend (GitHub Pages, iOS home screen)
+
+Pages serves a *project* site from a subpath (`https://<user>.github.io/<repo>/`), which makes
+these non-negotiable:
+
+- **Relative paths everywhere** (`./`) — manifest `start_url`/`scope`, service worker
+  registration, icons. An absolute `/…` breaks under a subpath.
+- **Pass the registration to `getToken`.** Without
+  `getToken({ vapidKey, serviceWorkerRegistration })` the SDK looks for
+  `/firebase-messaging-sw.js` at the origin root, which does not exist on a project site.
+- **Never call `showNotification` inside `onBackgroundMessage`** — Firebase already shows the
+  notification, and you get duplicates.
+- **iOS gives web push only to home-screen apps**: the user must Add to Home Screen, and
+  permission must be requested from a user gesture inside the installed app.
+- Pages and fly.io are different origins, so the API needs CORS for the Pages origin.
 
 ## Commands
 
