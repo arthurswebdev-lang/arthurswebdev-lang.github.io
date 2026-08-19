@@ -12,7 +12,7 @@ import {
   createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTasks,
   fetchTasks, forgetCredentials, readCredentials, replaceTask, saveCredentials,
   setStepStatus, setTaskStatus, signUp,
-} from './api.js';
+} from './api.js?v=2';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -348,6 +348,20 @@ function renderCategories() {
   categoriesEl.replaceChildren(all, ...buttons);
 }
 
+/**
+ * Done sinks to the bottom; above it, whatever has a time comes in time order,
+ * and undated tasks follow. Id last so the order never wobbles between reads.
+ */
+function inListOrder(left, right) {
+  const finished = (task) => (task.status === 'DONE' ? 1 : 0);
+  if (finished(left) !== finished(right)) return finished(left) - finished(right);
+
+  const at = (task) => (hasDate(task) ? new Date(task.date).getTime() : Number.POSITIVE_INFINITY);
+  if (at(left) !== at(right)) return at(left) - at(right);
+
+  return left.id.localeCompare(right.id);
+}
+
 function render() {
   renderCategories();
 
@@ -358,6 +372,18 @@ function render() {
   if (status === 'loading') {
     summaryEl.textContent = '';
     listEl.replaceChildren(message('⏳', 'Loading…'));
+
+    return;
+  }
+
+  if (status === 'signed-out') {
+    const signInAgain = document.createElement('button');
+    signInAgain.type = 'button';
+    signInAgain.className = 'btn state__action';
+    signInAgain.textContent = 'Sign in';
+    signInAgain.addEventListener('click', () => { void askForCredentials(); });
+    summaryEl.textContent = '';
+    listEl.replaceChildren(message('🔑', 'Sign in to see your tasks.', signInAgain));
 
     return;
   }
@@ -383,8 +409,9 @@ function render() {
     return;
   }
 
+  const ordered = [...tasks].sort(inListOrder);
   const groups = groupOrder
-    .map((key) => [key, tasks.filter((task) => (task.category ?? OTHER_KEY) === key)])
+    .map((key) => [key, ordered.filter((task) => (task.category ?? OTHER_KEY) === key)])
     .filter(([, items]) => items.length > 0)
     .map(([key, items]) => taskGroup(key, items));
 
@@ -433,6 +460,10 @@ function toggleStep(task, step) {
 }
 
 function remove(task) {
+  // Deleting is the one action here with nothing behind it — no undo, and the
+  // server has no trash.
+  if (!confirmDelete(`Delete "${task.name}"?`)) return;
+
   apply(
     () => {
       const index = tasks.indexOf(task);
@@ -442,6 +473,9 @@ function remove(task) {
     `${task.name} deleted`,
   );
 }
+
+/** A plain confirm, deliberately: it is one question and it must block. */
+const confirmDelete = (question) => window.confirm(question);
 
 /* --- loading -------------------------------------------------------------- */
 
@@ -462,6 +496,8 @@ async function load() {
       await forgetCredentials();
       credentials = null;
       showWho();
+      status = 'signed-out';
+      render();
       await askForCredentials('Those credentials were not accepted. Try again.');
 
       return;
@@ -552,6 +588,8 @@ function repeatRow(config) {
   remove.textContent = '🗑';
   remove.setAttribute('aria-label', `Delete the ${config.name} repeat`);
   remove.addEventListener('click', () => {
+    if (!confirmDelete(`Delete the "${config.name}" repeat and the events it made?`)) return;
+
     void deleteRepeatedTask(credentials.token, config.id).then(() => {
       announcer.textContent = `${config.name} repeat deleted`;
 
@@ -745,13 +783,16 @@ const chosenValues = (container) => [...container.querySelectorAll('[aria-presse
   .map((button) => Number(button.dataset.value));
 
 function fillCategories() {
+  // Filtering by a category and then adding almost always means adding to it.
+  const preferred = activeCategory === 'all' ? OTHER_KEY : activeCategory;
+
   const select = document.getElementById('composer-category');
   select.replaceChildren(...[...Object.entries(CATEGORIES), [OTHER_KEY, OTHER_CATEGORY]]
     .map(([key, meta]) => {
       const option = document.createElement('option');
       option.value = key;
       option.textContent = `${meta.icon}  ${meta.label}`;
-      if (key === OTHER_KEY) option.selected = true;
+      if (key === preferred) option.selected = true;
 
       return option;
     }));
@@ -951,9 +992,20 @@ composerForm.addEventListener('submit', () => {
 /* --- start ---------------------------------------------------------------- */
 
 async function start() {
-  credentials = await readCredentials() ?? null;
+  try {
+    credentials = await readCredentials() ?? null;
+  } catch {
+    // A blocked or broken credentials store must not leave a blank screen.
+    credentials = null;
+  }
+
   showWho();
+
   if (credentials === null) {
+    // Draw something behind the dialog, so dismissing it leaves a way back in
+    // rather than a spinner that never resolves.
+    status = 'signed-out';
+    render();
     await askForCredentials();
 
     return;

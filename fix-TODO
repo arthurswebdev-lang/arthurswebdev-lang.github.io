@@ -1,3 +1,0 @@
-1. repeated shouldn't inherit basic task, each entity shouldn't have unnecessary fields
-2. task with parent config should load that config as well, so we can update from frontend without unnecessary requests to backend
-3. add categories only at last
