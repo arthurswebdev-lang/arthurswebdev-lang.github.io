@@ -81,6 +81,7 @@ const listEl = document.getElementById('list');
 const summaryEl = document.getElementById('summary');
 const categoriesEl = document.getElementById('categories');
 const announcer = document.getElementById('announcer');
+const whoEl = document.getElementById('who');
 
 function chip(text, modifier) {
   const el = document.createElement('span');
@@ -338,6 +339,7 @@ async function load() {
     if (error.message === 'UNAUTHORIZED') {
       await forgetCredentials();
       credentials = null;
+      showWho();
       await askForCredentials('Those credentials were not accepted. Try again.');
 
       return;
@@ -360,6 +362,46 @@ document.querySelectorAll('.filter').forEach((button) => {
     void load();
   });
 });
+
+/* --- who is signed in, and signing out ------------------------------------ */
+
+function showWho() {
+  whoEl.textContent = credentials === null ? '' : credentials.username;
+}
+
+const optionsButton = document.getElementById('options');
+const menuPanel = document.getElementById('menu-panel');
+
+function closeMenu() {
+  menuPanel.hidden = true;
+  optionsButton.setAttribute('aria-expanded', 'false');
+}
+
+optionsButton.addEventListener('click', (event) => {
+  event.stopPropagation();
+  const open = menuPanel.hidden;
+  menuPanel.hidden = !open;
+  optionsButton.setAttribute('aria-expanded', String(open));
+});
+
+// Anywhere else, or Escape, puts it away again.
+document.addEventListener('click', closeMenu);
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenu(); });
+menuPanel.addEventListener('click', (event) => { event.stopPropagation(); });
+
+document.getElementById('signout').addEventListener('click', () => {
+  closeMenu();
+  void signOut();
+});
+
+async function signOut() {
+  await forgetCredentials();
+  credentials = null;
+  tasks = [];
+  showWho();
+  render();
+  await askForCredentials();
+}
 
 /* --- credentials ---------------------------------------------------------- */
 
@@ -384,6 +426,7 @@ signInForm.addEventListener('submit', () => {
 
   void saveCredentials(username, password).then((saved) => {
     credentials = saved;
+    showWho();
 
     return load();
   });
@@ -648,6 +691,7 @@ composerForm.addEventListener('submit', () => {
 
 async function start() {
   credentials = await readCredentials() ?? null;
+  showWho();
   if (credentials === null) {
     await askForCredentials();
 

@@ -27,8 +27,19 @@
 <div class="app">
   <header class="header">
     <div class="header__bar">
-      <h1 class="header__title">Tasks</h1>
-      <span class="header__count" id="summary"></span>
+      <h1 class="header__title">Tasks <span class="header__user" id="who"></span></h1>
+
+      <div class="header__side">
+        <span class="header__count" id="summary"></span>
+
+        <div class="menu">
+          <button type="button" class="menu__toggle" id="options"
+                  aria-haspopup="true" aria-expanded="false" aria-label="Options">⌄</button>
+          <div class="menu__panel" id="menu-panel" hidden>
+            <button type="button" class="menu__item" id="signout">Sign out</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="filters" role="group" aria-label="Filter tasks by when they happen">
