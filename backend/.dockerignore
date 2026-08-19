@@ -1,0 +1,8 @@
+node_modules
+dist
+test
+api
+.env
+.env.example
+eslint.config.ts
+*.md

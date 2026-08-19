@@ -1,0 +1,25 @@
+# Deploy config for the tasks API. Secrets (MONGO_URL, MONGO_DB_NAME, ORIGIN)
+# are set with `fly secrets set`, never committed here.
+app = 'artur-todo-list-api'
+primary_region = 'fra'
+
+[build]
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/health'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '256mb'

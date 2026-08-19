@@ -1,13 +1,38 @@
 {
   "info": {
     "name": "tasks-api",
-    "description": "Local API for the tasks service.\n\nSet the `host` collection variable once and every request follows it -- it holds the\nwhole base URL (scheme, host and port), so switching environments is a one-field edit.\n\n`taskId` is filled in automatically: each create request stores the new id, and the\nget/update/delete requests read it. Run the folder top to bottom and it chains.\n\nConfigs (DAILY / REPEATED_WEEKLY / REPEATED_MONTHLY) live under /repeated-tasks and in\ntheir own JSON file. /tasks holds only BASIC and EVENT -- including the events the configs\ngenerate. Run the Tasks folder, then Repeated tasks, top to bottom.\n\nA generated event only accepts status changes -- everything else about it is edited on\nthe repeated task that produces it. The status of a config is itself fixed.\n\nNote: PUT replaces the task. The body is the full representation -- same fields and\nsame rules as the matching create request -- so anything left out falls back to its\ndefault instead of keeping its stored value. Only `id` and `createdAt` survive, and\n`type` must match the stored task; sending a different one is rejected with 400.",
+    "description": "Local API for the tasks service.\n\nSet the `host` collection variable once and every request follows it -- it holds the\nwhole base URL (scheme, host and port), so switching environments is a one-field edit.\n\n`taskId` is filled in automatically: each create request stores the new id, and the\nget/update/delete requests read it. Run the folder top to bottom and it chains.\n\nConfigs (DAILY / REPEATED_WEEKLY / REPEATED_MONTHLY) live under /repeated-tasks and in\ntheir own JSON file. /tasks holds only BASIC and EVENT -- including the events the configs\ngenerate. Run the Tasks folder, then Repeated tasks, top to bottom.\n\nA generated event cannot be replaced: PUT refuses it. Move its status with\nPATCH /tasks/:id/status, and change anything else on the repeated task that produces it.\nConfigs carry no status at all -- they are rules, not to-dos.\n\nNote: PUT replaces the task. The body is the full representation -- same fields and\nsame rules as the matching create request -- so anything left out falls back to its\ndefault instead of keeping its stored value. Only `id` and `createdAt` survive, and\n`type` must match the stored task; sending a different one is rejected with 400.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "basic",
+    "basic": [
+      {
+        "key": "username",
+        "value": "{{username}}",
+        "type": "string"
+      },
+      {
+        "key": "password",
+        "value": "{{password}}",
+        "type": "string"
+      }
+    ]
   },
   "variable": [
     {
       "key": "host",
       "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "artur",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "secret123",
       "type": "string"
     },
     {
@@ -32,6 +57,139 @@
     }
   ],
   "item": [
+    {
+      "name": "Account",
+      "description": "Sign up once, then every other request sends the same username and password as Basic auth. Set them in the collection variables.",
+      "item": [
+        {
+          "name": "Sign up",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('sign up -> 201 or 409 if it already exists', function () {",
+                  "  pm.expect([201, 409]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/users",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "description": "Creates the account. The only rule is that the username is free; there is no confirmation step. Password takes letters and digits, any length."
+          },
+          "response": []
+        },
+        {
+          "name": "Who am I",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('me -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/me",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "me"
+              ]
+            },
+            "description": "Confirms the stored credentials are accepted."
+          },
+          "response": []
+        },
+        {
+          "name": "Duplicate username -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('duplicate username -> 409', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"anotherpass1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/users",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "description": "Usernames are unique, enforced by a unique index rather than a read-then-write check."
+          },
+          "response": []
+        }
+      ]
+    },
     {
       "name": "Health",
       "item": [
@@ -214,6 +372,43 @@
           "response": []
         },
         {
+          "name": "List tasks - one category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('filter by category -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/tasks?category=EDUCATION",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "EDUCATION"
+                }
+              ]
+            },
+            "description": "Categories are fixed in code; there are no endpoints to manage them. Anything created without one lands in OTHER, which filters like any other value. Combines with ?filter=."
+          },
+          "response": []
+        },
+        {
           "name": "Create basic task",
           "event": [
             {
@@ -247,7 +442,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"BASIC\",\n  \"name\": \"buy milk\",\n  \"subtasks\": [\n    {\n      \"name\": \"oat milk\"\n    },\n    {\n      \"name\": \"check expiry\"\n    }\n  ]\n}",
+              "raw": "{\n  \"type\": \"BASIC\",\n  \"name\": \"Learn aggregation\",\n  \"category\": \"EDUCATION\",\n  \"links\": [\n    \"https://www.mongodb.com/docs/manual/aggregation/\"\n  ],\n  \"subtasks\": [\n    {\n      \"name\": \"Read $group\",\n      \"link\": \"https://www.mongodb.com/docs/manual/reference/operator/aggregation/group/\"\n    },\n    {\n      \"name\": \"Try it\"\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -311,7 +506,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"EVENT\",\n  \"name\": \"standup\",\n  \"date\": \"{{eventDate}}\"\n}",
+              "raw": "{\n  \"type\": \"EVENT\",\n  \"name\": \"standup\",\n  \"date\": \"{{eventDate}}\",\n  \"category\": \"WORK\",\n  \"links\": [\n    \"https://meet.example.com/standup\"\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -410,6 +605,53 @@
           "response": []
         },
         {
+          "name": "Update task status (PATCH)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('patch status -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"DONE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/tasks/{{taskId}}/status",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}",
+                "status"
+              ]
+            },
+            "description": "The only field that moves on a task, and the only way to move a generated one. Marking a generated event DONE brings its next occurrence forward straight away. The body takes status and nothing else."
+          },
+          "response": []
+        },
+        {
           "name": "Delete task",
           "event": [
             {
@@ -476,7 +718,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"DAILY\",\n  \"name\": \"drink water\",\n  \"startsAt\": {\n    \"hour\": 9,\n    \"minute\": 0\n  },\n  \"endsAt\": {\n    \"hour\": 18,\n    \"minute\": 0\n  },\n  \"repeatEach\": {\n    \"hour\": 1,\n    \"minute\": 30\n  }\n}",
+              "raw": "{\n  \"type\": \"DAILY\",\n  \"name\": \"drink water\",\n  \"category\": \"SELFCARE\",\n  \"startsAt\": {\n    \"hour\": 9,\n    \"minute\": 0\n  },\n  \"endsAt\": {\n    \"hour\": 18,\n    \"minute\": 0\n  },\n  \"repeatEach\": {\n    \"hour\": 1,\n    \"minute\": 30\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -694,7 +936,7 @@
           "response": []
         },
         {
-          "name": "Rename a generated event -> 400",
+          "name": "Replace a generated event -> 400",
           "event": [
             {
               "listen": "test",
@@ -735,12 +977,12 @@
                 "{{generatedEventId}}"
               ]
             },
-            "description": "A generated event is a projection of its config: only its status can change. Name, date, activeLogic and subtasks are edited on the repeated task, which regenerates. (Run a config create first so {{taskId}} points at a generated event; against a hand-made event this succeeds, since there is no config to edit instead.)"
+            "description": "A generated event cannot be replaced at all: its name, date and active logic come from its config. Use PATCH /tasks/:id/status for the status, or edit the repeated task for anything else. Hand-made events still take a full PUT."
           },
           "response": []
         },
         {
-          "name": "Change a config status -> 400",
+          "name": "Config with a status field -> 400",
           "event": [
             {
               "listen": "test",
@@ -781,7 +1023,7 @@
                 "{{configId}}"
               ]
             },
-            "description": "A config is a rule, not a to-do, so it is never done. Stopping one means deleting it."
+            "description": "A config is a rule, not a to-do, so it carries no status at all -- the field does not exist on it. Stopping one means deleting it."
           },
           "response": []
         },
@@ -810,7 +1052,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"REPEATED_MONTHLY\",\n  \"name\": \"pay rent (updated)\",\n  \"status\": \"TODO\",\n  \"fromDay\": 1,\n  \"toDay\": 3,\n  \"months\": [\n    1,\n    4,\n    7,\n    10\n  ]\n}",
+              "raw": "{\n  \"type\": \"REPEATED_MONTHLY\",\n  \"name\": \"pay rent (updated)\",\n  \"fromDay\": 1,\n  \"toDay\": 3,\n  \"months\": [\n    1,\n    4,\n    7,\n    10\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1047,6 +1289,40 @@
               ]
             },
             "description": "Configs are a separate resource; /tasks accepts only BASIC and EVENT."
+          },
+          "response": []
+        },
+        {
+          "name": "No credentials -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('no credentials -> 401', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [],
+            "url": {
+              "raw": "{{host}}/tasks",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "description": "Every task and config route needs Authorization: Basic base64(user:password)."
           },
           "response": []
         },
