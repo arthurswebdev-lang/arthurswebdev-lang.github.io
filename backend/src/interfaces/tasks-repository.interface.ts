@@ -11,6 +11,8 @@ import type { IBaseRepository } from './base-repository.interface.js';
  * the actual/passed/upcoming selector on `GET /tasks`.
  */
 export interface TaskQuery {
+  /** Required: a query that forgot the owner would read everyone's tasks. */
+  userId: string;
   category?: TaskCategory;
   type?: TaskType;
   status?: TaskStatus;
@@ -21,6 +23,12 @@ export interface TaskQuery {
 export interface ITasksRepository extends IBaseRepository<Task, CreateTask, UpdateTask> {
   /** Tasks matching every provided filter field. */
   listBy(query: TaskQuery): Promise<Task[]>;
+
+  /**
+   * Every task, every owner. For the poller only — it marks events passed and
+   * tops up configs on behalf of all users, so it cannot scope to one.
+   */
+  listAcrossUsers(): Promise<Task[]>;
 
   /**
    * Stores an event produced by a config. Separate from `create` because

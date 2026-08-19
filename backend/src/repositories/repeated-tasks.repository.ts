@@ -19,15 +19,23 @@ export class RepeatedTasksRepository
     super(db, REPEATED_TASKS_COLLECTION);
   }
 
-  /** Nothing to index yet: configs are few and always read as a whole list. */
-  ensureIndexes(): Promise<void> {
-    return Promise.resolve();
+  /** Configs are always read per owner. */
+  async ensureIndexes(): Promise<void> {
+    await this.collection.createIndex({ userId: 1 });
   }
 
-  protected toEntity(input: CreateRepeatedTask): RepeatedTask {
+  /** Unscoped on purpose; see the interface. */
+  async listAcrossUsers(): Promise<RepeatedTask[]> {
+    const documents = await this.collection.find().toArray();
+
+    return documents.map((document) => this.toDomain(document));
+  }
+
+  protected toEntity(input: CreateRepeatedTask, userId: string): RepeatedTask {
     return {
       ...input,
       id: randomUUID(),
+      userId,
       createdAt: new Date(),
       category: input.category ?? TaskCategory.OTHER,
       links: input.links ?? [],
@@ -42,6 +50,11 @@ export class RepeatedTasksRepository
       );
     }
 
-    return { ...this.toEntity(changes), id: entity.id, createdAt: entity.createdAt };
+    return {
+      ...this.toEntity(changes, entity.userId),
+      id: entity.id,
+      userId: entity.userId,
+      createdAt: entity.createdAt,
+    };
   }
 }

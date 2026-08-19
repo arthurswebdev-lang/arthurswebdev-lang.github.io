@@ -13,7 +13,11 @@ import type { Persisted } from './entity.interface.js';
  * Mongo shape. Dates need no translation at all — the driver stores and returns
  * real `Date` objects, which the JSON store had to rebuild by hand.
  */
-export abstract class MongoRepository<TEntity extends { id: string }, TCreate, TUpdate>
+export abstract class MongoRepository<
+  TEntity extends { id: string; userId: string },
+  TCreate,
+  TUpdate,
+>
 implements IBaseRepository<TEntity, TCreate, TUpdate> {
   protected readonly collection: Collection<Persisted<TEntity>>;
 
@@ -21,8 +25,8 @@ implements IBaseRepository<TEntity, TCreate, TUpdate> {
     this.collection = db.collection<Persisted<TEntity>>(collectionName);
   }
 
-  /** Builds the stored entity — including its uuid — from a create payload. */
-  protected abstract toEntity(input: TCreate): TEntity;
+  /** Builds the stored entity — uuid, owner and all — from a create payload. */
+  protected abstract toEntity(input: TCreate, userId: string): TEntity;
 
   /** Produces the entity to store in place of `entity`. */
   protected abstract applyUpdate(entity: TEntity, changes: TUpdate): TEntity;
@@ -30,8 +34,10 @@ implements IBaseRepository<TEntity, TCreate, TUpdate> {
   /** Indexes this collection needs. Called once at startup. */
   abstract ensureIndexes(): Promise<void>;
 
-  async list(): Promise<TEntity[]> {
-    const documents = await this.collection.find().toArray();
+  /** Scoped to one owner: no caller ever sees another user's rows. */
+  async list(userId: string): Promise<TEntity[]> {
+    const owned = { userId } as unknown as Filter<Persisted<TEntity>>;
+    const documents = await this.collection.find(owned).toArray();
 
     return documents.map((document) => this.toDomain(document));
   }
@@ -42,8 +48,8 @@ implements IBaseRepository<TEntity, TCreate, TUpdate> {
     return document === null ? null : this.toDomain(document);
   }
 
-  async create(input: TCreate): Promise<TEntity> {
-    const entity = this.toEntity(input);
+  async create(input: TCreate, userId: string): Promise<TEntity> {
+    const entity = this.toEntity(input, userId);
     await this.collection.insertOne(
       this.toDocument(entity) as OptionalUnlessRequiredId<Persisted<TEntity>>,
     );

@@ -8,6 +8,7 @@ import type { BodyRequest, ParamsRequest, QueryRequest } from '../types/request.
 import type {
   CreateTask, Task, TaskIdParams, UpdateTask,
 } from '../types/tasks.types.js';
+import { currentUserId } from '../middlewares/auth.middleware.js';
 import * as SuccessHandlerUtil from '../utils/success-handler.util.js';
 
 /** Body accepted by `PATCH /tasks/:id/status`. */
@@ -30,10 +31,11 @@ export class TasksController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const tasks: Task[] = await this.tasksService.listAll(
-        request.query.filter,
-        request.query.category,
-      );
+      const tasks: Task[] = await this.tasksService.listAll({
+        userId: currentUserId(response),
+        ...(request.query.filter === undefined ? {} : { filter: request.query.filter }),
+        ...(request.query.category === undefined ? {} : { category: request.query.category }),
+      });
       SuccessHandlerUtil.handleList(response, next, tasks);
     } catch (error) {
       next(error);
@@ -46,7 +48,7 @@ export class TasksController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const task: Task | null = await this.tasksService.getById(request.params.id);
+      const task: Task | null = await this.tasksService.getById(request.params.id, currentUserId(response));
       SuccessHandlerUtil.handleGet(response, next, task);
     } catch (error) {
       next(error);
@@ -59,7 +61,7 @@ export class TasksController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const task: Task = await this.tasksService.create(request.body);
+      const task: Task = await this.tasksService.create(request.body, currentUserId(response));
       SuccessHandlerUtil.handleAdd(response, next, task);
     } catch (error) {
       next(error);
@@ -72,7 +74,11 @@ export class TasksController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const task: Task = await this.tasksService.updateById(request.params.id, request.body);
+      const task: Task = await this.tasksService.updateById(
+        request.params.id,
+        currentUserId(response),
+        request.body,
+      );
       SuccessHandlerUtil.handleUpdate(response, next, task);
     } catch (error) {
       next(error);
@@ -87,6 +93,7 @@ export class TasksController {
     try {
       const task: Task = await this.tasksService.updateStatus(
         request.params.id,
+        currentUserId(response),
         request.body.status,
       );
       SuccessHandlerUtil.handleUpdate(response, next, task);
@@ -101,7 +108,7 @@ export class TasksController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      await this.tasksService.deleteById(request.params.id);
+      await this.tasksService.deleteById(request.params.id, currentUserId(response));
       SuccessHandlerUtil.handleDelete(response, next);
     } catch (error) {
       next(error);

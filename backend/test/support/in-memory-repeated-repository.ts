@@ -11,7 +11,11 @@ import type { CreateRepeatedTask, RepeatedTask, UpdateRepeatedTask } from '../..
 export class InMemoryRepeatedTasksRepository implements IRepeatedTasksRepository {
   constructor(private configs: RepeatedTask[] = []) {}
 
-  list(): Promise<RepeatedTask[]> {
+  list(userId: string): Promise<RepeatedTask[]> {
+    return Promise.resolve(this.configs.filter((config) => config.userId === userId));
+  }
+
+  listAcrossUsers(): Promise<RepeatedTask[]> {
     return Promise.resolve([...this.configs]);
   }
 
@@ -19,10 +23,11 @@ export class InMemoryRepeatedTasksRepository implements IRepeatedTasksRepository
     return Promise.resolve(this.configs.find((config) => config.id === id) ?? null);
   }
 
-  create(input: CreateRepeatedTask): Promise<RepeatedTask> {
+  create(input: CreateRepeatedTask, userId: string): Promise<RepeatedTask> {
     const config: RepeatedTask = {
       ...input,
       id: randomUUID(),
+      userId,
       createdAt: new Date(),
       category: input.category ?? TaskCategory.OTHER,
       links: input.links ?? [],

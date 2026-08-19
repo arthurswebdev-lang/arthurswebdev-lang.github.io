@@ -4,6 +4,7 @@ import type { IRepeatedTasksService } from '../interfaces/repeated-tasks-service
 import type { BodyRequest, ParamsRequest } from '../types/request.type.js';
 import type { TaskIdParams } from '../types/tasks.types.js';
 import type { CreateRepeatedTask, RepeatedTask, UpdateRepeatedTask } from '../types/repeated-tasks.types.js';
+import { currentUserId } from '../middlewares/auth.middleware.js';
 import * as SuccessHandlerUtil from '../utils/success-handler.util.js';
 
 export class RepeatedTasksController {
@@ -15,7 +16,9 @@ export class RepeatedTasksController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const configs: RepeatedTask[] = await this.repeatedTasksService.listAll();
+      const configs: RepeatedTask[] = await this.repeatedTasksService.listAll(
+        currentUserId(response),
+      );
       SuccessHandlerUtil.handleList(response, next, configs);
     } catch (error) {
       next(error);
@@ -28,7 +31,7 @@ export class RepeatedTasksController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const config = await this.repeatedTasksService.getById(request.params.id);
+      const config = await this.repeatedTasksService.getById(request.params.id, currentUserId(response));
       SuccessHandlerUtil.handleGet(response, next, config);
     } catch (error) {
       next(error);
@@ -41,7 +44,10 @@ export class RepeatedTasksController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const config: RepeatedTask = await this.repeatedTasksService.create(request.body);
+      const config: RepeatedTask = await this.repeatedTasksService.create(
+        request.body,
+        currentUserId(response),
+      );
       SuccessHandlerUtil.handleAdd(response, next, config);
     } catch (error) {
       next(error);
@@ -56,6 +62,7 @@ export class RepeatedTasksController {
     try {
       const config: RepeatedTask = await this.repeatedTasksService.updateById(
         request.params.id,
+        currentUserId(response),
         request.body,
       );
       SuccessHandlerUtil.handleUpdate(response, next, config);
@@ -70,7 +77,7 @@ export class RepeatedTasksController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      await this.repeatedTasksService.deleteById(request.params.id);
+      await this.repeatedTasksService.deleteById(request.params.id, currentUserId(response));
       SuccessHandlerUtil.handleDelete(response, next);
     } catch (error) {
       next(error);

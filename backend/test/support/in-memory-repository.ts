@@ -20,7 +20,11 @@ export class InMemoryTasksRepository implements ITasksRepository {
     return [...this.tasks];
   }
 
-  list(): Promise<Task[]> {
+  list(userId: string): Promise<Task[]> {
+    return Promise.resolve(this.tasks.filter((task) => task.userId === userId));
+  }
+
+  listAcrossUsers(): Promise<Task[]> {
     return Promise.resolve([...this.tasks]);
   }
 
@@ -28,8 +32,8 @@ export class InMemoryTasksRepository implements ITasksRepository {
     return Promise.resolve(this.tasks.find((task) => task.id === id) ?? null);
   }
 
-  create(input: CreateTask): Promise<Task> {
-    throw new Error(`not needed by these tests: create(${input.type})`);
+  create(input: CreateTask, userId: string): Promise<Task> {
+    throw new Error(`not needed by these tests: create(${input.type}) for ${userId}`);
   }
 
   updateById(id: string, changes: UpdateTask): Promise<Task | null> {
@@ -48,7 +52,8 @@ export class InMemoryTasksRepository implements ITasksRepository {
     const search = query.search?.toLowerCase();
 
     return Promise.resolve(this.tasks.filter((task) => (
-      (query.category === undefined || task.category === query.category)
+      task.userId === query.userId
+      && (query.category === undefined || task.category === query.category)
       && (query.type === undefined || task.type === query.type)
       && (query.status === undefined || task.status === query.status)
       && (search === undefined || task.name.toLowerCase().includes(search))
@@ -61,6 +66,7 @@ export class InMemoryTasksRepository implements ITasksRepository {
       type: TaskType.EVENT,
       status: TaskStatus.TODO,
       name: config.name,
+      userId: config.userId,
       createdAt: date,
       category: config.category,
       links: [...config.links],

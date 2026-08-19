@@ -72,7 +72,7 @@ export class EventPollingService {
   }
 
   private async findDue(now: Date): Promise<EventTask[]> {
-    const tasks = await this.tasksRepository.list();
+    const tasks = await this.tasksRepository.listAcrossUsers();
 
     return tasks.filter((task): task is EventTask => (
       task.type === TaskType.EVENT

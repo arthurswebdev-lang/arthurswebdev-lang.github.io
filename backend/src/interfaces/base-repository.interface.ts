@@ -6,14 +6,14 @@
  * @typeParam TUpdate - the payload accepted when updating one.
  */
 export interface IBaseRepository<TEntity extends { id: string }, TCreate, TUpdate> {
-  /** All stored entities, in insertion order. */
-  list(): Promise<TEntity[]>;
+  /** Everything this user owns, in insertion order. */
+  list(userId: string): Promise<TEntity[]>;
 
   /** The entity with this id, or `null` when nothing matches. */
   getById(id: string): Promise<TEntity | null>;
 
-  /** Stores a new entity, assigning its uuid, and returns it. */
-  create(input: TCreate): Promise<TEntity>;
+  /** Stores a new entity, assigning its uuid and owner, and returns it. */
+  create(input: TCreate, userId: string): Promise<TEntity>;
 
   /** Applies `changes`, returning the updated entity or `null` if absent. */
   updateById(id: string, changes: TUpdate): Promise<TEntity | null>;

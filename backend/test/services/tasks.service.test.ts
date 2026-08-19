@@ -10,6 +10,7 @@ import type { Task } from '../../src/types/tasks.types.js';
 import { InMemoryRepeatedTasksRepository } from '../support/in-memory-repeated-repository.js';
 import { InMemoryTasksRepository } from '../support/in-memory-repository.js';
 import { aBasicTask, anEvent } from '../support/tasks.js';
+import { TEST_USER_ID } from '../support/tasks.js';
 import { utc } from '../support/time.js';
 
 /**
@@ -35,7 +36,7 @@ function serviceWith(stored: Task[]): TasksService {
 
 describe('GET /tasks without a filter', () => {
   it('returns everything, basic tasks included', async () => {
-    const listed = await serviceWith(tasks).listAll();
+    const listed = await serviceWith(tasks).listAll({ userId: TEST_USER_ID });
 
     assert.deepEqual(listed.map((task) => task.name), ['buy milk', 'gym friday', 'gym monday', 'rent']);
   });
@@ -43,19 +44,19 @@ describe('GET /tasks without a filter', () => {
 
 describe('GET /tasks?filter=...', () => {
   it('actual returns only what is relevant right now', async () => {
-    const listed = await serviceWith(tasks).listAll(TaskFilter.ACTUAL);
+    const listed = await serviceWith(tasks).listAll({ userId: TEST_USER_ID, filter: TaskFilter.ACTUAL });
 
     assert.deepEqual(listed.map((task) => task.name), ['rent']);
   });
 
   it('passed returns what has gone by', async () => {
-    const listed = await serviceWith(tasks).listAll(TaskFilter.PASSED);
+    const listed = await serviceWith(tasks).listAll({ userId: TEST_USER_ID, filter: TaskFilter.PASSED });
 
     assert.deepEqual(listed.map((task) => task.name), ['gym friday']);
   });
 
   it('upcoming returns what is too far out to be actual', async () => {
-    const listed = await serviceWith(tasks).listAll(TaskFilter.UPCOMING);
+    const listed = await serviceWith(tasks).listAll({ userId: TEST_USER_ID, filter: TaskFilter.UPCOMING });
 
     assert.deepEqual(listed.map((task) => task.name), ['gym monday']);
   });
@@ -64,7 +65,7 @@ describe('GET /tasks?filter=...', () => {
     const service = serviceWith(tasks);
 
     const lists = await Promise.all(
-      Object.values(TaskFilter).map((filter) => service.listAll(filter)),
+      Object.values(TaskFilter).map((filter) => service.listAll({ userId: TEST_USER_ID, filter: filter })),
     );
 
     for (const listed of lists) {
@@ -78,7 +79,7 @@ describe('PATCH /tasks/:id/status', () => {
     const stored = anEvent('gym', 'Mon 2026-08-24', ActiveLogic.THIS_WEEK);
     const service = serviceWith([stored]);
 
-    const updated = await service.updateStatus(stored.id, TaskStatus.DONE);
+    const updated = await service.updateStatus(stored.id, TEST_USER_ID, TaskStatus.DONE);
 
     assert.equal(updated.status, TaskStatus.DONE);
     assert.equal(updated.name, 'gym');
@@ -87,7 +88,7 @@ describe('PATCH /tasks/:id/status', () => {
 
   it('rejects an id that matches nothing', async () => {
     await assert.rejects(
-      () => serviceWith([]).updateStatus('00000000-0000-4000-8000-000000000000', TaskStatus.DONE),
+      () => serviceWith([]).updateStatus('00000000-0000-4000-8000-000000000000', TEST_USER_ID, TaskStatus.DONE),
       /No task with id/,
     );
   });

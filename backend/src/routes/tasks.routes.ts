@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { type RequestHandler, Router } from 'express';
 
 import type { TasksController } from '../controllers/tasks.controller.js';
 import {
@@ -13,10 +13,16 @@ import {
 export class TasksRoutes {
   private readonly router = Router();
 
-  constructor(private readonly tasksController: TasksController) {}
+  constructor(
+    private readonly tasksController: TasksController,
+    private readonly authenticate: RequestHandler,
+  ) {}
 
   initRoutes(): Router {
     const controller = this.tasksController;
+
+    // Everything below needs credentials; nothing here is public.
+    this.router.use('/tasks', this.authenticate);
 
     this.router.get('/tasks', validateList, controller.list.bind(controller));
     this.router.post('/tasks', validateCreate, controller.create.bind(controller));

@@ -24,7 +24,7 @@ export class TaskGeneratorService implements ITaskGeneratorService {
   ) {}
 
   async markPassedEvents(now: Date): Promise<EventTask[]> {
-    const tasks = await this.tasksRepository.list();
+    const tasks = await this.tasksRepository.listAcrossUsers();
     const newlyPassed = tasks
       .filter(isEventTask)
       .filter((event) => event.passedDate === null && event.date <= now);
@@ -37,7 +37,7 @@ export class TaskGeneratorService implements ITaskGeneratorService {
   }
 
   async ensurePendingEvent(config: RepeatedTask, now: Date): Promise<EventTask | null> {
-    const tasks = await this.tasksRepository.list();
+    const tasks = await this.tasksRepository.listBy({ userId: config.userId });
     if (pendingEventOfConfig(tasks, config.id, now) !== null) return null;
 
     return this.generateNextFrom(config, now);
@@ -49,8 +49,8 @@ export class TaskGeneratorService implements ITaskGeneratorService {
     // mid-way, so no config decides against a store another has already
     // changed. The writes themselves are serialised by the repository queue.
     const [tasks, configs] = await Promise.all([
-      this.tasksRepository.list(),
-      this.repeatedTasksRepository.list(),
+      this.tasksRepository.listAcrossUsers(),
+      this.repeatedTasksRepository.listAcrossUsers(),
     ]);
 
     const needingEvent = configs

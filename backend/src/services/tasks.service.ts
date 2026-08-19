@@ -1,10 +1,8 @@
-import type { TaskCategory } from '../enum/task-category.enum.js';
-import type { TaskFilter } from '../enum/task-filter.enum.js';
 import { TaskStatus } from '../enum/task-status.enum.js';
 import { filterTasks, isEventTask } from '../filters/tasks.filters.js';
 import type { ITaskGeneratorService } from '../interfaces/task-generator.interface.js';
 import type { ITasksRepository } from '../interfaces/tasks-repository.interface.js';
-import type { ITasksService } from '../interfaces/tasks-service.interface.js';
+import type { ITasksService, ListTasksQuery } from '../interfaces/tasks-service.interface.js';
 import type { CreateTask, Task, UpdateTask } from '../types/tasks.types.js';
 import { assertTaskReplaceAllowed } from '../rules/task-update.rules.js';
 import { ResourceNotFoundError } from '../utils/http-errors/resource-not-found.error.js';
@@ -29,29 +27,44 @@ export class TasksService implements ITasksService {
    * pipeline. `passed` alone could move into Mongo if the collection ever grows
    * enough to care.
    */
-  async listAll(filter?: TaskFilter, category?: TaskCategory): Promise<Task[]> {
+  async listAll({ userId, filter, category }: ListTasksQuery): Promise<Task[]> {
     // Category is plain equality, so the database does it; the time filter is
     // the rule set in tasks.filters.ts and stays here where it can be read.
     const tasks = category === undefined
-      ? await this.tasksRepository.list()
-      : await this.tasksRepository.listBy({ category });
+      ? await this.tasksRepository.list(userId)
+      : await this.tasksRepository.listBy({ userId, category });
 
     return filterTasks(tasks, filter, this.now());
   }
 
-  getById(id: string): Promise<Task | null> {
-    return this.tasksRepository.getById(id);
+  /**
+   * Someone else's id reads as missing rather than forbidden: a 403 would
+   * confirm the task exists, which is more than a caller should learn.
+   */
+  async getById(id: string, userId: string): Promise<Task | null> {
+    const task = await this.tasksRepository.getById(id);
+
+    return task?.userId === userId ? task : null;
   }
 
-  create(input: CreateTask): Promise<Task> {
-    return this.tasksRepository.create(input);
+  private async ownedOrMissing(id: string, userId: string): Promise<Task> {
+    const task = await this.getById(id, userId);
+    if (task === null) throw new ResourceNotFoundError(`No task with id ${id}.`);
+
+    return task;
+  }
+
+  create(input: CreateTask, userId: string): Promise<Task> {
+    return this.tasksRepository.create(input, userId);
   }
 
   /**
    * The only way to move a generated event. Finishing one early still brings
    * its successor forward, exactly as a full replacement used to.
    */
-  async updateStatus(id: string, status: TaskStatus): Promise<Task> {
+  async updateStatus(id: string, userId: string, status: TaskStatus): Promise<Task> {
+    await this.ownedOrMissing(id, userId);
+
     const updated = await this.tasksRepository.updateStatus(id, status);
     if (updated === null) throw new ResourceNotFoundError(`No task with id ${id}.`);
 
@@ -60,11 +73,10 @@ export class TasksService implements ITasksService {
     return updated;
   }
 
-  async updateById(id: string, changes: UpdateTask): Promise<Task> {
+  async updateById(id: string, userId: string, changes: UpdateTask): Promise<Task> {
     // Read before writing: what a client may change depends on what is stored —
     // a generated event takes status changes only.
-    const current = await this.tasksRepository.getById(id);
-    if (current === null) throw new ResourceNotFoundError(`No task with id ${id}.`);
+    const current = await this.ownedOrMissing(id, userId);
 
     assertTaskReplaceAllowed(current);
 
@@ -83,7 +95,9 @@ export class TasksService implements ITasksService {
     }
   }
 
-  async deleteById(id: string): Promise<void> {
+  async deleteById(id: string, userId: string): Promise<void> {
+    await this.ownedOrMissing(id, userId);
+
     const deleted = await this.tasksRepository.deleteById(id);
     if (!deleted) throw new ResourceNotFoundError(`No task with id ${id}.`);
   }

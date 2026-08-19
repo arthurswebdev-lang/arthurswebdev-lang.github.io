@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { type RequestHandler, Router } from 'express';
 
 import type { RepeatedTasksController } from '../controllers/repeated-tasks.controller.js';
 import {
@@ -16,11 +16,16 @@ import {
 export class RepeatedTasksRoutes {
   private readonly router = Router();
 
-  constructor(private readonly repeatedTasksController: RepeatedTasksController) {}
+  constructor(
+    private readonly repeatedTasksController: RepeatedTasksController,
+    private readonly authenticate: RequestHandler,
+  ) {}
 
   initRoutes(): Router {
     const controller = this.repeatedTasksController;
     const base = '/repeated-tasks';
+
+    this.router.use(base, this.authenticate);
 
     this.router.get(base, controller.list.bind(controller));
     this.router.post(base, validateCreate, controller.create.bind(controller));

@@ -34,11 +34,13 @@ export class TasksRepository
   async ensureIndexes(): Promise<void> {
     await this.collection.createIndex({ configTaskId: 1 });
     await this.collection.createIndex({ category: 1 });
+    // Every read is scoped by owner, so it leads every index.
+    await this.collection.createIndex({ userId: 1, type: 1 });
     await this.collection.createIndex({ type: 1, date: 1 });
   }
 
   async listBy(query: TaskQuery): Promise<Task[]> {
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { userId: query.userId };
     if (query.category !== undefined) filter['category'] = query.category;
     if (query.type !== undefined) filter['type'] = query.type;
     if (query.status !== undefined) filter['status'] = query.status;
@@ -58,6 +60,8 @@ export class TasksRepository
   async createGeneratedEvent(config: RepeatedTask, date: Date): Promise<EventTask> {
     const event: EventTask = {
       id: randomUUID(),
+      // The occurrence belongs to whoever owns the config that made it.
+      userId: config.userId,
       type: TaskType.EVENT,
       status: TaskStatus.TODO,
       name: config.name,
@@ -108,9 +112,17 @@ export class TasksRepository
     return updated === null ? null : this.toDomain(updated) as EventTask;
   }
 
-  protected toEntity(input: CreateTask): Task {
+  /** Unscoped on purpose; see the interface. */
+  async listAcrossUsers(): Promise<Task[]> {
+    const documents = await this.collection.find().toArray();
+
+    return documents.map((document) => this.toDomain(document));
+  }
+
+  protected toEntity(input: CreateTask, userId: string): Task {
     const base = {
       id: randomUUID(),
+      userId,
       createdAt: new Date(),
       status: input.status ?? TaskStatus.TODO,
       category: input.category ?? TaskCategory.OTHER,
@@ -147,8 +159,8 @@ export class TasksRepository
       );
     }
 
-    const replacement = this.toEntity(changes);
-    const identity = { id: entity.id, createdAt: entity.createdAt };
+    const replacement = this.toEntity(changes, entity.userId);
+    const identity = { id: entity.id, userId: entity.userId, createdAt: entity.createdAt };
 
     // Server-owned event fields have to survive a replacement too. They are
     // absent from the payload by design, so taking them from the rebuilt task

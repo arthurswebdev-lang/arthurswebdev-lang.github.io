@@ -14,6 +14,9 @@ import { utc } from './time.js';
 
 const CREATED_AT = utc('2026-08-01');
 
+/** Every fixture belongs to the same person unless a test says otherwise. */
+export const TEST_USER_ID = 'user-1';
+
 /** An event due at `date`, judged by `activeLogic`. */
 export function anEvent(
   name: string,
@@ -23,6 +26,7 @@ export function anEvent(
 ): EventTask {
   return {
     id: `event-${name}`,
+    userId: TEST_USER_ID,
     type: TaskType.EVENT,
     status: TaskStatus.TODO,
     name,
@@ -61,6 +65,7 @@ export function aHandMadeEvent(name: string, date: string, activeLogic: ActiveLo
 export function aBasicTask(name: string): BasicTask {
   return {
     id: `basic-${name}`,
+    userId: TEST_USER_ID,
     type: TaskType.BASIC,
     status: TaskStatus.TODO,
     name,
@@ -78,6 +83,7 @@ export function aWeeklyConfig(
 ): WeeklyTask {
   return {
     id: `config-${name}`,
+    userId: TEST_USER_ID,
     type: TaskType.REPEATED_WEEKLY,
     name,
     createdAt: CREATED_AT,
@@ -101,6 +107,7 @@ export function aDailyConfig(
 ): DailyTask {
   return {
     id: `config-${name}`,
+    userId: TEST_USER_ID,
     type: TaskType.REPEATED_DAILY,
     name,
     createdAt: CREATED_AT,
@@ -118,6 +125,7 @@ export function aMonthlyConfig(
 ): MonthlyTask {
   return {
     id: `config-${name}`,
+    userId: TEST_USER_ID,
     type: TaskType.REPEATED_MONTHLY,
     name,
     createdAt: CREATED_AT,

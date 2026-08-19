@@ -10,6 +10,7 @@ import type { Task } from '../../src/types/tasks.types.js';
 import { InMemoryRepeatedTasksRepository } from '../support/in-memory-repeated-repository.js';
 import { InMemoryTasksRepository } from '../support/in-memory-repository.js';
 import { aBasicTask, anEvent, aWeeklyConfig } from '../support/tasks.js';
+import { TEST_USER_ID } from '../support/tasks.js';
 import { utc } from '../support/time.js';
 
 const saturday = utc('Sat 2026-08-22 10:00');
@@ -36,13 +37,13 @@ describe('listing by category', () => {
   it('returns everything when no category is given', async () => {
     const { service } = withTasks(stored);
 
-    assert.equal((await service.listAll()).length, 4);
+    assert.equal((await service.listAll({ userId: TEST_USER_ID })).length, 4);
   });
 
   it('narrows to one category', async () => {
     const { service } = withTasks(stored);
 
-    const gym = await service.listAll(undefined, TaskCategory.GYM);
+    const gym = await service.listAll({ userId: TEST_USER_ID, category: TaskCategory.GYM });
 
     assert.deepEqual(gym.map((task) => task.name), ['squats']);
   });
@@ -50,7 +51,7 @@ describe('listing by category', () => {
   it('treats an uncategorised task as OTHER, so it is filterable', async () => {
     const { service } = withTasks(stored);
 
-    const other = await service.listAll(undefined, TaskCategory.OTHER);
+    const other = await service.listAll({ userId: TEST_USER_ID, category: TaskCategory.OTHER });
 
     assert.deepEqual(other.map((task) => task.name), ['something else']);
   });
@@ -70,10 +71,10 @@ describe('category and time filters combine', () => {
     ]);
 
     assert.deepEqual(
-      (await service.listAll(TaskFilter.UPCOMING, TaskCategory.GYM)).map((task) => task.name),
+      (await service.listAll({ userId: TEST_USER_ID, filter: TaskFilter.UPCOMING, category: TaskCategory.GYM })).map((task) => task.name),
       ['gym session'],
     );
-    assert.deepEqual(await service.listAll(TaskFilter.PASSED, TaskCategory.GYM), []);
+    assert.deepEqual(await service.listAll({ userId: TEST_USER_ID, filter: TaskFilter.PASSED, category: TaskCategory.GYM }), []);
   });
 
 });
@@ -89,8 +90,8 @@ describe('filters and dateless tasks', () => {
     // the frontend mock currently shows dateless tasks under "actual" instead.
     const { service } = withTasks(stored);
 
-    assert.equal((await service.listAll(TaskFilter.ACTUAL, TaskCategory.FOOD)).length, 0);
-    assert.equal((await service.listAll(undefined, TaskCategory.FOOD)).length, 1);
+    assert.equal((await service.listAll({ userId: TEST_USER_ID, filter: TaskFilter.ACTUAL, category: TaskCategory.FOOD })).length, 0);
+    assert.equal((await service.listAll({ userId: TEST_USER_ID, category: TaskCategory.FOOD })).length, 1);
   });
 });
 
@@ -101,7 +102,7 @@ describe('a generated event inherits from its config', () => {
       category: TaskCategory.WORK,
       links: ['https://meet.example.com/standup'],
     });
-    await configs.create(config);
+    await configs.create(config, TEST_USER_ID);
 
     const event = await generator.ensurePendingEvent(config, saturday);
 
@@ -114,7 +115,7 @@ describe('a generated event inherits from its config', () => {
   it('copies the links rather than sharing the array', async () => {
     const { configs, generator } = withTasks([]);
     const config = aWeeklyConfig('standup', [1], { links: ['https://meet.example.com/a'] });
-    await configs.create(config);
+    await configs.create(config, TEST_USER_ID);
 
     const event = await generator.ensurePendingEvent(config, saturday);
     config.links.push('https://meet.example.com/b');

@@ -9,7 +9,7 @@ import { TaskStatus } from '../../src/enum/task-status.enum.js';
 import { TaskType } from '../../src/enum/task-type.enum.js';
 import { TasksRepository } from '../../src/repositories/tasks.repository.js';
 import type { CreateTask, EventTask } from '../../src/types/tasks.types.js';
-import { aWeeklyConfig } from '../support/tasks.js';
+import { aWeeklyConfig, TEST_USER_ID } from '../support/tasks.js';
 import { utc } from '../support/time.js';
 
 const MONGO_URL = process.env['MONGO_URL'] ?? 'mongodb://127.0.0.1:27017';
@@ -87,7 +87,7 @@ describe('PUT keeps a passed event passed', { skip: mongoUnavailable }, () => {
 describe('PUT still preserves identity', { skip: mongoUnavailable }, () => {
   it('still preserves id and createdAt', async () => {
     const repository = freshRepository();
-    const created = await repository.create(anEventPayload('dentist'));
+    const created = await repository.create(anEventPayload('dentist'), TEST_USER_ID);
 
     const updated = await repository.updateById(created.id, {
       type: TaskType.EVENT,
@@ -108,10 +108,10 @@ describe('events belonging to a config', { skip: mongoUnavailable }, () => {
     const config = aWeeklyConfig('gym', [1, 5]);
     await repository.createGeneratedEvent(config, utc('2026-08-24 09:00'));
     await repository.createGeneratedEvent(config, utc('2026-08-28 09:00'));
-    await repository.create(anEventPayload('unrelated'));
+    await repository.create(anEventPayload('unrelated'), TEST_USER_ID);
 
     const removed = await repository.deleteEventsOfConfig(config.id);
-    const left = await repository.list();
+    const left = await repository.list(TEST_USER_ID);
 
     assert.equal(removed, 2);
     assert.deepEqual(left.map((task) => task.name), ['unrelated']);
@@ -135,11 +135,11 @@ describe('events belonging to a config', { skip: mongoUnavailable }, () => {
 describe('listBy narrows in the database', { skip: mongoUnavailable }, () => {
   it('filters by category, and defaults an unset one to OTHER', async () => {
     const repository = freshRepository();
-    await repository.create({ ...anEventPayload('gym'), category: TaskCategory.GYM });
-    await repository.create(anEventPayload('unsorted'));
+    await repository.create({ ...anEventPayload('gym'), category: TaskCategory.GYM }, TEST_USER_ID);
+    await repository.create(anEventPayload('unsorted'), TEST_USER_ID);
 
-    const gym = await repository.listBy({ category: TaskCategory.GYM });
-    const other = await repository.listBy({ category: TaskCategory.OTHER });
+    const gym = await repository.listBy({ userId: TEST_USER_ID, category: TaskCategory.GYM });
+    const other = await repository.listBy({ userId: TEST_USER_ID, category: TaskCategory.OTHER });
 
     assert.deepEqual(gym.map((task) => task.name), ['gym']);
     assert.deepEqual(other.map((task) => task.name), ['unsorted']);
@@ -148,7 +148,7 @@ describe('listBy narrows in the database', { skip: mongoUnavailable }, () => {
   it('keeps links through a round trip', async () => {
     const repository = freshRepository();
     const links = ['https://example.com/lesson', 'https://example.com/exercises'];
-    const created = await repository.create({ ...anEventPayload('study'), links });
+    const created = await repository.create({ ...anEventPayload('study'), links }, TEST_USER_ID);
 
     const reread = await repository.getById(created.id);
 

@@ -19,16 +19,26 @@ export class RepeatedTasksService implements IRepeatedTasksService {
     private readonly taskGenerator: ITaskGeneratorService,
   ) {}
 
-  listAll(): Promise<RepeatedTask[]> {
-    return this.repeatedTasksRepository.list();
+  listAll(userId: string): Promise<RepeatedTask[]> {
+    return this.repeatedTasksRepository.list(userId);
   }
 
-  getById(id: string): Promise<RepeatedTask | null> {
-    return this.repeatedTasksRepository.getById(id);
+  /** Another owner's id reads as missing, same as for tasks. */
+  async getById(id: string, userId: string): Promise<RepeatedTask | null> {
+    const config = await this.repeatedTasksRepository.getById(id);
+
+    return config?.userId === userId ? config : null;
   }
 
-  async create(input: CreateRepeatedTask): Promise<RepeatedTask> {
-    const config = await this.repeatedTasksRepository.create(input);
+  private async ownedOrMissing(id: string, userId: string): Promise<RepeatedTask> {
+    const config = await this.getById(id, userId);
+    if (config === null) throw new ResourceNotFoundError(`No repeated task with id ${id}.`);
+
+    return config;
+  }
+
+  async create(input: CreateRepeatedTask, userId: string): Promise<RepeatedTask> {
+    const config = await this.repeatedTasksRepository.create(input, userId);
 
     // Generate straight away rather than leaving the config with nothing
     // pending until the next poll.
@@ -37,7 +47,9 @@ export class RepeatedTasksService implements IRepeatedTasksService {
     return config;
   }
 
-  async updateById(id: string, changes: UpdateRepeatedTask): Promise<RepeatedTask> {
+  async updateById(id: string, userId: string, changes: UpdateRepeatedTask): Promise<RepeatedTask> {
+    await this.ownedOrMissing(id, userId);
+
     const updated = await this.repeatedTasksRepository.updateById(id, changes);
     if (updated === null) throw new ResourceNotFoundError(`No repeated task with id ${id}.`);
 
@@ -48,7 +60,9 @@ export class RepeatedTasksService implements IRepeatedTasksService {
     return updated;
   }
 
-  async deleteById(id: string): Promise<void> {
+  async deleteById(id: string, userId: string): Promise<void> {
+    await this.ownedOrMissing(id, userId);
+
     // Events first, config second. The two stores cannot be written atomically,
     // and this order fails safe: a crash in between leaves a config whose
     // events the next poll simply regenerates. The other order would strand

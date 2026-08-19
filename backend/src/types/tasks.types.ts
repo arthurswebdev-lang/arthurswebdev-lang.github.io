@@ -15,6 +15,8 @@ export interface Subtask {
 /** Fields every task carries, whatever its type. Not a task on its own. */
 export interface BaseTask {
   id: string;
+  /** Owner. Set from the credentials, never from the payload. */
+  userId: string;
   type: TaskType;
   status: TaskStatus;
   name: string;
@@ -69,7 +71,7 @@ export type TaskIdParams = Record<'id', string>;
  * and `status` defaults to TODO, so none of the three are required.
  */
 export type Draft<T extends BaseTask> =
-  Omit<T, 'id' | 'createdAt' | 'status' | 'category' | 'links'> & {
+  Omit<T, 'id' | 'userId' | 'createdAt' | 'status' | 'category' | 'links'> & {
     status?: TaskStatus;
     category?: TaskCategory;
     links?: string[];

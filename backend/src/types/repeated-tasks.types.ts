@@ -21,6 +21,8 @@ export interface TimeOfDay {
  */
 export interface BaseRepeatedTask {
   id: string;
+  /** Owner. Set from the credentials, never from the payload. */
+  userId: string;
   type: TaskType;
   name: string;
   createdAt: Date;
@@ -56,7 +58,7 @@ export type RepeatedTask = DailyTask | WeeklyTask | MonthlyTask;
 
 /** A config as the client sends it: the server owns `id` and `createdAt`. */
 export type RepeatedDraft<T extends BaseRepeatedTask> =
-  Omit<T, 'id' | 'createdAt' | 'category' | 'links'> & {
+  Omit<T, 'id' | 'userId' | 'createdAt' | 'category' | 'links'> & {
     category?: TaskCategory;
     links?: string[];
   };
