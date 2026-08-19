@@ -712,3 +712,115 @@ select.field__input { appearance: none; background-image: none; }
 .menu__item:hover { background: var(--surface-sunk); }
 
 .menu__item:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: -2px; }
+
+/* --- steps ---------------------------------------------------------------- */
+.steps { margin-top: 0.55rem; }
+
+.steps__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+  cursor: pointer;
+  list-style: none;
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.steps__summary::-webkit-details-marker { display: none; }
+
+.steps__summary::before {
+  content: "▸";
+  font-size: 0.7rem;
+  transition: transform 0.18s;
+}
+
+.steps[open] .steps__summary::before { transform: rotate(90deg); }
+
+.steps__summary:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
+
+.steps__label { white-space: nowrap; }
+
+.steps__bar {
+  flex: 1;
+  height: 4px;
+  min-width: 2rem;
+  border-radius: 999px;
+  background: var(--surface-sunk);
+  overflow: hidden;
+}
+
+.steps__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--done-ink);
+  transition: width 0.25s;
+}
+
+.steps__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+.step__check {
+  flex: 0 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 50%;
+  background: transparent;
+  color: transparent;
+  font-size: 0.6rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, color 0.18s;
+}
+
+.step__check:hover { border-color: var(--accent-ring); }
+
+.step__check:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
+
+.step--done .step__check {
+  background: var(--done-bg);
+  border-color: transparent;
+  color: var(--done-ink);
+}
+
+.step__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.step--done .step__name {
+  color: var(--ink-soft);
+  text-decoration: line-through;
+  text-decoration-color: var(--line-strong);
+}
+
+.step__link {
+  flex: 0 0 auto;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.step__link:hover { background: var(--surface-sunk); color: var(--ink); }
+
+.step__link:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }

@@ -45,6 +45,9 @@ let activeFilter = 'actual';
 let activeCategory = 'all';
 let status = 'loading';
 
+/** Which tasks have their steps unfolded, kept across re-renders. */
+const openSteps = new Set();
+
 /* --- formatting ----------------------------------------------------------- */
 
 const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -69,11 +72,11 @@ function whenLabel(task) {
   return `${dayAndDate.format(date)} ${time.format(date)}`;
 }
 
-const subtaskLabel = (task) => {
-  const done = task.subtasks.filter((sub) => sub.status === 'DONE').length;
+const doneSteps = (task) => task.subtasks.filter((sub) => sub.status === 'DONE').length;
 
-  return `${done}/${task.subtasks.length} steps`;
-};
+const stepPercent = (task) => (task.subtasks.length === 0
+  ? 0
+  : Math.round((doneSteps(task) / task.subtasks.length) * 100));
 
 /* --- rendering ------------------------------------------------------------ */
 
@@ -111,6 +114,88 @@ function whenChip(task) {
   else if (new Date(task.date) > new Date()) modifier = 'when';
 
   return chip(overdue ? `Missed · ${whenLabel(task)}` : whenLabel(task), modifier);
+}
+
+/**
+ * Steps, folded away by default — one imported task has ten of them, and a card
+ * that tall would bury everything else. The summary carries the count, the
+ * percentage and a bar, so the fold still tells you where you are.
+ */
+function stepsSection(task) {
+  const details = document.createElement('details');
+  details.className = 'steps';
+
+  const summary = document.createElement('summary');
+  summary.className = 'steps__summary';
+
+  const label = document.createElement('span');
+  label.className = 'steps__label';
+  const percent = stepPercent(task);
+  label.textContent = `${String(doneSteps(task))}/${String(task.subtasks.length)} steps · ${String(percent)}%`;
+
+  const bar = document.createElement('span');
+  bar.className = 'steps__bar';
+  bar.setAttribute('role', 'progressbar');
+  bar.setAttribute('aria-valuenow', String(percent));
+  bar.setAttribute('aria-valuemin', '0');
+  bar.setAttribute('aria-valuemax', '100');
+  bar.setAttribute('aria-label', `${String(percent)}% of steps done`);
+
+  const fill = document.createElement('span');
+  fill.className = 'steps__fill';
+  fill.style.width = `${String(percent)}%`;
+  bar.append(fill);
+
+  summary.append(label, bar);
+  details.append(summary);
+
+  const list = document.createElement('ul');
+  list.className = 'steps__list';
+
+  for (const step of task.subtasks) {
+    const done = step.status === 'DONE';
+    const item = document.createElement('li');
+    item.className = done ? 'step step--done' : 'step';
+
+    const check = document.createElement('button');
+    check.type = 'button';
+    check.className = 'step__check';
+    check.textContent = '✓';
+    check.setAttribute('aria-pressed', String(done));
+    check.setAttribute('aria-label', `Mark step ${step.name} as ${done ? 'not done' : 'done'}`);
+    check.addEventListener('click', () => { toggleStep(task, step); });
+
+    const name = document.createElement('span');
+    name.className = 'step__name';
+    name.textContent = step.name;
+
+    item.append(check, name);
+
+    if (step.link) {
+      const link = document.createElement('a');
+      link.className = 'step__link';
+      link.href = step.link;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = '↗';
+      link.title = step.link;
+      link.setAttribute('aria-label', `Open the link for ${step.name}`);
+      item.append(link);
+    }
+
+    list.append(item);
+  }
+
+  details.append(list);
+
+  // Keep it open across a re-render, so ticking a step does not fold the card.
+  details.open = openSteps.has(task.id);
+  details.addEventListener('toggle', () => {
+    if (details.open) openSteps.add(task.id);
+    else openSteps.delete(task.id);
+  });
+
+  return details;
 }
 
 function taskItem(task) {
@@ -151,9 +236,10 @@ function taskItem(task) {
     meta.append(links);
   }
 
-  if (task.subtasks.length > 0) meta.append(chip(subtaskLabel(task)));
   if (!hasDate(task)) meta.append(chip('No date'));
   body.append(meta);
+
+  if (task.subtasks.length > 0) body.append(stepsSection(task));
 
   const actions = document.createElement('div');
   actions.className = 'task__actions';
@@ -311,6 +397,13 @@ function render() {
 function toggleDone(task) {
   task.status = task.status === 'DONE' ? 'TODO' : 'DONE';
   announcer.textContent = `${task.name} marked ${task.status === 'DONE' ? 'done' : 'not done'} (not saved yet)`;
+  render();
+}
+
+function toggleStep(task, step) {
+  step.status = step.status === 'DONE' ? 'TODO' : 'DONE';
+  announcer.textContent = `${step.name} ${step.status === 'DONE' ? 'done' : 'not done'}`
+    + ` — ${String(stepPercent(task))}% of ${task.name} (not saved yet)`;
   render();
 }
 
