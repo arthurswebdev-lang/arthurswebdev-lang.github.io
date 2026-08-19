@@ -123,6 +123,11 @@ export const createRepeatedTask = (token, payload) =>
 
 export const deleteRepeatedTask = (token, id) => send("DELETE", `/repeated-tasks/${id}`, token);
 
+export const fetchRepeatedTask = (token, id) => get(`/repeated-tasks/${id}`, token);
+
+export const replaceRepeatedTask = (token, id, payload) =>
+  send("PUT", `/repeated-tasks/${id}`, token, payload);
+
 export const setTaskStatus = (token, id, status) =>
   send("PATCH", `/tasks/${id}/status`, token, { status });
 

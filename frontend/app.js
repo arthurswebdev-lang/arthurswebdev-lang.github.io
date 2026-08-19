@@ -9,10 +9,10 @@
    category they belong to; this file asks for a slice and draws it.
 --------------------------------------------------------------------------- */
 import {
-  createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTasks,
-  fetchTasks, forgetCredentials, readCredentials, replaceTask, saveCredentials,
-  setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=3';
+  createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
+  fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
+  replaceTask, saveCredentials, setStepStatus, setTaskStatus, signUp,
+} from './api.js?v=4';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -597,6 +597,12 @@ function repeatRow(config) {
     });
   });
 
+  text.addEventListener('click', () => {
+    repeatsDialog.close();
+    openConfigEditor(config);
+  });
+  text.classList.add('repeat__text--tappable');
+
   row.append(text, remove);
 
   return row;
@@ -703,7 +709,7 @@ const wizardTitle = document.getElementById('wizard-title');
 const wizardSteps = document.getElementById('wizard-steps');
 const backButton = document.getElementById('wizard-back');
 
-const draft = { kind: null, schedule: null, editing: null };
+const draft = { kind: null, schedule: null, editing: null, editingConfig: null };
 
 const stepPanel = (name) => document.querySelector(`[data-step="${name}"]`);
 
@@ -813,11 +819,13 @@ function showStep(name) {
     }
   }
 
-  const editing = draft.editing !== null;
+  const editing = draft.editing !== null || draft.editingConfig !== null;
   const total = draft.kind === 'REPEATED' ? 3 : 2;
   const current = name === 'kind' ? 1 : (name === 'schedule' ? 2 : total);
 
-  wizardTitle.textContent = editing ? 'Edit task' : TITLES[name];
+  wizardTitle.textContent = draft.editingConfig !== null
+    ? 'Edit repeat'
+    : (editing ? 'Edit task' : TITLES[name]);
   // Editing has no earlier step to report or return to: the type is fixed.
   wizardSteps.textContent = editing ? 'Changing the type means deleting and adding again'
     : `Step ${String(current)} of ${String(total)}`;
@@ -855,6 +863,7 @@ document.getElementById('add').addEventListener('click', () => {
   draft.kind = null;
   draft.schedule = null;
   draft.editing = null;
+  draft.editingConfig = null;
   composerForm.reset();
   fillCategories();
   linkRows.replaceChildren();
@@ -867,9 +876,13 @@ document.getElementById('add').addEventListener('click', () => {
 
 /** Fills the final step with a task's own values and opens it there. */
 function openEditor(task) {
+  // A generated event is a projection: the thing worth editing is the config
+  // behind it, so open that instead of a form the server would refuse.
   if (task.configTaskId) {
-    announcer.textContent = `${task.name} comes from a repeat — edit the repeat instead`;
-    void openRepeats();
+    void fetchRepeatedTask(credentials.token, task.configTaskId).then(
+      (config) => { openConfigEditor(config); },
+      () => { announcer.textContent = `Could not open the repeat behind ${task.name}`; },
+    );
 
     return;
   }
@@ -877,6 +890,7 @@ function openEditor(task) {
   draft.kind = task.type;
   draft.schedule = null;
   draft.editing = task;
+  draft.editingConfig = null;
 
   composerForm.reset();
   fillCategories();
@@ -904,13 +918,79 @@ function openEditor(task) {
   composer.showModal();
 }
 
+/** Opens a repeat's own form, prefilled — the schedule included. */
+function openConfigEditor(config) {
+  draft.kind = 'REPEATED';
+  draft.schedule = config.type;
+  draft.editing = null;
+  draft.editingConfig = config;
+
+  composerForm.reset();
+  fillCategories();
+  linkRows.replaceChildren();
+  subtaskRows.replaceChildren();
+  toggleGroup(document.getElementById('weekday-toggles'), WEEKDAYS, config.weekdays ?? []);
+  toggleGroup(document.getElementById('month-toggles'), MONTHS, config.months ?? []);
+
+  composerForm.elements['name'].value = config.name;
+  composerForm.elements['category'].value = config.category;
+  for (const url of config.links ?? []) addLinkRow().querySelector('input').value = url;
+
+  if (config.type === 'DAILY') {
+    composerForm.elements['startsAt'].value = clockFromUtc(config.startsAt);
+    composerForm.elements['endsAt'].value = clockFromUtc(config.endsAt);
+    composerForm.elements['repeatEach'].value = clockOf(config.repeatEach);
+  }
+
+  if (config.type === 'REPEATED_MONTHLY') {
+    composerForm.elements['fromDay'].value = String(config.fromDay);
+    composerForm.elements['toDay'].value = String(config.toDay);
+  }
+
+  showStep('details');
+  if (!composer.open) composer.showModal();
+}
+
 document.getElementById('details-cancel').addEventListener('click', () => { composer.close(); });
+
+/* ---------------------------------------------------------------------------
+   The server keeps a daily window in UTC, and you type it in your own time, so
+   the two have to be converted at this boundary. `repeatEach` is a length, not
+   a time of day, and is never converted.
+--------------------------------------------------------------------------- */
+
+const MINUTES_PER_DAY = 24 * 60;
+
+/** Minutes to add to local time to get UTC (−240 in Yerevan). */
+const utcOffset = () => new Date().getTimezoneOffset();
+
+const wrapDay = (minutes) => ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+
+const pad = (value) => String(value).padStart(2, '0');
 
 const timeParts = (value) => {
   const [hour, minute] = String(value).split(':').map(Number);
 
   return { hour: hour || 0, minute: minute || 0 };
 };
+
+/** "21:00" typed here becomes {hour: 17, minute: 0} for the server. */
+function toUtcParts(value) {
+  const { hour, minute } = timeParts(value);
+  const minutes = wrapDay(hour * 60 + minute + utcOffset());
+
+  return { hour: Math.floor(minutes / 60), minute: minutes % 60 };
+}
+
+/** The reverse, for filling the form back in. */
+function clockFromUtc({ hour, minute }) {
+  const minutes = wrapDay(hour * 60 + minute - utcOffset());
+
+  return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
+}
+
+/** A plain length, shown as typed. */
+const clockOf = ({ hour, minute }) => `${pad(hour)}:${pad(minute)}`;
 
 /** What would be sent to the API, shaped exactly as the endpoints expect. */
 function draftPayload(data) {
@@ -937,8 +1017,9 @@ function draftPayload(data) {
     return {
       type: 'DAILY',
       ...shared,
-      startsAt: timeParts(data.get('startsAt')),
-      endsAt: timeParts(data.get('endsAt')),
+      startsAt: toUtcParts(data.get('startsAt')),
+      endsAt: toUtcParts(data.get('endsAt')),
+      // A gap, not a clock time: two hours is two hours in any zone.
       repeatEach: timeParts(data.get('repeatEach')),
     };
   }
@@ -964,11 +1045,22 @@ composerForm.addEventListener('submit', () => {
   const payload = draftPayload(new FormData(composerForm));
   if (payload.name === '') return;
 
+  if (payload.type === 'DAILY') {
+    const asMinutes = ({ hour, minute }) => hour * 60 + minute;
+    if (asMinutes(payload.startsAt) > asMinutes(payload.endsAt)) {
+      wizardSteps.textContent = 'That window crosses midnight UTC, which the server cannot store yet.'
+        + ' Try a range that stays inside one UTC day.';
+
+      return;
+    }
+  }
+
   // A repeat is a config: the server makes the event, so reload rather than
   // guessing what it produced.
-  const editing = draft.editing;
+  const { editing, editingConfig } = draft;
   let send = () => createTask(credentials.token, payload);
-  if (editing !== null) send = () => replaceTask(credentials.token, editing.id, payload);
+  if (editingConfig !== null) send = () => replaceRepeatedTask(credentials.token, editingConfig.id, payload);
+  else if (editing !== null) send = () => replaceTask(credentials.token, editing.id, payload);
   else if (draft.kind === 'REPEATED') send = () => createRepeatedTask(credentials.token, payload);
 
   status = 'loading';
