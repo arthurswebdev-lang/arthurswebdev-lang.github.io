@@ -1,0 +1,35 @@
+import type { TaskStatus } from '../enum/task-status.enum.js';
+import type { TaskType } from '../enum/task-type.enum.js';
+import type {
+  CreateTask, EventTask, RepeatedTask, Task, UpdateTask,
+} from '../types/tasks.types.js';
+import type { IBaseRepository } from './base-repository.interface.js';
+
+/**
+ * Optional narrowing for `listBy`; omitted fields do not filter. Named a query
+ * rather than a filter to keep it distinct from the `TaskFilter` enum, which is
+ * the actual/passed/upcoming selector on `GET /tasks`.
+ */
+export interface TaskQuery {
+  type?: TaskType;
+  status?: TaskStatus;
+  /** Case-insensitive substring match against the task name. */
+  search?: string;
+}
+
+export interface ITasksRepository extends IBaseRepository<Task, CreateTask, UpdateTask> {
+  /** Tasks matching every provided filter field. */
+  listBy(query: TaskQuery): Promise<Task[]>;
+
+  /**
+   * Stores an event produced by a config. Separate from `create` because
+   * `configTaskId` is server-owned and therefore absent from `CreateTask`.
+   */
+  createGeneratedEvent(config: RepeatedTask, date: Date): Promise<EventTask>;
+
+  /** Removes every event a config produced. Returns how many went. */
+  deleteEventsOfConfig(configTaskId: string): Promise<number>;
+
+  /** Stamps `passedDate`; returns null if the id is unknown. */
+  markEventPassed(eventId: string, passedAt: Date): Promise<EventTask | null>;
+}

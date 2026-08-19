@@ -1,0 +1,1157 @@
+{
+  "info": {
+    "name": "tasks-api",
+    "description": "Local API for the tasks service.\n\nSet the `host` collection variable once and every request follows it -- it holds the\nwhole base URL (scheme, host and port), so switching environments is a one-field edit.\n\n`taskId` is filled in automatically: each create request stores the new id, and the\nget/update/delete requests read it. Run the folder top to bottom and it chains.\n\nConfigs (DAILY / REPEATED_WEEKLY / REPEATED_MONTHLY) live under /repeated-tasks and in\ntheir own JSON file. /tasks holds only BASIC and EVENT -- including the events the configs\ngenerate. Run the Tasks folder, then Repeated tasks, top to bottom.\n\nA generated event only accepts status changes -- everything else about it is edited on\nthe repeated task that produces it. The status of a config is itself fixed.\n\nNote: PUT replaces the task. The body is the full representation -- same fields and\nsame rules as the matching create request -- so anything left out falls back to its\ndefault instead of keeping its stored value. Only `id` and `createdAt` survive, and\n`type` must match the stored task; sending a different one is rejected with 400.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "host",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "taskId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "configId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "generatedEventId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "eventDate",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Get health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('health -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/health",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Reports server and database connectivity."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        {
+          "name": "List all tasks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('list -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/tasks",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "description": "Every stored task, in insertion order."
+          },
+          "response": []
+        },
+        {
+          "name": "List tasks - actual",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('filter actual -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/tasks?filter=actual",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "filter",
+                  "value": "actual"
+                }
+              ]
+            },
+            "description": "Events that are still ahead and near enough to matter under their own activeLogic: TODAY for daily-generated events, this week for weekly, a rolling 30 days for monthly. Basic tasks are left out of every filtered list."
+          },
+          "response": []
+        },
+        {
+          "name": "List tasks - passed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('filter passed -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/tasks?filter=passed",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "filter",
+                  "value": "passed"
+                }
+              ]
+            },
+            "description": "Events whose moment has gone by. They stay in the list for the user to deal with."
+          },
+          "response": []
+        },
+        {
+          "name": "List tasks - upcoming",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('filter upcoming -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/tasks?filter=upcoming",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "filter",
+                  "value": "upcoming"
+                }
+              ]
+            },
+            "description": "Events still ahead but outside their active window -- next week's session, or something more than 30 days out."
+          },
+          "response": []
+        },
+        {
+          "name": "Create basic task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('create basic -> 201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "  const task = pm.response.json();",
+                  "  pm.collectionVariables.set('taskId', task.id);",
+                  "  pm.test('server assigned a uuid and createdAt', function () {",
+                  "    pm.expect(task.id).to.match(/^[0-9a-f-]{36}$/);",
+                  "    pm.expect(task.createdAt).to.be.a(\"string\");",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"BASIC\",\n  \"name\": \"buy milk\",\n  \"subtasks\": [\n    {\n      \"name\": \"oat milk\"\n    },\n    {\n      \"name\": \"check expiry\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/tasks",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "description": "Simplest task. `status` defaults to TODO and `subtasks` to []; each subtask gets its own uuid."
+          },
+          "response": []
+        },
+        {
+          "name": "Create event task (due in 1 minute)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Due one minute from now, so the poller picks it up on its next pass.",
+                  "pm.collectionVariables.set('eventDate', new Date(Date.now() + 60 * 1000).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('create event -> 201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "  const task = pm.response.json();",
+                  "  pm.collectionVariables.set('taskId', task.id);",
+                  "  pm.test('server assigned a uuid and createdAt', function () {",
+                  "    pm.expect(task.id).to.match(/^[0-9a-f-]{36}$/);",
+                  "    pm.expect(task.createdAt).to.be.a(\"string\");",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"EVENT\",\n  \"name\": \"standup\",\n  \"date\": \"{{eventDate}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/tasks",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "description": "Event tasks carry a date. The pre-request script sets it one minute out, so the polling service prints its notification while you watch the server log."
+          },
+          "response": []
+        },
+        {
+          "name": "Get task by id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('get by id -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/tasks/{{taskId}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "description": "Uses the id stored by the last create request."
+          },
+          "response": []
+        },
+        {
+          "name": "Update task (PUT, full replacement)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('update -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"EVENT\",\n  \"name\": \"standup (updated)\",\n  \"status\": \"DONE\",\n  \"date\": \"{{eventDate}}\",\n  \"subtasks\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/tasks/{{taskId}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "description": "Full replacement: send every field the task should end up with. Omitting one does not keep its old value -- it reverts to the default. `type` must match the stored task. Server-owned fields (configTaskId, passedDate) survive."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('delete -> 204', function () {",
+                  "  pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/tasks/{{taskId}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "description": "Removes the task. Returns 204 with no body."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Repeated tasks (configs)",
+      "description": "Configs are their own resource in their own JSON file. They never appear under /tasks -- the event each one currently has pending represents it there.",
+      "item": [
+        {
+          "name": "Create daily task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('create daily -> 201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('configId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"DAILY\",\n  \"name\": \"drink water\",\n  \"startsAt\": {\n    \"hour\": 9,\n    \"minute\": 0\n  },\n  \"endsAt\": {\n    \"hour\": 18,\n    \"minute\": 0\n  },\n  \"repeatEach\": {\n    \"hour\": 1,\n    \"minute\": 30\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/repeated-tasks",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "repeated-tasks"
+              ]
+            },
+            "description": "Repeats through the day: runs between startsAt and endsAt, every repeatEach."
+          },
+          "response": []
+        },
+        {
+          "name": "Create weekly task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('create weekly -> 201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('configId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"REPEATED_WEEKLY\",\n  \"name\": \"gym\",\n  \"weekdays\": [\n    1,\n    3,\n    5\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/repeated-tasks",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "repeated-tasks"
+              ]
+            },
+            "description": "Repeats on given weekdays: 0 = Sunday ... 6 = Saturday, no duplicates."
+          },
+          "response": []
+        },
+        {
+          "name": "Create monthly task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('create monthly -> 201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('configId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"REPEATED_MONTHLY\",\n  \"name\": \"pay rent\",\n  \"fromDay\": 1,\n  \"toDay\": 5,\n  \"months\": [\n    1,\n    2,\n    3,\n    4,\n    5,\n    6,\n    7,\n    8,\n    9,\n    10,\n    11,\n    12\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/repeated-tasks",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "repeated-tasks"
+              ]
+            },
+            "description": "Repeats on a day range within given months: 1 = January ... 12 = December. toDay must be >= fromDay."
+          },
+          "response": []
+        },
+        {
+          "name": "List configs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('list configs -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/repeated-tasks",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "repeated-tasks"
+              ]
+            },
+            "description": "Every stored config."
+          },
+          "response": []
+        },
+        {
+          "name": "Get config by id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('get config -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/repeated-tasks/{{configId}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "repeated-tasks",
+                "{{configId}}"
+              ]
+            },
+            "description": "Uses the id stored by the last config create."
+          },
+          "response": []
+        },
+        {
+          "name": "Find a generated event",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('find generated event -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const generated = pm.response.json().find((task) => task.configTaskId);",
+                  "if (generated) {",
+                  "  pm.collectionVariables.set('generatedEventId', generated.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/tasks",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "description": "Stores the id of an event produced by a config, for the checks below."
+          },
+          "response": []
+        },
+        {
+          "name": "Rename a generated event -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rename generated event -> 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"EVENT\",\n  \"name\": \"renamed by hand\",\n  \"status\": \"TODO\",\n  \"date\": \"{{eventDate}}\",\n  \"subtasks\": [],\n  \"activeLogic\": \"NEXT_30_DAYS\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/tasks/{{generatedEventId}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks",
+                "{{generatedEventId}}"
+              ]
+            },
+            "description": "A generated event is a projection of its config: only its status can change. Name, date, activeLogic and subtasks are edited on the repeated task, which regenerates. (Run a config create first so {{taskId}} points at a generated event; against a hand-made event this succeeds, since there is no config to edit instead.)"
+          },
+          "response": []
+        },
+        {
+          "name": "Change a config status -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('config status change -> 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"REPEATED_MONTHLY\",\n  \"name\": \"pay rent\",\n  \"status\": \"DONE\",\n  \"fromDay\": 1,\n  \"toDay\": 5,\n  \"months\": [\n    1\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/repeated-tasks/{{configId}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "repeated-tasks",
+                "{{configId}}"
+              ]
+            },
+            "description": "A config is a rule, not a to-do, so it is never done. Stopping one means deleting it."
+          },
+          "response": []
+        },
+        {
+          "name": "Update config (regenerates its events)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('update config -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"REPEATED_MONTHLY\",\n  \"name\": \"pay rent (updated)\",\n  \"status\": \"TODO\",\n  \"fromDay\": 1,\n  \"toDay\": 3,\n  \"months\": [\n    1,\n    4,\n    7,\n    10\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/repeated-tasks/{{configId}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "repeated-tasks",
+                "{{configId}}"
+              ]
+            },
+            "description": "Editing a config deletes every event it produced and generates a fresh one from the new schedule."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete config (takes its events with it)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('delete config -> 204', function () {",
+                  "  pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/repeated-tasks/{{configId}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "repeated-tasks",
+                "{{configId}}"
+              ]
+            },
+            "description": "Removes the config and every event it generated. No soft delete."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Errors",
+      "description": "The failure shapes the API guarantees, worth keeping green.",
+      "item": [
+        {
+          "name": "Create with unknown type -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('unknown type -> 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"NOPE\",\n  \"name\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/tasks",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "description": "The `type` discriminator picks the schema; anything else is rejected with the valid list."
+          },
+          "response": []
+        },
+        {
+          "name": "Create with invalid fields -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('invalid fields -> 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"REPEATED_WEEKLY\",\n  \"weekdays\": [\n    9,\n    9\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/tasks",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "description": "Every broken field is reported at once in `errors`, not just the first."
+          },
+          "response": []
+        },
+        {
+          "name": "Update with incomplete body -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('incomplete put -> 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"REPEATED_MONTHLY\",\n  \"name\": \"only a name\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/tasks/{{taskId}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "description": "PUT replaces, so a body missing required fields is rejected rather than treated as a partial edit."
+          },
+          "response": []
+        },
+        {
+          "name": "Config posted to /tasks -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('config at /tasks -> 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"DAILY\",\n  \"name\": \"wrong endpoint\",\n  \"startsAt\": {\n    \"hour\": 9,\n    \"minute\": 0\n  },\n  \"endsAt\": {\n    \"hour\": 10,\n    \"minute\": 0\n  },\n  \"repeatEach\": {\n    \"hour\": 1,\n    \"minute\": 0\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/tasks",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "description": "Configs are a separate resource; /tasks accepts only BASIC and EVENT."
+          },
+          "response": []
+        },
+        {
+          "name": "Unknown filter value -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('bad filter -> 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/tasks?filter=nope",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "filter",
+                  "value": "nope"
+                }
+              ]
+            },
+            "description": "The query is validated too; only actual, passed and upcoming are accepted."
+          },
+          "response": []
+        },
+        {
+          "name": "Get with non-uuid id -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('bad uuid -> 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/tasks/not-a-uuid",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks",
+                "not-a-uuid"
+              ]
+            },
+            "description": "Route params are validated before the controller runs."
+          },
+          "response": []
+        },
+        {
+          "name": "Get unknown id -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('unknown id -> 404', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/tasks/00000000-0000-4000-8000-000000000000",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks",
+                "00000000-0000-4000-8000-000000000000"
+              ]
+            },
+            "description": "Well-formed uuid that matches no task."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
