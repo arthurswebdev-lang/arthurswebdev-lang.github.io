@@ -1,9 +1,14 @@
 import { TaskStatus } from '../enum/task-status.enum.js';
 import { filterTasks, isEventTask } from '../filters/tasks.filters.js';
 import type { ITaskGeneratorService } from '../interfaces/task-generator.interface.js';
+import type {
+  IRepeatedTasksRepository,
+} from '../interfaces/repeated-tasks-repository.interface.js';
 import type { ITasksRepository } from '../interfaces/tasks-repository.interface.js';
 import type { ITasksService, ListTasksQuery } from '../interfaces/tasks-service.interface.js';
-import type { CreateTask, Task, UpdateTask } from '../types/tasks.types.js';
+import type {
+  CreateTask, Task, TaskWithConfig, UpdateTask,
+} from '../types/tasks.types.js';
 import { assertTaskReplaceAllowed } from '../rules/task-update.rules.js';
 import { ResourceNotFoundError } from '../utils/http-errors/resource-not-found.error.js';
 
@@ -16,9 +21,33 @@ export class TasksService implements ITasksService {
    */
   constructor(
     private readonly tasksRepository: ITasksRepository,
+    private readonly repeatedTasksRepository: IRepeatedTasksRepository,
     private readonly taskGenerator: ITaskGeneratorService,
     private readonly now: () => Date = () => new Date(),
   ) {}
+
+  /**
+   * Attaches each generated event's config, in one extra query for the whole
+   * list rather than one request per event from the client.
+   */
+  private async withConfigs(tasks: Task[]): Promise<TaskWithConfig[]> {
+    const ids = [...new Set(
+      tasks.filter(isEventTask).map((event) => event.configTaskId).filter((id) => id !== null),
+    )];
+    if (ids.length === 0) return tasks;
+
+    const configs = new Map(
+      (await this.repeatedTasksRepository.listByIds(ids)).map((config) => [config.id, config]),
+    );
+
+    return tasks.map((task) => {
+      if (!isEventTask(task) || task.configTaskId === null) return task;
+
+      const config = configs.get(task.configTaskId);
+
+      return config === undefined ? task : { ...task, config };
+    });
+  }
 
   /**
    * Filtering happens here rather than in the query: `actual` and `upcoming`
@@ -27,24 +56,27 @@ export class TasksService implements ITasksService {
    * pipeline. `passed` alone could move into Mongo if the collection ever grows
    * enough to care.
    */
-  async listAll({ userId, filter, category }: ListTasksQuery): Promise<Task[]> {
+  async listAll({ userId, filter, category }: ListTasksQuery): Promise<TaskWithConfig[]> {
     // Category is plain equality, so the database does it; the time filter is
     // the rule set in tasks.filters.ts and stays here where it can be read.
     const tasks = category === undefined
       ? await this.tasksRepository.list(userId)
       : await this.tasksRepository.listBy({ userId, category });
 
-    return filterTasks(tasks, filter, this.now());
+    return this.withConfigs(filterTasks(tasks, filter, this.now()));
   }
 
   /**
    * Someone else's id reads as missing rather than forbidden: a 403 would
    * confirm the task exists, which is more than a caller should learn.
    */
-  async getById(id: string, userId: string): Promise<Task | null> {
+  async getById(id: string, userId: string): Promise<TaskWithConfig | null> {
     const task = await this.tasksRepository.getById(id);
+    if (task?.userId !== userId) return null;
 
-    return task?.userId === userId ? task : null;
+    const [joined] = await this.withConfigs([task]);
+
+    return joined ?? task;
   }
 
   private async ownedOrMissing(id: string, userId: string): Promise<Task> {
@@ -115,7 +147,17 @@ export class TasksService implements ITasksService {
   }
 
   async deleteById(id: string, userId: string): Promise<void> {
-    await this.ownedOrMissing(id, userId);
+    const task = await this.ownedOrMissing(id, userId);
+
+    // A generated event is one occurrence of a rule. Deleting it alone would be
+    // undone by the next poll, so deleting it means deleting the rule — and
+    // with it every event that rule produced.
+    if (isEventTask(task) && task.configTaskId !== null) {
+      await this.tasksRepository.deleteEventsOfConfig(task.configTaskId);
+      await this.repeatedTasksRepository.deleteById(task.configTaskId);
+
+      return;
+    }
 
     const deleted = await this.tasksRepository.deleteById(id);
     if (!deleted) throw new ResourceNotFoundError(`No task with id ${id}.`);

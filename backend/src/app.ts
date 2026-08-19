@@ -22,7 +22,7 @@ import { TasksService } from './services/tasks.service.js';
 function mountTaskRoutes(app: Express, container: Container, requireUser: RequestHandler): void {
   const { tasksRepository, repeatedTasksRepository, taskGenerator } = container;
 
-  const tasksService = new TasksService(tasksRepository, taskGenerator);
+  const tasksService = new TasksService(tasksRepository, repeatedTasksRepository, taskGenerator);
   app.use(new TasksRoutes(new TasksController(tasksService), requireUser).initRoutes());
 
   const repeatedTasksService = new RepeatedTasksService(

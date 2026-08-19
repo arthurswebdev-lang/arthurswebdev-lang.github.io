@@ -12,7 +12,7 @@ import {
   createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=4';
+} from './api.js?v=5';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -462,7 +462,10 @@ function toggleStep(task, step) {
 function remove(task) {
   // Deleting is the one action here with nothing behind it — no undo, and the
   // server has no trash.
-  if (!confirmDelete(`Delete "${task.name}"?`)) return;
+  const question = task.configTaskId
+    ? `"${task.name}" repeats. Delete the repeat and every event it made?`
+    : `Delete "${task.name}"?`;
+  if (!confirmDelete(question)) return;
 
   apply(
     () => {
@@ -877,8 +880,14 @@ document.getElementById('add').addEventListener('click', () => {
 /** Fills the final step with a task's own values and opens it there. */
 function openEditor(task) {
   // A generated event is a projection: the thing worth editing is the config
-  // behind it, so open that instead of a form the server would refuse.
+  // behind it. The list brings it along, so there is nothing to fetch.
   if (task.configTaskId) {
+    if (task.config) {
+      openConfigEditor(task.config);
+
+      return;
+    }
+
     void fetchRepeatedTask(credentials.token, task.configTaskId).then(
       (config) => { openConfigEditor(config); },
       () => { announcer.textContent = `Could not open the repeat behind ${task.name}`; },

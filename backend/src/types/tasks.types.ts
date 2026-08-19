@@ -2,6 +2,7 @@ import type { ActiveLogic } from '../enum/active-logic.enum.js';
 import type { TaskCategory } from '../enum/task-category.enum.js';
 import type { TaskStatus } from '../enum/task-status.enum.js';
 import type { TaskType } from '../enum/task-type.enum.js';
+import type { RepeatedTask } from './repeated-tasks.types.js';
 
 export interface Subtask {
   id: string;
@@ -53,6 +54,16 @@ export interface EventTask extends BaseTask {
  * event it currently has pending.
  */
 export type Task = BasicTask | EventTask;
+
+/**
+ * What the API hands back for a generated event: the task plus the config that
+ * produces it, so a client can edit the repeat without a second request.
+ *
+ * Deliberately separate from `Task`: this is a view, and writing it back into
+ * the tasks collection would store a copy of the config that nothing keeps in
+ * step.
+ */
+export type TaskWithConfig = Task & { config?: RepeatedTask };
 
 /** A subtask as the client sends it: the server assigns the id. */
 export type SubtaskDraft = Omit<Subtask, 'id'>;

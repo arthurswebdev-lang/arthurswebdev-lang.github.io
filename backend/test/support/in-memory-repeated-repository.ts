@@ -19,6 +19,10 @@ export class InMemoryRepeatedTasksRepository implements IRepeatedTasksRepository
     return Promise.resolve([...this.configs]);
   }
 
+  listByIds(ids: string[]): Promise<RepeatedTask[]> {
+    return Promise.resolve(this.configs.filter((config) => ids.includes(config.id)));
+  }
+
   getById(id: string): Promise<RepeatedTask | null> {
     return Promise.resolve(this.configs.find((config) => config.id === id) ?? null);
   }

@@ -31,6 +31,14 @@ export class RepeatedTasksRepository
     return documents.map((document) => this.toDomain(document));
   }
 
+  async listByIds(ids: string[]): Promise<RepeatedTask[]> {
+    if (ids.length === 0) return [];
+
+    const documents = await this.collection.find({ _id: { $in: ids } }).toArray();
+
+    return documents.map((document) => this.toDomain(document));
+  }
+
   protected toEntity(input: CreateRepeatedTask, userId: string): RepeatedTask {
     return {
       ...input,

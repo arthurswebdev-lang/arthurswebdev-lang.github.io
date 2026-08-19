@@ -29,9 +29,10 @@ const saturday = utc('Sat 2026-08-22 10:00');
 
 function serviceWith(stored: Task[]): TasksService {
   const repository = new InMemoryTasksRepository(stored);
-  const generator = new TaskGeneratorService(repository, new InMemoryRepeatedTasksRepository([]));
+  const configs = new InMemoryRepeatedTasksRepository([]);
+  const generator = new TaskGeneratorService(repository, configs);
 
-  return new TasksService(repository, generator, () => saturday);
+  return new TasksService(repository, configs, generator, () => saturday);
 }
 
 describe('GET /tasks without a filter', () => {

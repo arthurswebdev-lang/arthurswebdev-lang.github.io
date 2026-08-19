@@ -1,7 +1,9 @@
 import type { TaskCategory } from '../enum/task-category.enum.js';
 import type { TaskFilter } from '../enum/task-filter.enum.js';
 import type { TaskStatus } from '../enum/task-status.enum.js';
-import type { CreateTask, Task, UpdateTask } from '../types/tasks.types.js';
+import type {
+  CreateTask, Task, TaskWithConfig, UpdateTask,
+} from '../types/tasks.types.js';
 
 /**
  * One object rather than positional arguments: `userId` and `filter` are both
@@ -19,10 +21,10 @@ export interface ITasksService {
    * Stored tasks, in insertion order. With a filter, only the events in that
    * state; without one, everything including basic tasks.
    */
-  listAll(query: ListTasksQuery): Promise<Task[]>;
+  listAll(query: ListTasksQuery): Promise<TaskWithConfig[]>;
 
   /** The task with this id, or `null` when nothing matches. */
-  getById(id: string, userId: string): Promise<Task | null>;
+  getById(id: string, userId: string): Promise<TaskWithConfig | null>;
 
   create(input: CreateTask, userId: string): Promise<Task>;
 

@@ -10,4 +10,7 @@ export interface IRepeatedTasksRepository
   extends IBaseRepository<RepeatedTask, CreateRepeatedTask, UpdateRepeatedTask> {
   /** Every config, every owner — for the poller, which serves all users. */
   listAcrossUsers(): Promise<RepeatedTask[]>;
+
+  /** The configs with these ids, in one query — for joining onto events. */
+  listByIds(ids: string[]): Promise<RepeatedTask[]>;
 }

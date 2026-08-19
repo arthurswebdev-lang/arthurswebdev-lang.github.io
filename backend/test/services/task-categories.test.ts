@@ -20,7 +20,7 @@ function withTasks(stored: Task[]) {
   const configs = new InMemoryRepeatedTasksRepository([]);
   const generator = new TaskGeneratorService(repository, configs);
 
-  return { repository, configs, generator, service: new TasksService(repository, generator, () => saturday) };
+  return { repository, configs, generator, service: new TasksService(repository, configs, generator, () => saturday) };
 }
 
 const categorised = (name: string, category: TaskCategory): Task =>
