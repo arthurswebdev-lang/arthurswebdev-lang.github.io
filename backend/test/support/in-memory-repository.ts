@@ -43,10 +43,16 @@ export class InMemoryTasksRepository implements ITasksRepository {
     return Promise.resolve(this.tasks.length < before);
   }
 
+  /** Mirrors the Mongo query in TasksRepository.listBy, field for field. */
   listBy(query: TaskQuery): Promise<Task[]> {
-    return Promise.resolve(
-      this.tasks.filter((task) => query.type === undefined || task.type === query.type),
-    );
+    const search = query.search?.toLowerCase();
+
+    return Promise.resolve(this.tasks.filter((task) => (
+      (query.category === undefined || task.category === query.category)
+      && (query.type === undefined || task.type === query.type)
+      && (query.status === undefined || task.status === query.status)
+      && (search === undefined || task.name.toLowerCase().includes(search))
+    )));
   }
 
   createGeneratedEvent(config: RepeatedTask, date: Date): Promise<EventTask> {
@@ -56,6 +62,8 @@ export class InMemoryTasksRepository implements ITasksRepository {
       status: TaskStatus.TODO,
       name: config.name,
       createdAt: date,
+      category: config.category,
+      links: [...config.links],
       subtasks: [],
       date,
       activeLogic: activeLogicForRepeatedTask(config),

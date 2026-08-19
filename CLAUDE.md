@@ -103,6 +103,17 @@ one blank line before a `return` that follows logic.
   the full task representation, and a field the client omits falls back to its default rather
   than keeping its stored value. Only `id` and `createdAt` survive an update. `type` must match
   the stored task — a task cannot change variant in place.
+- **Categories are fixed in code** (`TaskCategory`), not data — there are no endpoints to manage
+  them. Anything created without one lands in `OTHER`, which keeps the field non-nullable and
+  makes "uncategorised" filterable like any other value.
+- **A generated event inherits its config's category and links.** It has to: PUT refuses generated
+  events, so whatever the occurrence needs to be useful — the call link, the category it groups
+  under — can only come from the config.
+- **Links are http(s) only** and capped (20 per task, 2048 chars). They get opened, so a
+  `javascript:` or `file:` URL has no business being stored. Tasks carry `links: string[]`;
+  a subtask carries at most one.
+- **`GET /tasks?category=…`** narrows in the Mongo query (plain equality, indexed), while
+  `filter=` stays in the rule functions. Neither is required; together they intersect.
 - **`GET /tasks?filter=actual|passed|upcoming`** filters in the service, using the rules in
   `src/filters/tasks.filters.ts`, not in the Mongo query — `actual`/`upcoming` depend on each
   event's own `activeLogic` window, which is worth reading as functions rather than as an

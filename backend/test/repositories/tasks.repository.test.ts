@@ -4,6 +4,7 @@ import { after, describe, it } from 'node:test';
 
 import { type Db, MongoClient } from 'mongodb';
 
+import { TaskCategory } from '../../src/enum/task-category.enum.js';
 import { TaskStatus } from '../../src/enum/task-status.enum.js';
 import { TaskType } from '../../src/enum/task-type.enum.js';
 import { TasksRepository } from '../../src/repositories/tasks.repository.js';
@@ -128,5 +129,29 @@ describe('events belonging to a config', { skip: mongoUnavailable }, () => {
     assert.ok(reread.date instanceof Date);
     assert.ok(reread.passedDate instanceof Date);
     assert.equal(reread.configTaskId, config.id);
+  });
+});
+
+describe('listBy narrows in the database', { skip: mongoUnavailable }, () => {
+  it('filters by category, and defaults an unset one to OTHER', async () => {
+    const repository = freshRepository();
+    await repository.create({ ...anEventPayload('gym'), category: TaskCategory.GYM });
+    await repository.create(anEventPayload('unsorted'));
+
+    const gym = await repository.listBy({ category: TaskCategory.GYM });
+    const other = await repository.listBy({ category: TaskCategory.OTHER });
+
+    assert.deepEqual(gym.map((task) => task.name), ['gym']);
+    assert.deepEqual(other.map((task) => task.name), ['unsorted']);
+  });
+
+  it('keeps links through a round trip', async () => {
+    const repository = freshRepository();
+    const links = ['https://example.com/lesson', 'https://example.com/exercises'];
+    const created = await repository.create({ ...anEventPayload('study'), links });
+
+    const reread = await repository.getById(created.id);
+
+    assert.deepEqual(reread?.links, links);
   });
 });

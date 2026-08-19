@@ -1,3 +1,4 @@
+import type { TaskCategory } from '../enum/task-category.enum.js';
 import type { TaskStatus } from '../enum/task-status.enum.js';
 import type { TaskType } from '../enum/task-type.enum.js';
 import type { CreateTask, EventTask, Task, UpdateTask } from '../types/tasks.types.js';
@@ -10,6 +11,7 @@ import type { IBaseRepository } from './base-repository.interface.js';
  * the actual/passed/upcoming selector on `GET /tasks`.
  */
 export interface TaskQuery {
+  category?: TaskCategory;
   type?: TaskType;
   status?: TaskStatus;
   /** Case-insensitive substring match against the task name. */

@@ -1,4 +1,5 @@
 import type { ActiveLogic } from '../enum/active-logic.enum.js';
+import type { TaskCategory } from '../enum/task-category.enum.js';
 import type { TaskStatus } from '../enum/task-status.enum.js';
 import type { TaskType } from '../enum/task-type.enum.js';
 
@@ -7,6 +8,8 @@ export interface Subtask {
   name: string;
   // A subtask is atomic, so it is never PARTIALLY_DONE.
   status: TaskStatus.DONE | TaskStatus.TODO;
+  /** One reference for this step — the page to read, the form to fill in. */
+  link?: string;
 }
 
 /** Fields every task carries, whatever its type. Not a task on its own. */
@@ -16,6 +19,13 @@ export interface BaseTask {
   status: TaskStatus;
   name: string;
   createdAt: Date;
+  /** Fixed set; `OTHER` when the client did not pick one. */
+  category: TaskCategory;
+  /**
+   * Everything you need open to do this task: the lesson and its exercises,
+   * the call to join. Always present, empty when there is nothing to open.
+   */
+  links: string[];
 }
 
 export interface BasicTask extends BaseTask {
@@ -58,9 +68,12 @@ export type TaskIdParams = Record<'id', string>;
  * A task as the client sends it. `id` and `createdAt` belong to the server,
  * and `status` defaults to TODO, so none of the three are required.
  */
-export type Draft<T extends BaseTask> = Omit<T, 'id' | 'createdAt' | 'status'> & {
-  status?: TaskStatus;
-};
+export type Draft<T extends BaseTask> =
+  Omit<T, 'id' | 'createdAt' | 'status' | 'category' | 'links'> & {
+    status?: TaskStatus;
+    category?: TaskCategory;
+    links?: string[];
+  };
 
 type WithSubtaskDrafts<T extends BaseTask & { subtasks: Subtask[] }> =
   Omit<Draft<T>, 'subtasks'> & { subtasks?: SubtaskDraft[] };

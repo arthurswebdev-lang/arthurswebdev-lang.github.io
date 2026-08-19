@@ -1,3 +1,4 @@
+import type { TaskCategory } from '../enum/task-category.enum.js';
 import type { TaskFilter } from '../enum/task-filter.enum.js';
 import { TaskStatus } from '../enum/task-status.enum.js';
 import { filterTasks, isEventTask } from '../filters/tasks.filters.js';
@@ -28,8 +29,12 @@ export class TasksService implements ITasksService {
    * pipeline. `passed` alone could move into Mongo if the collection ever grows
    * enough to care.
    */
-  async listAll(filter?: TaskFilter): Promise<Task[]> {
-    const tasks = await this.tasksRepository.list();
+  async listAll(filter?: TaskFilter, category?: TaskCategory): Promise<Task[]> {
+    // Category is plain equality, so the database does it; the time filter is
+    // the rule set in tasks.filters.ts and stays here where it can be read.
+    const tasks = category === undefined
+      ? await this.tasksRepository.list()
+      : await this.tasksRepository.listBy({ category });
 
     return filterTasks(tasks, filter, this.now());
   }

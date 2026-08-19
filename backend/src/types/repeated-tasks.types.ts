@@ -1,3 +1,4 @@
+import type { TaskCategory } from '../enum/task-category.enum.js';
 import type { TaskType } from '../enum/task-type.enum.js';
 
 /**
@@ -11,12 +12,20 @@ export interface TimeOfDay {
   minute: number;
 }
 
-/** What every config carries, whichever schedule it describes. */
+/**
+ * What every config carries, whichever schedule it describes.
+ *
+ * Category and links sit here as well as on tasks because a generated event
+ * inherits both: a weekly standup needs its call link on every occurrence, and
+ * a generated event cannot be edited to add one.
+ */
 export interface BaseRepeatedTask {
   id: string;
   type: TaskType;
   name: string;
   createdAt: Date;
+  category: TaskCategory;
+  links: string[];
 }
 
 export interface DailyTask extends BaseRepeatedTask {
@@ -46,7 +55,11 @@ export interface MonthlyTask extends BaseRepeatedTask {
 export type RepeatedTask = DailyTask | WeeklyTask | MonthlyTask;
 
 /** A config as the client sends it: the server owns `id` and `createdAt`. */
-export type RepeatedDraft<T extends BaseRepeatedTask> = Omit<T, 'id' | 'createdAt'>;
+export type RepeatedDraft<T extends BaseRepeatedTask> =
+  Omit<T, 'id' | 'createdAt' | 'category' | 'links'> & {
+    category?: TaskCategory;
+    links?: string[];
+  };
 
 export type CreateDailyTask = RepeatedDraft<DailyTask>;
 export type CreateWeeklyTask = RepeatedDraft<WeeklyTask>;

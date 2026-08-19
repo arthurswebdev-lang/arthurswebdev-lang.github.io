@@ -1,4 +1,5 @@
 import { ActiveLogic } from '../../src/enum/active-logic.enum.js';
+import { TaskCategory } from '../../src/enum/task-category.enum.js';
 import { TaskStatus } from '../../src/enum/task-status.enum.js';
 import { TaskType } from '../../src/enum/task-type.enum.js';
 import type { BasicTask, EventTask } from '../../src/types/tasks.types.js';
@@ -26,6 +27,8 @@ export function anEvent(
     status: TaskStatus.TODO,
     name,
     createdAt: CREATED_AT,
+    category: TaskCategory.OTHER,
+    links: [],
     subtasks: [],
     date: utc(date),
     activeLogic,
@@ -62,17 +65,26 @@ export function aBasicTask(name: string): BasicTask {
     status: TaskStatus.TODO,
     name,
     createdAt: CREATED_AT,
+    category: TaskCategory.OTHER,
+    links: [],
     subtasks: [],
   };
 }
 
-export function aWeeklyConfig(name: string, weekdays: number[]): WeeklyTask {
+export function aWeeklyConfig(
+  name: string,
+  weekdays: number[],
+  overrides: Partial<WeeklyTask> = {},
+): WeeklyTask {
   return {
     id: `config-${name}`,
     type: TaskType.REPEATED_WEEKLY,
     name,
     createdAt: CREATED_AT,
+    category: TaskCategory.OTHER,
+    links: [],
     weekdays,
+    ...overrides,
   };
 }
 
@@ -92,6 +104,8 @@ export function aDailyConfig(
     type: TaskType.REPEATED_DAILY,
     name,
     createdAt: CREATED_AT,
+    category: TaskCategory.OTHER,
+    links: [],
     startsAt: timeOfDay(schedule.startsAt),
     endsAt: timeOfDay(schedule.endsAt),
     repeatEach: timeOfDay(schedule.repeatEach),
@@ -107,6 +121,8 @@ export function aMonthlyConfig(
     type: TaskType.REPEATED_MONTHLY,
     name,
     createdAt: CREATED_AT,
+    category: TaskCategory.OTHER,
+    links: [],
     ...schedule,
   };
 }

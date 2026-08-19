@@ -1,5 +1,6 @@
 import type { NextFunction, Response } from 'express';
 
+import type { TaskCategory } from '../enum/task-category.enum.js';
 import type { TaskFilter } from '../enum/task-filter.enum.js';
 import type { TaskStatus } from '../enum/task-status.enum.js';
 import type { ITasksService } from '../interfaces/tasks-service.interface.js';
@@ -17,6 +18,7 @@ interface UpdateTaskStatus {
 /** Query accepted by `GET /tasks`, after validation has narrowed it. */
 interface ListTasksQuery {
   filter?: TaskFilter;
+  category?: TaskCategory;
 }
 
 export class TasksController {
@@ -28,7 +30,10 @@ export class TasksController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const tasks: Task[] = await this.tasksService.listAll(request.query.filter);
+      const tasks: Task[] = await this.tasksService.listAll(
+        request.query.filter,
+        request.query.category,
+      );
       SuccessHandlerUtil.handleList(response, next, tasks);
     } catch (error) {
       next(error);

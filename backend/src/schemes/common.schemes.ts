@@ -1,6 +1,7 @@
 import Joi from 'joi';
 
 import { ActiveLogic } from '../enum/active-logic.enum.js';
+import { TaskCategory } from '../enum/task-category.enum.js';
 import { TaskStatus } from '../enum/task-status.enum.js';
 import type { TaskType } from '../enum/task-type.enum.js';
 import type { SubtaskDraft } from '../types/tasks.types.js';
@@ -10,6 +11,9 @@ import { ID, JoiObject, varchar } from '../middlewares/validation/util/validatio
 /** Active logic given to an event the client created directly. */
 export const DEFAULT_EVENT_ACTIVE_LOGIC = ActiveLogic.NEXT_30_DAYS;
 
+/** http(s) only: these get opened, so a javascript: or file: URL has no place. */
+const link = Joi.string().uri({ scheme: ['http', 'https'] }).max(2048);
+
 export const TimeOfDaySchema = JoiObject<TimeOfDay>({
   hour: Joi.number().integer().min(0).max(23).required(),
   minute: Joi.number().integer().min(0).max(59).required(),
@@ -18,6 +22,7 @@ export const TimeOfDaySchema = JoiObject<TimeOfDay>({
 export const SubtaskSchema = JoiObject<SubtaskDraft>({
   name: varchar(1, 255).required(),
   status: Joi.string().valid(TaskStatus.DONE, TaskStatus.TODO).default(TaskStatus.TODO),
+  link,
 });
 
 /**
@@ -27,6 +32,9 @@ export const SubtaskSchema = JoiObject<SubtaskDraft>({
  */
 export const fields = {
   name: varchar(1, 255),
+  category: Joi.string().valid(...Object.values(TaskCategory)),
+  link,
+  links: Joi.array().items(link).max(20).unique(),
   status: Joi.string().valid(...Object.values(TaskStatus)),
   subtasks: Joi.array().items(SubtaskSchema),
   date: Joi.date().iso(),

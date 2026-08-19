@@ -2,6 +2,7 @@ import Joi from 'joi';
 
 import { TaskFilter } from '../enum/task-filter.enum.js';
 import { TaskStatus } from '../enum/task-status.enum.js';
+import { TaskCategory } from '../enum/task-category.enum.js';
 import { TaskType } from '../enum/task-type.enum.js';
 import type { CreateBasicTask, CreateEventTask } from '../types/tasks.types.js';
 import { JoiObject } from '../middlewares/validation/util/validation.util.js';
@@ -12,6 +13,8 @@ import {
 export const CreateBasicTaskSchema = JoiObject<CreateBasicTask>({
   type: typeOf(TaskType.BASIC),
   name: fields.name.required(),
+  category: fields.category.default(TaskCategory.OTHER),
+  links: fields.links.default([]),
   status: fields.status.default(TaskStatus.TODO),
   subtasks: fields.subtasks.default([]),
 });
@@ -19,6 +22,8 @@ export const CreateBasicTaskSchema = JoiObject<CreateBasicTask>({
 export const CreateEventTaskSchema = JoiObject<CreateEventTask>({
   type: typeOf(TaskType.EVENT),
   name: fields.name.required(),
+  category: fields.category.default(TaskCategory.OTHER),
+  links: fields.links.default([]),
   status: fields.status.default(TaskStatus.TODO),
   subtasks: fields.subtasks.default([]),
   date: fields.date.required(),
@@ -51,6 +56,7 @@ export const UpdateTaskStatusSchema = Joi.object({
 
 export const ListTasksQuerySchema = Joi.object({
   filter: Joi.string().valid(...Object.values(TaskFilter)),
+  category: fields.category,
 });
 
 export { TaskIdInParams } from './common.schemes.js';

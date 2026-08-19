@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
+import { TaskCategory } from '../enum/task-category.enum.js';
+
 import type { Db } from 'mongodb';
 
 import type { IRepeatedTasksRepository } from '../interfaces/repeated-tasks-repository.interface.js';
@@ -23,7 +25,13 @@ export class RepeatedTasksRepository
   }
 
   protected toEntity(input: CreateRepeatedTask): RepeatedTask {
-    return { ...input, id: randomUUID(), createdAt: new Date() };
+    return {
+      ...input,
+      id: randomUUID(),
+      createdAt: new Date(),
+      category: input.category ?? TaskCategory.OTHER,
+      links: input.links ?? [],
+    };
   }
 
   /** PUT replaces the config outright; only id and createdAt survive. */

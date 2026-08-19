@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { Db, Filter } from 'mongodb';
 
+import { TaskCategory } from '../enum/task-category.enum.js';
 import { TaskStatus } from '../enum/task-status.enum.js';
 import { TaskType } from '../enum/task-type.enum.js';
 import { activeLogicForRepeatedTask } from '../filters/tasks.filters.js';
@@ -32,11 +33,13 @@ export class TasksRepository
    */
   async ensureIndexes(): Promise<void> {
     await this.collection.createIndex({ configTaskId: 1 });
+    await this.collection.createIndex({ category: 1 });
     await this.collection.createIndex({ type: 1, date: 1 });
   }
 
   async listBy(query: TaskQuery): Promise<Task[]> {
     const filter: Record<string, unknown> = {};
+    if (query.category !== undefined) filter['category'] = query.category;
     if (query.type !== undefined) filter['type'] = query.type;
     if (query.status !== undefined) filter['status'] = query.status;
     // Anchored to nothing, so it matches anywhere in the name; `i` for case.
@@ -59,6 +62,10 @@ export class TasksRepository
       status: TaskStatus.TODO,
       name: config.name,
       createdAt: new Date(),
+      // Inherited: a generated event cannot be edited, so whatever it needs to
+      // be useful has to come from the config.
+      category: config.category,
+      links: [...config.links],
       subtasks: [],
       date,
       activeLogic: activeLogicForRepeatedTask(config),
@@ -106,6 +113,8 @@ export class TasksRepository
       id: randomUUID(),
       createdAt: new Date(),
       status: input.status ?? TaskStatus.TODO,
+      category: input.category ?? TaskCategory.OTHER,
+      links: input.links ?? [],
     };
 
     switch (input.type) {

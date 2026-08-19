@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
+import { TaskCategory } from '../../src/enum/task-category.enum.js';
+
 import type {
   IRepeatedTasksRepository,
 } from '../../src/interfaces/repeated-tasks-repository.interface.js';
@@ -18,7 +20,13 @@ export class InMemoryRepeatedTasksRepository implements IRepeatedTasksRepository
   }
 
   create(input: CreateRepeatedTask): Promise<RepeatedTask> {
-    const config = { ...input, id: randomUUID(), createdAt: new Date() };
+    const config: RepeatedTask = {
+      ...input,
+      id: randomUUID(),
+      createdAt: new Date(),
+      category: input.category ?? TaskCategory.OTHER,
+      links: input.links ?? [],
+    };
 
     this.configs.push(config);
 

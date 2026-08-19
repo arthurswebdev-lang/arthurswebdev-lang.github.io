@@ -1,3 +1,4 @@
+import type { TaskCategory } from '../enum/task-category.enum.js';
 import type { TaskFilter } from '../enum/task-filter.enum.js';
 import type { TaskStatus } from '../enum/task-status.enum.js';
 import type { CreateTask, Task, UpdateTask } from '../types/tasks.types.js';
@@ -7,7 +8,7 @@ export interface ITasksService {
    * Stored tasks, in insertion order. With a filter, only the events in that
    * state; without one, everything including basic tasks.
    */
-  listAll(filter?: TaskFilter): Promise<Task[]>;
+  listAll(filter?: TaskFilter, category?: TaskCategory): Promise<Task[]>;
 
   /** The task with this id, or `null` when nothing matches. */
   getById(id: string): Promise<Task | null>;
