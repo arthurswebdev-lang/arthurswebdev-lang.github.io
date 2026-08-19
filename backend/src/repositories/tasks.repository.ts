@@ -102,6 +102,25 @@ export class TasksRepository
     return updated === null ? null : this.toDomain(updated);
   }
 
+  /**
+   * A positional update, so only the one subtask's status is written: reading
+   * the task, editing the array and writing it back would clobber a change
+   * made in between, and would regenerate nothing else by accident.
+   */
+  async updateSubtaskStatus(
+    taskId: string,
+    subtaskId: string,
+    status: TaskStatus.DONE | TaskStatus.TODO,
+  ): Promise<Task | null> {
+    const updated = await this.collection.findOneAndUpdate(
+      { _id: taskId, 'subtasks.id': subtaskId },
+      { $set: { 'subtasks.$.status': status } },
+      { returnDocument: 'after' },
+    );
+
+    return updated === null ? null : this.toDomain(updated);
+  }
+
   async markEventPassed(eventId: string, passedAt: Date): Promise<EventTask | null> {
     const updated = await this.collection.findOneAndUpdate(
       { _id: eventId, type: TaskType.EVENT },

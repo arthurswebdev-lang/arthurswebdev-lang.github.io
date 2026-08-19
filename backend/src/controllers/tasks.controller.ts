@@ -11,6 +11,14 @@ import type {
 import { currentUserId } from '../middlewares/auth.middleware.js';
 import * as SuccessHandlerUtil from '../utils/success-handler.util.js';
 
+/** Route params for the subtask endpoint. */
+type SubtaskIdParams = Record<'id' | 'subtaskId', string>;
+
+/** Body accepted by `PATCH /tasks/:id/subtasks/:subtaskId/status`. */
+interface UpdateSubtaskStatus {
+  status: TaskStatus.DONE | TaskStatus.TODO;
+}
+
 /** Body accepted by `PATCH /tasks/:id/status`. */
 interface UpdateTaskStatus {
   status: TaskStatus;
@@ -94,6 +102,24 @@ export class TasksController {
       const task: Task = await this.tasksService.updateStatus(
         request.params.id,
         currentUserId(response),
+        request.body.status,
+      );
+      SuccessHandlerUtil.handleUpdate(response, next, task);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateSubtaskStatus(
+    request: BodyRequest<UpdateSubtaskStatus, SubtaskIdParams>,
+    response: Response<Task>,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const task: Task = await this.tasksService.updateSubtaskStatus(
+        request.params.id,
+        currentUserId(response),
+        request.params.subtaskId,
         request.body.status,
       );
       SuccessHandlerUtil.handleUpdate(response, next, task);

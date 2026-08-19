@@ -5,7 +5,7 @@ import { TaskStatus } from '../enum/task-status.enum.js';
 import { TaskCategory } from '../enum/task-category.enum.js';
 import { TaskType } from '../enum/task-type.enum.js';
 import type { CreateBasicTask, CreateEventTask } from '../types/tasks.types.js';
-import { JoiObject } from '../middlewares/validation/util/validation.util.js';
+import { ID, JoiObject } from '../middlewares/validation/util/validation.util.js';
 import {
   byType, DEFAULT_EVENT_ACTIVE_LOGIC, fields, typeOf,
 } from './common.schemes.js';
@@ -49,6 +49,17 @@ export const UpdateTaskSchema = CreateTaskSchema;
  * does nothing. Pagination and the type/status/search narrowing exist on the
  * repository (`listBy`) and can be added here when they are wired up.
  */
+/** Params for the subtask route: both ids, both uuids. */
+export const SubtaskIdInParams = Joi.object({
+  id: ID.required(),
+  subtaskId: ID.required(),
+});
+
+/** A step is atomic, so it is only ever done or not. */
+export const UpdateSubtaskStatusSchema = Joi.object({
+  status: Joi.string().valid(TaskStatus.DONE, TaskStatus.TODO).required(),
+});
+
 /** Body for `PATCH /tasks/:id/status` — the one field, and nothing else. */
 export const UpdateTaskStatusSchema = Joi.object({
   status: fields.status.required(),

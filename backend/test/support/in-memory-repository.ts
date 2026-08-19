@@ -102,6 +102,24 @@ export class InMemoryTasksRepository implements ITasksRepository {
     return Promise.resolve(updated);
   }
 
+  updateSubtaskStatus(
+    taskId: string,
+    subtaskId: string,
+    status: TaskStatus.DONE | TaskStatus.TODO,
+  ): Promise<Task | null> {
+    const index = this.tasks.findIndex((task) => task.id === taskId);
+    const found = this.tasks[index];
+    if (found === undefined || !('subtasks' in found)) return Promise.resolve(null);
+
+    const subtasks = found.subtasks.map((sub) => (sub.id === subtaskId ? { ...sub, status } : sub));
+    if (subtasks.every((sub, i) => sub === found.subtasks[i])) return Promise.resolve(null);
+
+    const updated = { ...found, subtasks };
+    this.tasks[index] = updated;
+
+    return Promise.resolve(updated);
+  }
+
   markEventPassed(eventId: string, passedAt: Date): Promise<EventTask | null> {
     const index = this.tasks.findIndex((task) => task.id === eventId);
     const found = this.tasks[index];

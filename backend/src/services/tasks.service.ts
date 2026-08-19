@@ -73,6 +73,25 @@ export class TasksService implements ITasksService {
     return updated;
   }
 
+  /**
+   * Steps move on a generated event too: the config owns the name, date and
+   * schedule, but whether a step is done is the user's, same as the task's own
+   * status.
+   */
+  async updateSubtaskStatus(
+    taskId: string,
+    userId: string,
+    subtaskId: string,
+    status: TaskStatus.DONE | TaskStatus.TODO,
+  ): Promise<Task> {
+    await this.ownedOrMissing(taskId, userId);
+
+    const updated = await this.tasksRepository.updateSubtaskStatus(taskId, subtaskId, status);
+    if (updated === null) throw new ResourceNotFoundError(`No step with id ${subtaskId}.`);
+
+    return updated;
+  }
+
   async updateById(id: string, userId: string, changes: UpdateTask): Promise<Task> {
     // Read before writing: what a client may change depends on what is stored —
     // a generated event takes status changes only.

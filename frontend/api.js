@@ -80,3 +80,29 @@ export function fetchTasks(token, { filter, category } = {}) {
 }
 
 export const fetchRepeatedTasks = (token) => get("/repeated-tasks", token);
+
+/* --- writes --------------------------------------------------------------- */
+
+async function send(method, path, token, body) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: {
+      Authorization: `Basic ${token}`,
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+
+  if (response.status === 401) throw new Error("UNAUTHORIZED");
+  if (!response.ok) throw new Error(`Request failed (${String(response.status)})`);
+
+  return response.status === 204 ? null : response.json();
+}
+
+export const setTaskStatus = (token, id, status) =>
+  send("PATCH", `/tasks/${id}/status`, token, { status });
+
+export const setStepStatus = (token, taskId, stepId, status) =>
+  send("PATCH", `/tasks/${taskId}/subtasks/${stepId}/status`, token, { status });
+
+export const deleteTask = (token, id) => send("DELETE", `/tasks/${id}`, token);

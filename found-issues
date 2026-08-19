@@ -1,0 +1,5 @@
+1. when selected concrete category use that as default in create task forms
+2. center 'v' symbol for steps
+3. when open application sometimes it doesn't load anything, I need reset it again and it works
+4. first call is too slow, do we have iterative await calls?
+5.  

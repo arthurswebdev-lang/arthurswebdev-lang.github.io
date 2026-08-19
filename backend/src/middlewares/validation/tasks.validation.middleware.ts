@@ -5,6 +5,8 @@ import {
   ListTasksQuerySchema,
   TaskIdInParams,
   UpdateTaskSchema,
+  SubtaskIdInParams,
+  UpdateSubtaskStatusSchema,
   UpdateTaskStatusSchema,
 } from '../../schemes/tasks.schemes.js';
 import { validate, validateQuery } from './util/validation.util.js';
@@ -59,6 +61,20 @@ export function validateUpdateStatus(
   try {
     validate(TaskIdInParams, request.params);
     validate(UpdateTaskStatusSchema, request.body as object);
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function validateUpdateSubtaskStatus(
+  request: Request,
+  _response: Response,
+  next: NextFunction,
+): void {
+  try {
+    validate(SubtaskIdInParams, request.params);
+    validate(UpdateSubtaskStatusSchema, request.body as object);
     next();
   } catch (error) {
     next(error);

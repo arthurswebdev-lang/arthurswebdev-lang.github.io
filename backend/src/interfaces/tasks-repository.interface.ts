@@ -42,6 +42,16 @@ export interface ITasksRepository extends IBaseRepository<Task, CreateTask, Upda
   /** Sets just the status; returns null if the id is unknown. */
   updateStatus(id: string, status: TaskStatus): Promise<Task | null>;
 
+  /**
+   * Sets the status of one subtask. Returns null when the task or the subtask
+   * is unknown — the two are indistinguishable to a caller, and should be.
+   */
+  updateSubtaskStatus(
+    taskId: string,
+    subtaskId: string,
+    status: TaskStatus.DONE | TaskStatus.TODO,
+  ): Promise<Task | null>;
+
   /** Stamps `passedDate`; returns null if the id is unknown. */
   markEventPassed(eventId: string, passedAt: Date): Promise<EventTask | null>;
 }

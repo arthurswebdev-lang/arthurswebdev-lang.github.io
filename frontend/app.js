@@ -9,7 +9,8 @@
    category they belong to; this file asks for a slice and draws it.
 --------------------------------------------------------------------------- */
 import {
-  fetchTasks, forgetCredentials, readCredentials, saveCredentials,
+  deleteTask, fetchTasks, forgetCredentials, readCredentials, saveCredentials,
+  setStepStatus, setTaskStatus,
 } from './api.js';
 
 /**
@@ -383,24 +384,54 @@ function render() {
 
 /* --- local-only actions (no write endpoints wired yet) -------------------- */
 
-function toggleDone(task) {
-  task.status = task.status === 'DONE' ? 'TODO' : 'DONE';
-  announcer.textContent = `${task.name} marked ${task.status === 'DONE' ? 'done' : 'not done'} (not saved yet)`;
+/**
+ * Draw the change straight away, then send it. A failure reloads from the
+ * server rather than guessing what the truth is.
+ */
+function apply(change, send, describe) {
+  change();
   render();
+
+  void send().then(
+    () => { announcer.textContent = describe; },
+    (error) => {
+      if (error.message === 'UNAUTHORIZED') return load();
+      announcer.textContent = 'That did not save — reloading';
+
+      return load();
+    },
+  );
+}
+
+function toggleDone(task) {
+  const status = task.status === 'DONE' ? 'TODO' : 'DONE';
+
+  apply(
+    () => { task.status = status; },
+    () => setTaskStatus(credentials.token, task.id, status),
+    `${task.name} marked ${status === 'DONE' ? 'done' : 'not done'}`,
+  );
 }
 
 function toggleStep(task, step) {
-  step.status = step.status === 'DONE' ? 'TODO' : 'DONE';
-  announcer.textContent = `${step.name} ${step.status === 'DONE' ? 'done' : 'not done'}`
-    + ` — ${String(stepPercent(task))}% of ${task.name} (not saved yet)`;
-  render();
+  const status = step.status === 'DONE' ? 'TODO' : 'DONE';
+
+  apply(
+    () => { step.status = status; },
+    () => setStepStatus(credentials.token, task.id, step.id, status),
+    `${step.name} ${status === 'DONE' ? 'done' : 'not done'} — ${String(stepPercent(task))}% of ${task.name}`,
+  );
 }
 
 function remove(task) {
-  const index = tasks.indexOf(task);
-  if (index !== -1) tasks.splice(index, 1);
-  announcer.textContent = `${task.name} removed from the list (not saved yet)`;
-  render();
+  apply(
+    () => {
+      const index = tasks.indexOf(task);
+      if (index !== -1) tasks.splice(index, 1);
+    },
+    () => deleteTask(credentials.token, task.id),
+    `${task.name} deleted`,
+  );
 }
 
 /* --- loading -------------------------------------------------------------- */

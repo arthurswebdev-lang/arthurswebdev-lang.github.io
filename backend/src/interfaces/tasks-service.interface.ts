@@ -29,6 +29,14 @@ export interface ITasksService {
   /** Changes only the status; throws when the id is unknown. */
   updateStatus(id: string, userId: string, status: TaskStatus): Promise<Task>;
 
+  /** Ticks one step of a task off, or back on. */
+  updateSubtaskStatus(
+    taskId: string,
+    userId: string,
+    subtaskId: string,
+    status: TaskStatus.DONE | TaskStatus.TODO,
+  ): Promise<Task>;
+
   /** Applies `changes` to the stored task; throws when the id is unknown. */
   updateById(id: string, userId: string, changes: UpdateTask): Promise<Task>;
 

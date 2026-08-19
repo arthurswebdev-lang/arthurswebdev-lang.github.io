@@ -8,6 +8,7 @@ import {
   validateList,
   validateUpdate,
   validateUpdateStatus,
+  validateUpdateSubtaskStatus,
 } from '../middlewares/validation/tasks.validation.middleware.js';
 
 export class TasksRoutes {
@@ -35,6 +36,11 @@ export class TasksRoutes {
       '/tasks/:id/status',
       validateUpdateStatus,
       controller.updateStatus.bind(controller),
+    );
+    this.router.patch(
+      '/tasks/:id/subtasks/:subtaskId/status',
+      validateUpdateSubtaskStatus,
+      controller.updateSubtaskStatus.bind(controller),
     );
     this.router.delete('/tasks/:id', validateDeleteById, controller.deleteById.bind(controller));
 
