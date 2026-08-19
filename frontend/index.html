@@ -36,6 +36,7 @@
           <button type="button" class="menu__toggle" id="options"
                   aria-haspopup="true" aria-expanded="false" aria-label="Options">⌄</button>
           <div class="menu__panel" id="menu-panel" hidden>
+            <button type="button" class="menu__item" id="show-repeats">Repeats</button>
             <button type="button" class="menu__item" id="signout">Sign out</button>
           </div>
         </div>
@@ -92,9 +93,21 @@
     </label>
 
     <div class="composer__actions">
-      <button type="submit" class="btn btn--primary" value="signin">Use these</button>
+      <button type="button" class="btn" id="signup">Create account</button>
+      <button type="submit" class="btn btn--primary" value="signin">Sign in</button>
     </div>
   </form>
+</dialog>
+
+<dialog class="composer" id="repeats">
+  <header class="wizard__bar">
+    <h2 class="composer__title">Repeats</h2>
+    <button type="button" class="wizard__back" id="repeats-close" aria-label="Close">✕</button>
+  </header>
+  <p class="composer__note">
+    Each one keeps a single event waiting in the list. Deleting a repeat removes the events it made.
+  </p>
+  <div id="repeats-list"></div>
 </dialog>
 
 <dialog class="composer" id="composer">

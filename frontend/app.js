@@ -9,8 +9,9 @@
    category they belong to; this file asks for a slice and draws it.
 --------------------------------------------------------------------------- */
 import {
-  deleteTask, fetchTasks, forgetCredentials, readCredentials, saveCredentials,
-  setStepStatus, setTaskStatus,
+  createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTasks,
+  fetchTasks, forgetCredentials, readCredentials, saveCredentials, setStepStatus,
+  setTaskStatus, signUp,
 } from './api.js';
 
 /**
@@ -516,6 +517,66 @@ async function signOut() {
   await askForCredentials();
 }
 
+/* --- repeats, which are otherwise only visible through their events ------- */
+
+const repeatsDialog = document.getElementById('repeats');
+const repeatsList = document.getElementById('repeats-list');
+
+const SCHEDULE_LABEL = {
+  DAILY: (config) => `every ${String(config.repeatEach.hour)}h${config.repeatEach.minute
+    ? String(config.repeatEach.minute) : ''}, ${String(config.startsAt.hour)}:00–${String(config.endsAt.hour)}:00`,
+  REPEATED_WEEKLY: (config) => `weekdays ${config.weekdays.join(', ')}`,
+  REPEATED_MONTHLY: (config) => `day ${String(config.fromDay)} of months ${config.months.join(', ')}`,
+};
+
+function repeatRow(config) {
+  const row = document.createElement('div');
+  row.className = 'row repeat';
+
+  const text = document.createElement('span');
+  text.className = 'repeat__text';
+  const describe = SCHEDULE_LABEL[config.type];
+  text.textContent = `${categoryOf(config.category).icon} ${config.name} — ${describe(config)}`;
+
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'row__remove';
+  remove.textContent = '🗑';
+  remove.setAttribute('aria-label', `Delete the ${config.name} repeat`);
+  remove.addEventListener('click', () => {
+    void deleteRepeatedTask(credentials.token, config.id).then(() => {
+      announcer.textContent = `${config.name} repeat deleted`;
+
+      return Promise.all([openRepeats(), load()]);
+    });
+  });
+
+  row.append(text, remove);
+
+  return row;
+}
+
+async function openRepeats() {
+  repeatsList.replaceChildren(message('⏳', 'Loading…'));
+  if (!repeatsDialog.open) repeatsDialog.showModal();
+
+  try {
+    const configs = await fetchRepeatedTasks(credentials.token);
+    repeatsList.replaceChildren(...(configs.length === 0
+      ? [message('🔁', 'No repeats yet. Add one with +, choosing "Repeats".')]
+      : configs.map(repeatRow)));
+  } catch {
+    repeatsList.replaceChildren(message('⚠️', 'Could not load them.'));
+  }
+}
+
+document.getElementById('show-repeats').addEventListener('click', () => {
+  closeMenu();
+  void openRepeats();
+});
+
+document.getElementById('repeats-close').addEventListener('click', () => { repeatsDialog.close(); });
+
 /* --- credentials ---------------------------------------------------------- */
 
 const signIn = document.getElementById('signin');
@@ -531,6 +592,34 @@ function askForCredentials(note) {
 
   return new Promise((resolve) => { signIn.addEventListener('close', resolve, { once: true }); });
 }
+
+document.getElementById('signup').addEventListener('click', () => {
+  const data = new FormData(signInForm);
+  const username = String(data.get('username')).trim();
+  const password = String(data.get('password'));
+  if (username === '' || password === '') {
+    signInNote.textContent = 'Fill both fields first.';
+    signInNote.classList.add('composer__note--error');
+
+    return;
+  }
+
+  void signUp(username, password).then(
+    () => saveCredentials(username, password).then((saved) => {
+      credentials = saved;
+      showWho();
+      signIn.close();
+
+      return load();
+    }),
+    (error) => {
+      signInNote.textContent = error.message === 'TAKEN'
+        ? 'That username is taken. Sign in instead, or pick another.'
+        : error.message;
+      signInNote.classList.add('composer__note--error');
+    },
+  );
+});
 
 signInForm.addEventListener('submit', () => {
   const data = new FormData(signInForm);
@@ -774,30 +863,31 @@ function draftPayload(data) {
 }
 
 composerForm.addEventListener('submit', () => {
-  const data = new FormData(composerForm);
-  const payload = draftPayload(data);
+  const payload = draftPayload(new FormData(composerForm));
   if (payload.name === '') return;
 
-  if (draft.kind === 'REPEATED') {
-    // A config produces events on the server; there is nothing sensible to
-    // show locally until the write endpoint is wired.
-    announcer.textContent = `${payload.name} repeat ready to send (not saved yet)`;
-    render();
+  // A repeat is a config: the server makes the event, so reload rather than
+  // guessing what it produced.
+  const send = draft.kind === 'REPEATED'
+    ? () => createRepeatedTask(credentials.token, payload)
+    : () => createTask(credentials.token, payload);
 
-    return;
-  }
-
-  tasks.unshift({
-    id: `local-${String(Date.now())}`,
-    links: [],
-    subtasks: [],
-    ...payload,
-    status: 'TODO',
-    configTaskId: null,
-  });
-
-  announcer.textContent = `${payload.name} added to the list (not saved yet)`;
+  status = 'loading';
   render();
+
+  void send().then(
+    () => {
+      announcer.textContent = `${payload.name} added`;
+
+      return load();
+    },
+    (error) => {
+      if (error.message === 'UNAUTHORIZED') return load();
+      announcer.textContent = `Could not add ${payload.name}: ${error.message}`;
+
+      return load();
+    },
+  );
 });
 
 /* --- start ---------------------------------------------------------------- */

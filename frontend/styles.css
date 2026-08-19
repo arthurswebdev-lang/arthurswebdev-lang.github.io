@@ -818,3 +818,13 @@ select.field__input { appearance: none; background-image: none; }
 .step__link:hover { background: var(--surface-sunk); color: var(--ink); }
 
 .step__link:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
+
+/* --- repeats list --------------------------------------------------------- */
+.repeat {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.repeat:last-child { border-bottom: none; }
+
+.repeat__text { flex: 1; min-width: 0; font-size: 0.85rem; overflow-wrap: anywhere; }

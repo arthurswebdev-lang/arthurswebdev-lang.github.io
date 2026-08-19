@@ -62,9 +62,6 @@ async function get(path, token) {
   return response.json();
 }
 
-/** Confirms the stored credentials still work. */
-export const fetchMe = (token) => get("/me", token);
-
 /**
  * Tasks, optionally narrowed. The server applies both filters, so the client
  * does not repeat the rules — it just asks.
@@ -98,6 +95,30 @@ async function send(method, path, token, body) {
 
   return response.status === 204 ? null : response.json();
 }
+
+/** Signup is the one call that carries no credentials — it creates them. */
+export async function signUp(username, password) {
+  const response = await fetch(`${API_BASE}/users`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+
+  if (response.status === 409) throw new Error("TAKEN");
+  if (!response.ok) {
+    const problem = await response.json().catch(() => null);
+    throw new Error(problem?.message ?? `Sign up failed (${String(response.status)})`);
+  }
+
+  return response.json();
+}
+
+export const createTask = (token, payload) => send("POST", "/tasks", token, payload);
+
+export const createRepeatedTask = (token, payload) =>
+  send("POST", "/repeated-tasks", token, payload);
+
+export const deleteRepeatedTask = (token, id) => send("DELETE", `/repeated-tasks/${id}`, token);
 
 export const setTaskStatus = (token, id, status) =>
   send("PATCH", `/tasks/${id}/status`, token, { status });
