@@ -269,7 +269,15 @@ function taskItem(task) {
     meta.append(chip(overdue ? `Missed · ${whenLabel(task)}` : whenLabel(task), modifier));
   }
 
-  if (task.repeat) meta.append(chip(`🔁 ${task.repeat}`, "repeat"));
+  if (task.repeat) {
+    // The icon alone carries "this one repeats"; the schedule itself belongs to
+    // the config, not to every card. Kept on the element for hover and screen
+    // readers, where it costs no space.
+    const repeat = chip("🔁", "repeat");
+    repeat.title = `Repeats: ${task.repeat}`;
+    repeat.setAttribute("aria-label", `Repeats: ${task.repeat}`);
+    meta.append(repeat);
+  }
   if (task.subtasks.length > 0) meta.append(chip(subtaskLabel(task)));
   if (!hasDate(task)) meta.append(chip("No date"));
 

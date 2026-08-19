@@ -328,7 +328,12 @@ body {
 .chip--overdue { background: var(--overdue-bg); color: var(--overdue-ink); font-weight: 700; }
 .chip--upcoming { background: var(--upcoming-bg); color: var(--upcoming-ink); }
 .chip--done { background: var(--done-bg); color: var(--done-ink); }
-.chip--repeat { border: 1px dashed var(--line-strong); background: transparent; }
+.chip--repeat {
+  padding: 0.15rem 0.4rem;
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+  font-size: 0.8rem;
+}
 
 .task__actions { display: flex; gap: 0.25rem; }
 
