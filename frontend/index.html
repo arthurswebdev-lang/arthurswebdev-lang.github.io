@@ -87,24 +87,117 @@
 </dialog>
 
 <dialog class="composer" id="composer">
-  <form method="dialog" id="composer-form">
-    <h2 class="composer__title">New task</h2>
+  <div class="wizard">
+    <header class="wizard__bar">
+      <button type="button" class="wizard__back" id="wizard-back" aria-label="Back">←</button>
+      <h2 class="composer__title" id="wizard-title">New task</h2>
+      <button type="button" class="wizard__back" id="wizard-close" aria-label="Close">✕</button>
+    </header>
 
-    <label class="field">
-      <span class="field__label">What needs doing</span>
-      <input class="field__input" name="name" required maxlength="255" placeholder="Water the plants" autocomplete="off">
-    </label>
+    <p class="wizard__steps" id="wizard-steps" aria-live="polite"></p>
 
-    <label class="field">
-      <span class="field__label">When (optional)</span>
-      <input class="field__input" name="date" type="datetime-local">
-    </label>
+    <!-- Step 1: what kind of thing is this? -->
+    <section class="wizard__step" data-step="kind">
+      <div class="choices">
+        <button type="button" class="choice" data-kind="BASIC">
+          <span class="choice__icon" aria-hidden="true">📋</span>
+          <span class="choice__name">One-time task</span>
+          <span class="choice__hint">Something to do, no particular time</span>
+        </button>
+        <button type="button" class="choice" data-kind="EVENT">
+          <span class="choice__icon" aria-hidden="true">📅</span>
+          <span class="choice__name">Event</span>
+          <span class="choice__hint">Happens at a specific date and time</span>
+        </button>
+        <button type="button" class="choice" data-kind="REPEATED">
+          <span class="choice__icon" aria-hidden="true">🔁</span>
+          <span class="choice__name">Repeats</span>
+          <span class="choice__hint">A rule that keeps making events for you</span>
+        </button>
+      </div>
+    </section>
 
-    <div class="composer__actions">
-      <button type="button" class="btn" value="cancel" id="composer-cancel">Cancel</button>
-      <button type="submit" class="btn btn--primary" value="add">Add task</button>
-    </div>
-  </form>
+    <!-- Step 2a: which schedule? (repeats only) -->
+    <section class="wizard__step" data-step="schedule" hidden>
+      <div class="choices">
+        <button type="button" class="choice" data-schedule="DAILY">
+          <span class="choice__icon" aria-hidden="true">☀️</span>
+          <span class="choice__name">Daily</span>
+          <span class="choice__hint">Every so often between two times</span>
+        </button>
+        <button type="button" class="choice" data-schedule="REPEATED_WEEKLY">
+          <span class="choice__icon" aria-hidden="true">🗓️</span>
+          <span class="choice__name">Weekly</span>
+          <span class="choice__hint">On chosen days of the week</span>
+        </button>
+        <button type="button" class="choice" data-schedule="REPEATED_MONTHLY">
+          <span class="choice__icon" aria-hidden="true">🌙</span>
+          <span class="choice__name">Monthly</span>
+          <span class="choice__hint">On a day of chosen months</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Final step: the details for whatever was chosen -->
+    <form class="wizard__step" data-step="details" id="composer-form" method="dialog" hidden>
+      <label class="field">
+        <span class="field__label">Name</span>
+        <input class="field__input" name="name" required maxlength="255" autocomplete="off"
+               placeholder="Drink water">
+      </label>
+
+      <label class="field">
+        <span class="field__label">Category</span>
+        <select class="field__input" name="category" id="composer-category"></select>
+      </label>
+
+      <label class="field" data-for="EVENT" hidden>
+        <span class="field__label">When</span>
+        <input class="field__input" name="date" type="datetime-local">
+      </label>
+
+      <div class="field-row" data-for="DAILY" hidden>
+        <label class="field">
+          <span class="field__label">From</span>
+          <input class="field__input" name="startsAt" type="time" value="09:00">
+        </label>
+        <label class="field">
+          <span class="field__label">Until</span>
+          <input class="field__input" name="endsAt" type="time" value="23:00">
+        </label>
+        <label class="field">
+          <span class="field__label">Every</span>
+          <input class="field__input" name="repeatEach" type="time" value="02:00">
+        </label>
+      </div>
+
+      <fieldset class="field" data-for="REPEATED_WEEKLY" hidden>
+        <legend class="field__label">Days</legend>
+        <div class="toggles" id="weekday-toggles"></div>
+      </fieldset>
+
+      <div data-for="REPEATED_MONTHLY" hidden>
+        <div class="field-row">
+          <label class="field">
+            <span class="field__label">From day</span>
+            <input class="field__input" name="fromDay" type="number" min="1" max="31" value="1">
+          </label>
+          <label class="field">
+            <span class="field__label">To day</span>
+            <input class="field__input" name="toDay" type="number" min="1" max="31" value="5">
+          </label>
+        </div>
+        <fieldset class="field">
+          <legend class="field__label">Months</legend>
+          <div class="toggles" id="month-toggles"></div>
+        </fieldset>
+      </div>
+
+      <div class="composer__actions">
+        <button type="submit" class="btn btn--primary">Add</button>
+      </div>
+    </form>
+  </div>
 </dialog>
 
 <script type="module" src="./app.js"></script>

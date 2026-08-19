@@ -389,37 +389,198 @@ signInForm.addEventListener('submit', () => {
   });
 });
 
-/* --- the add composer stays local, since no write endpoint is wired ------- */
+/* --- the create wizard ---------------------------------------------------- */
+/* Three steps, and the middle one only exists for repeating tasks:
+     1. what kind of thing is this
+     2. repeats -> which schedule; anything else -> straight to the details
+     3. the details for whatever was chosen
+   No write endpoint is wired yet, so finishing adds to the local list and says
+   so rather than pretending it was saved. */
+
+const WEEKDAYS = [
+  { value: 1, label: 'Mo' }, { value: 2, label: 'Tu' }, { value: 3, label: 'We' },
+  { value: 4, label: 'Th' }, { value: 5, label: 'Fr' }, { value: 6, label: 'Sa' },
+  { value: 0, label: 'Su' },
+];
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  .map((label, index) => ({ value: index + 1, label }));
 
 const composer = document.getElementById('composer');
 const composerForm = document.getElementById('composer-form');
+const wizardTitle = document.getElementById('wizard-title');
+const wizardSteps = document.getElementById('wizard-steps');
+const backButton = document.getElementById('wizard-back');
+
+const draft = { kind: null, schedule: null };
+
+const stepPanel = (name) => document.querySelector(`[data-step="${name}"]`);
+
+const TITLES = {
+  kind: 'What are you adding?',
+  schedule: 'How often?',
+  details: 'Details',
+};
+
+function toggleGroup(container, options, selected) {
+  container.replaceChildren(...options.map(({ value, label }) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'toggle';
+    button.textContent = label;
+    button.dataset.value = String(value);
+    button.setAttribute('aria-pressed', String(selected.includes(value)));
+    button.addEventListener('click', () => {
+      const on = button.getAttribute('aria-pressed') === 'true';
+      button.setAttribute('aria-pressed', String(!on));
+    });
+
+    return button;
+  }));
+}
+
+const chosenValues = (container) => [...container.querySelectorAll('[aria-pressed="true"]')]
+  .map((button) => Number(button.dataset.value));
+
+function fillCategories() {
+  const select = document.getElementById('composer-category');
+  select.replaceChildren(...[...Object.entries(CATEGORIES), [OTHER_KEY, OTHER_CATEGORY]]
+    .map(([key, meta]) => {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = `${meta.icon}  ${meta.label}`;
+      if (key === OTHER_KEY) option.selected = true;
+
+      return option;
+    }));
+}
+
+/** Shows one panel, and within the details panel only the relevant fields. */
+function showStep(name) {
+  for (const panel of document.querySelectorAll('.wizard__step')) {
+    panel.hidden = panel.dataset.step !== name;
+  }
+
+  const isFinal = name === 'details';
+  const shownFor = draft.schedule ?? draft.kind;
+  if (isFinal) {
+    for (const field of document.querySelectorAll('[data-for]')) {
+      field.hidden = field.dataset.for !== shownFor;
+    }
+  }
+
+  const total = draft.kind === 'REPEATED' ? 3 : 2;
+  const current = name === 'kind' ? 1 : (name === 'schedule' ? 2 : total);
+  wizardTitle.textContent = TITLES[name];
+  wizardSteps.textContent = `Step ${String(current)} of ${String(total)}`;
+  backButton.hidden = name === 'kind';
+  composer.dataset.step = name;
+}
+
+document.querySelectorAll('[data-kind]').forEach((button) => {
+  button.addEventListener('click', () => {
+    draft.kind = button.dataset.kind;
+    draft.schedule = null;
+    showStep(draft.kind === 'REPEATED' ? 'schedule' : 'details');
+  });
+});
+
+document.querySelectorAll('[data-schedule]').forEach((button) => {
+  button.addEventListener('click', () => {
+    draft.schedule = button.dataset.schedule;
+    showStep('details');
+  });
+});
+
+backButton.addEventListener('click', () => {
+  const step = composer.dataset.step;
+  if (step === 'details' && draft.kind === 'REPEATED') showStep('schedule');
+  else showStep('kind');
+});
+
+document.getElementById('wizard-close').addEventListener('click', () => { composer.close(); });
 
 document.getElementById('add').addEventListener('click', () => {
+  draft.kind = null;
+  draft.schedule = null;
   composerForm.reset();
+  fillCategories();
+  toggleGroup(document.getElementById('weekday-toggles'), WEEKDAYS, [1]);
+  toggleGroup(document.getElementById('month-toggles'), MONTHS, [new Date().getMonth() + 1]);
+  showStep('kind');
   composer.showModal();
 });
 
-document.getElementById('composer-cancel').addEventListener('click', () => { composer.close(); });
+const timeParts = (value) => {
+  const [hour, minute] = String(value).split(':').map(Number);
+
+  return { hour: hour || 0, minute: minute || 0 };
+};
+
+/** What would be sent to the API, shaped exactly as the endpoints expect. */
+function draftPayload(data) {
+  const name = String(data.get('name')).trim();
+  const category = String(data.get('category'));
+
+  if (draft.kind === 'BASIC') return { type: 'BASIC', name, category };
+  if (draft.kind === 'EVENT') {
+    return { type: 'EVENT', name, category, date: new Date(String(data.get('date'))).toISOString() };
+  }
+
+  if (draft.schedule === 'DAILY') {
+    return {
+      type: 'DAILY',
+      name,
+      category,
+      startsAt: timeParts(data.get('startsAt')),
+      endsAt: timeParts(data.get('endsAt')),
+      repeatEach: timeParts(data.get('repeatEach')),
+    };
+  }
+
+  if (draft.schedule === 'REPEATED_WEEKLY') {
+    return {
+      type: 'REPEATED_WEEKLY',
+      name,
+      category,
+      weekdays: chosenValues(document.getElementById('weekday-toggles')),
+    };
+  }
+
+  return {
+    type: 'REPEATED_MONTHLY',
+    name,
+    category,
+    fromDay: Number(data.get('fromDay')),
+    toDay: Number(data.get('toDay')),
+    months: chosenValues(document.getElementById('month-toggles')),
+  };
+}
 
 composerForm.addEventListener('submit', () => {
   const data = new FormData(composerForm);
-  const name = String(data.get('name')).trim();
-  if (name === '') return;
+  const payload = draftPayload(data);
+  if (payload.name === '') return;
 
-  const date = String(data.get('date'));
+  if (draft.kind === 'REPEATED') {
+    // A config produces events on the server; there is nothing sensible to
+    // show locally until the write endpoint is wired.
+    announcer.textContent = `${payload.name} repeat ready to send (not saved yet)`;
+    render();
+
+    return;
+  }
+
   tasks.unshift({
     id: `local-${String(Date.now())}`,
-    type: date ? 'EVENT' : 'BASIC',
-    name,
+    ...payload,
     status: 'TODO',
-    category: OTHER_KEY,
     links: [],
     subtasks: [],
     configTaskId: null,
-    ...(date ? { date: new Date(date).toISOString() } : {}),
   });
 
-  announcer.textContent = `${name} added to the list (not saved yet)`;
+  announcer.textContent = `${payload.name} added to the list (not saved yet)`;
   render();
 });
 

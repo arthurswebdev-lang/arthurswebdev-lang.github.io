@@ -1,0 +1,45 @@
+# Publishes frontend/ to GitHub Pages.
+#
+# Deploying from a workflow rather than from a branch is what lets the frontend
+# live in its own folder: branch-based Pages can only publish the repo root or
+# /docs, which is why the old project kept its app files at the top level.
+#
+# One-time setup in the repository: Settings > Pages > Source = GitHub Actions.
+name: Deploy frontend to Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish; queue at most one behind it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      - name: Upload the frontend
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
