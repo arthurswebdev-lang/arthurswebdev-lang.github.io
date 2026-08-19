@@ -3,7 +3,7 @@ import { config } from './config.js';
 import { createContainer, ensureIndexes } from './container.js';
 import { ConsoleNotificationService } from './services/console-notification.service.js';
 import { EventPollingService } from './services/event-polling.service.js';
-import { MongoStorage } from './storage/mongo.storage.js';
+import { describeMongoTarget, MongoStorage } from './storage/mongo.storage.js';
 
 const storage = new MongoStorage(config.mongoUrl, config.mongoDbName);
 const db = await storage.connect();
@@ -28,7 +28,7 @@ server.on('listening', () => {
 
   const shown = typeof address === 'string' ? address : `http://localhost:${String(address.port)}`;
   console.log(`listening on ${shown} (${config.nodeEnv})`);
-  console.log(`mongo ${config.mongoUrl}/${config.mongoDbName}`);
+  console.log(`mongo ${describeMongoTarget(config.mongoUrl, config.mongoDbName)}`);
 
   eventPolling.start();
   console.log(`event polling every ${String(config.pollIntervalMs)}ms`);

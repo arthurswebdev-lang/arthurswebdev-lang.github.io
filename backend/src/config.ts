@@ -42,6 +42,6 @@ export const config: Config = {
   port: readPort(process.env['PORT']),
   nodeEnv: process.env['NODE_ENV'] ?? 'development',
   mongoUrl: process.env['MONGO_URL'] ?? 'mongodb://127.0.0.1:27017',
-  mongoDbName: process.env['MONGO_DB_NAME'] ?? 'tasks-api',
+  mongoDbName: process.env['MONGO_DB_NAME'] ?? 'todo-list',
   pollIntervalMs: readPollInterval(process.env['POLL_INTERVAL_MS']),
 };

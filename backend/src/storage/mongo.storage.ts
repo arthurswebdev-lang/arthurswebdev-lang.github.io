@@ -1,6 +1,18 @@
 import { type Db, MongoClient } from 'mongodb';
 
 /**
+ * Host and database only — never the connection string itself, which carries
+ * the password. Anything logged here ends up in the deploy platform's log.
+ */
+export function describeMongoTarget(uri: string, dbName: string): string {
+  try {
+    return `${new URL(uri).host}/${dbName}`;
+  } catch {
+    return dbName;
+  }
+}
+
+/**
  * Owns the Mongo connection for the process. Repositories receive the `Db` it
  * hands out; nothing else touches the client.
  */
