@@ -1,34 +1,36 @@
 /* ---------------------------------------------------------------------------
-   Tokens. Light is the designed default; dark is a warm counterpart, not an
-   inversion — the same beige world after sundown.
-   Every colour below is a token so no component hard-codes one theme's value.
+   Cappuccino, kept light. Cream ground, foam surfaces, caramel accent and
+   espresso text; the three states stay distinguishable by hue but sit at low
+   saturation so nothing shouts. Every ink was solved against its own
+   background for at least 4.5:1 rather than picked by eye.
+   Dark is the same drink after a dark roast, not an inversion.
 --------------------------------------------------------------------------- */
 :root {
-  --ground: #f4ecdd;
-  --surface: #fffdf9;
-  --surface-sunk: #eae0cd;
-  --line: #e6d8c3;
-  --line-strong: #d6c3a7;
-  --ink: #4b3a2c;
-  --ink-soft: #6f6252;
-  --ink-faint: #807261;
+  --ground: #fff2e8;
+  --surface: #fffaf5;
+  --surface-sunk: #f6e3d3;
+  --line: #ecd6c2;
+  --line-strong: #dcbfa4;
+  --ink: #4a3527;
+  --ink-soft: #776353;
+  --ink-faint: #827060;
 
-  --accent: #f3cdb0;
-  --accent-ink: #6d4726;
-  --accent-ring: #e0b18d;
+  --accent: #f2c9a3;
+  --accent-ink: #6b4526;
+  --accent-ring: #dfae84;
 
-  --actual-bg: #f8dcc9;
-  --actual-ink: #945430;
-  --passed-bg: #dde7d7;
-  --passed-ink: #526d48;
-  --upcoming-bg: #dfdbf1;
-  --upcoming-ink: #5d558f;
-  --overdue-bg: #f6d4ce;
-  --overdue-ink: #954b43;
-  --done-bg: #d9e7d6;
-  --done-ink: #4c6e45;
+  --actual-bg: #fbdcc4;
+  --actual-ink: #93552a;
+  --passed-bg: #dde2d0;
+  --passed-ink: #5a6844;
+  --upcoming-bg: #e2dced;
+  --upcoming-ink: #63598f;
+  --overdue-bg: #f7d2c6;
+  --overdue-ink: #954939;
+  --done-bg: #dde2d0;
+  --done-ink: #5a6844;
 
-  --shadow: 0 1px 2px rgb(75 58 44 / 6%), 0 8px 20px rgb(75 58 44 / 5%);
+  --shadow: 0 1px 2px rgb(74 53 39 / 6%), 0 8px 20px rgb(74 53 39 / 5%);
   --radius: 16px;
   --radius-sm: 10px;
 
@@ -38,56 +40,56 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --ground: #211b16;
-    --surface: #2b241d;
-    --surface-sunk: #362d24;
-    --line: #453a2f;
-    --line-strong: #5b4c3e;
-    --ink: #f2e8dc;
-    --ink-soft: #bcaa95;
-    --ink-faint: #a08f7b;
+    --ground: #221a14;
+    --surface: #2d241c;
+    --surface-sunk: #392e24;
+    --line: #4a3c2f;
+    --line-strong: #61503f;
+    --ink: #f6ebe0;
+    --ink-soft: #c3ae99;
+    --ink-faint: #a5917c;
 
-    --accent: #8a5f3c;
-    --accent-ink: #ffeedd;
-    --accent-ring: #a9784f;
+    --accent: #8c6040;
+    --accent-ink: #fff0e2;
+    --accent-ring: #ab7c55;
 
-    --actual-bg: #55372a;
-    --actual-ink: #f6d3ba;
-    --passed-bg: #34412f;
-    --passed-ink: #cfe0c6;
-    --upcoming-bg: #393356;
-    --upcoming-ink: #d8d2f2;
-    --overdue-bg: #57332f;
-    --overdue-ink: #f6ccc5;
-    --done-bg: #34412f;
-    --done-ink: #cfe0c6;
+    --actual-bg: #57382a;
+    --actual-ink: #f8d5bb;
+    --passed-bg: #37432f;
+    --passed-ink: #d3e2c8;
+    --upcoming-bg: #3b3457;
+    --upcoming-ink: #dbd5f2;
+    --overdue-bg: #5a352e;
+    --overdue-ink: #f8cec5;
+    --done-bg: #37432f;
+    --done-ink: #d3e2c8;
 
     --shadow: 0 1px 2px rgb(0 0 0 / 25%), 0 8px 20px rgb(0 0 0 / 20%);
   }
 }
 
 :root[data-theme="dark"] {
-  --ground: #211b16;
-  --surface: #2b241d;
-  --surface-sunk: #362d24;
-  --line: #453a2f;
-  --line-strong: #5b4c3e;
-  --ink: #f2e8dc;
-  --ink-soft: #bcaa95;
-  --ink-faint: #a08f7b;
-  --accent: #8a5f3c;
-  --accent-ink: #ffeedd;
-  --accent-ring: #a9784f;
-  --actual-bg: #55372a;
-  --actual-ink: #f6d3ba;
-  --passed-bg: #34412f;
-  --passed-ink: #cfe0c6;
-  --upcoming-bg: #393356;
-  --upcoming-ink: #d8d2f2;
-  --overdue-bg: #57332f;
-  --overdue-ink: #f6ccc5;
-  --done-bg: #34412f;
-  --done-ink: #cfe0c6;
+  --ground: #221a14;
+  --surface: #2d241c;
+  --surface-sunk: #392e24;
+  --line: #4a3c2f;
+  --line-strong: #61503f;
+  --ink: #f6ebe0;
+  --ink-soft: #c3ae99;
+  --ink-faint: #a5917c;
+  --accent: #8c6040;
+  --accent-ink: #fff0e2;
+  --accent-ring: #ab7c55;
+  --actual-bg: #57382a;
+  --actual-ink: #f8d5bb;
+  --passed-bg: #37432f;
+  --passed-ink: #d3e2c8;
+  --upcoming-bg: #3b3457;
+  --upcoming-ink: #dbd5f2;
+  --overdue-bg: #5a352e;
+  --overdue-ink: #f8cec5;
+  --done-bg: #37432f;
+  --done-ink: #d3e2c8;
   --shadow: 0 1px 2px rgb(0 0 0 / 25%), 0 8px 20px rgb(0 0 0 / 20%);
 }
 
