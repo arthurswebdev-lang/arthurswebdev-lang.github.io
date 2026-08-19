@@ -594,9 +594,18 @@ body {
 
 .choice__hint { font-size: 0.78rem; color: var(--ink-soft); }
 
-.field-row { display: flex; gap: 0.5rem; }
+/* A grid, not flex: a native time or number input has a minimum intrinsic
+   width and refuses to shrink past it, so three of them in a flex row overlap
+   on a narrow screen. auto-fit lets them drop to the next line instead. */
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 0.5rem;
+}
 
-.field-row .field { flex: 1; }
+.field-row .field { min-width: 0; margin-bottom: 0; }
+
+.field-row .field__input { width: 100%; min-width: 0; }
 
 .toggles { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 

@@ -12,7 +12,7 @@ import {
   createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTasks,
   fetchTasks, forgetCredentials, readCredentials, replaceTask, saveCredentials,
   setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=2';
+} from './api.js?v=3';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
