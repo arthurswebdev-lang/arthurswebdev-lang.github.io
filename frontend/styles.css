@@ -3,9 +3,13 @@
    espresso text; the three states stay distinguishable by hue but sit at low
    saturation so nothing shouts. Every ink was solved against its own
    background for at least 4.5:1 rather than picked by eye.
-   Dark is the same drink after a dark roast, not an inversion.
+   Deliberately single-theme: the app is light whatever the device is set to.
+   `color-scheme: light` is what stops the browser from darkening its own
+   widgets (the date picker, scrollbars, form controls) on a dark-mode device.
 --------------------------------------------------------------------------- */
 :root {
+  color-scheme: light;
+
   --ground: #fff2e8;
   --surface: #fffaf5;
   --surface-sunk: #f6e3d3;
@@ -36,61 +40,6 @@
 
   --font-display: "Quicksand", ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
   --font-body: "Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --ground: #221a14;
-    --surface: #2d241c;
-    --surface-sunk: #392e24;
-    --line: #4a3c2f;
-    --line-strong: #61503f;
-    --ink: #f6ebe0;
-    --ink-soft: #c3ae99;
-    --ink-faint: #a5917c;
-
-    --accent: #8c6040;
-    --accent-ink: #fff0e2;
-    --accent-ring: #ab7c55;
-
-    --actual-bg: #57382a;
-    --actual-ink: #f8d5bb;
-    --passed-bg: #37432f;
-    --passed-ink: #d3e2c8;
-    --upcoming-bg: #3b3457;
-    --upcoming-ink: #dbd5f2;
-    --overdue-bg: #5a352e;
-    --overdue-ink: #f8cec5;
-    --done-bg: #37432f;
-    --done-ink: #d3e2c8;
-
-    --shadow: 0 1px 2px rgb(0 0 0 / 25%), 0 8px 20px rgb(0 0 0 / 20%);
-  }
-}
-
-:root[data-theme="dark"] {
-  --ground: #221a14;
-  --surface: #2d241c;
-  --surface-sunk: #392e24;
-  --line: #4a3c2f;
-  --line-strong: #61503f;
-  --ink: #f6ebe0;
-  --ink-soft: #c3ae99;
-  --ink-faint: #a5917c;
-  --accent: #8c6040;
-  --accent-ink: #fff0e2;
-  --accent-ring: #ab7c55;
-  --actual-bg: #57382a;
-  --actual-ink: #f8d5bb;
-  --passed-bg: #37432f;
-  --passed-ink: #d3e2c8;
-  --upcoming-bg: #3b3457;
-  --upcoming-ink: #dbd5f2;
-  --overdue-bg: #5a352e;
-  --overdue-ink: #f8cec5;
-  --done-bg: #37432f;
-  --done-ink: #d3e2c8;
-  --shadow: 0 1px 2px rgb(0 0 0 / 25%), 0 8px 20px rgb(0 0 0 / 20%);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
