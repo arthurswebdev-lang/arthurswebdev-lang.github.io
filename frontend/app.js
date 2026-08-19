@@ -45,9 +45,6 @@ let activeFilter = 'actual';
 let activeCategory = 'all';
 let status = 'loading';
 
-/** Which tasks have their steps unfolded, kept across re-renders. */
-const openSteps = new Set();
-
 /* --- formatting ----------------------------------------------------------- */
 
 const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -117,16 +114,15 @@ function whenChip(task) {
 }
 
 /**
- * Steps, folded away by default — one imported task has ten of them, and a card
- * that tall would bury everything else. The summary carries the count, the
- * percentage and a bar, so the fold still tells you where you are.
+ * Steps, always on the card. Each one has a round check on the left, the same
+ * affordance the task itself uses, and the line above reports progress.
  */
 function stepsSection(task) {
-  const details = document.createElement('details');
-  details.className = 'steps';
+  const section = document.createElement('div');
+  section.className = 'steps';
 
-  const summary = document.createElement('summary');
-  summary.className = 'steps__summary';
+  const head = document.createElement('div');
+  head.className = 'steps__head';
 
   const label = document.createElement('span');
   label.className = 'steps__label';
@@ -146,8 +142,8 @@ function stepsSection(task) {
   fill.style.width = `${String(percent)}%`;
   bar.append(fill);
 
-  summary.append(label, bar);
-  details.append(summary);
+  head.append(label, bar);
+  section.append(head);
 
   const list = document.createElement('ul');
   list.className = 'steps__list';
@@ -186,16 +182,9 @@ function stepsSection(task) {
     list.append(item);
   }
 
-  details.append(list);
+  section.append(list);
 
-  // Keep it open across a re-render, so ticking a step does not fold the card.
-  details.open = openSteps.has(task.id);
-  details.addEventListener('toggle', () => {
-    if (details.open) openSteps.add(task.id);
-    else openSteps.delete(task.id);
-  });
-
-  return details;
+  return section;
 }
 
 function taskItem(task) {
@@ -236,7 +225,7 @@ function taskItem(task) {
     meta.append(links);
   }
 
-  if (!hasDate(task)) meta.append(chip('No date'));
+  // Nothing is said about a basic task having no date: that is what it is.
   body.append(meta);
 
   if (task.subtasks.length > 0) body.append(stepsSection(task));
