@@ -439,6 +439,53 @@ function toggleGroup(container, options, selected) {
   }));
 }
 
+const linkRows = document.getElementById('link-rows');
+const subtaskRows = document.getElementById('subtask-rows');
+
+function inputCell(placeholder, type = 'text') {
+  const input = document.createElement('input');
+  input.className = 'field__input';
+  input.type = type;
+  input.placeholder = placeholder;
+  input.autocomplete = 'off';
+
+  return input;
+}
+
+/** One removable row; `cells` are the inputs it holds. */
+function addRow(container, cells) {
+  const row = document.createElement('div');
+  row.className = 'row';
+
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'row__remove';
+  remove.textContent = '✕';
+  remove.setAttribute('aria-label', 'Remove');
+  remove.addEventListener('click', () => { row.remove(); });
+
+  row.append(...cells, remove);
+  container.append(row);
+
+  return row;
+}
+
+const addLinkRow = () => addRow(linkRows, [inputCell('https://…', 'url')]);
+
+const addSubtaskRow = () => addRow(subtaskRows, [
+  inputCell('Step name'),
+  inputCell('https://… (optional)', 'url'),
+]);
+
+/** Non-empty values from a row container, column by column. */
+function rowValues(container) {
+  return [...container.querySelectorAll('.row')].map((row) => {
+    const inputs = [...row.querySelectorAll('.field__input')];
+
+    return inputs.map((input) => input.value.trim());
+  });
+}
+
 const chosenValues = (container) => [...container.querySelectorAll('[aria-pressed="true"]')]
   .map((button) => Number(button.dataset.value));
 
@@ -461,11 +508,12 @@ function showStep(name) {
     panel.hidden = panel.dataset.step !== name;
   }
 
-  const isFinal = name === 'details';
-  const shownFor = draft.schedule ?? draft.kind;
-  if (isFinal) {
+  if (name === 'details') {
+    // A field lists every type it belongs to, so links can be shared by all of
+    // them while the schedule fields stay with their own schedule.
+    const shownFor = draft.schedule ?? draft.kind;
     for (const field of document.querySelectorAll('[data-for]')) {
-      field.hidden = field.dataset.for !== shownFor;
+      field.hidden = !field.dataset.for.split(' ').includes(shownFor);
     }
   }
 
@@ -499,12 +547,16 @@ backButton.addEventListener('click', () => {
 });
 
 document.getElementById('wizard-close').addEventListener('click', () => { composer.close(); });
+document.getElementById('add-link').addEventListener('click', () => { addLinkRow(); });
+document.getElementById('add-subtask').addEventListener('click', () => { addSubtaskRow(); });
 
 document.getElementById('add').addEventListener('click', () => {
   draft.kind = null;
   draft.schedule = null;
   composerForm.reset();
   fillCategories();
+  linkRows.replaceChildren();
+  subtaskRows.replaceChildren();
   toggleGroup(document.getElementById('weekday-toggles'), WEEKDAYS, [1]);
   toggleGroup(document.getElementById('month-toggles'), MONTHS, [new Date().getMonth() + 1]);
   showStep('kind');
@@ -521,17 +573,27 @@ const timeParts = (value) => {
 function draftPayload(data) {
   const name = String(data.get('name')).trim();
   const category = String(data.get('category'));
+  const links = rowValues(linkRows).map(([url]) => url).filter(Boolean);
+  const subtasks = rowValues(subtaskRows)
+    .filter(([stepName]) => stepName !== '')
+    .map(([stepName, link]) => (link ? { name: stepName, link } : { name: stepName }));
 
-  if (draft.kind === 'BASIC') return { type: 'BASIC', name, category };
+  const shared = { name, category, ...(links.length ? { links } : {}) };
+
+  if (draft.kind === 'BASIC') return { type: 'BASIC', ...shared, subtasks };
   if (draft.kind === 'EVENT') {
-    return { type: 'EVENT', name, category, date: new Date(String(data.get('date'))).toISOString() };
+    return {
+      type: 'EVENT',
+      ...shared,
+      subtasks,
+      date: new Date(String(data.get('date'))).toISOString(),
+    };
   }
 
   if (draft.schedule === 'DAILY') {
     return {
       type: 'DAILY',
-      name,
-      category,
+      ...shared,
       startsAt: timeParts(data.get('startsAt')),
       endsAt: timeParts(data.get('endsAt')),
       repeatEach: timeParts(data.get('repeatEach')),
@@ -541,16 +603,14 @@ function draftPayload(data) {
   if (draft.schedule === 'REPEATED_WEEKLY') {
     return {
       type: 'REPEATED_WEEKLY',
-      name,
-      category,
+      ...shared,
       weekdays: chosenValues(document.getElementById('weekday-toggles')),
     };
   }
 
   return {
     type: 'REPEATED_MONTHLY',
-    name,
-    category,
+    ...shared,
     fromDay: Number(data.get('fromDay')),
     toDay: Number(data.get('toDay')),
     months: chosenValues(document.getElementById('month-toggles')),
@@ -573,10 +633,10 @@ composerForm.addEventListener('submit', () => {
 
   tasks.unshift({
     id: `local-${String(Date.now())}`,
-    ...payload,
-    status: 'TODO',
     links: [],
     subtasks: [],
+    ...payload,
+    status: 'TODO',
     configTaskId: null,
   });
 

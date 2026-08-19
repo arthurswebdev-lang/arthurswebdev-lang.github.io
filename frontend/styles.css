@@ -44,6 +44,10 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* Author `display` rules beat the browser's [hidden] rule, so anything with a
+   display of its own keeps showing when hidden. Say it once, here. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--ground);
@@ -615,3 +619,31 @@ body {
 .toggle:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
 
 select.field__input { appearance: none; background-image: none; }
+
+/* --- repeatable rows (links, steps) --------------------------------------- */
+.rows { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.5rem; }
+
+.row { display: flex; gap: 0.35rem; align-items: center; }
+
+.row .field__input { flex: 1; min-width: 0; }
+
+.btn--small {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+.row__remove {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  cursor: pointer;
+}
+
+.row__remove:hover { background: var(--surface-sunk); color: var(--ink); }
+
+.row__remove:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }

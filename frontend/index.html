@@ -156,6 +156,18 @@
         <input class="field__input" name="date" type="datetime-local">
       </label>
 
+      <fieldset class="field" data-for="BASIC EVENT DAILY REPEATED_WEEKLY REPEATED_MONTHLY">
+        <legend class="field__label">Links</legend>
+        <div class="rows" id="link-rows"></div>
+        <button type="button" class="btn btn--small" id="add-link">+ Link</button>
+      </fieldset>
+
+      <fieldset class="field" data-for="BASIC EVENT">
+        <legend class="field__label">Steps</legend>
+        <div class="rows" id="subtask-rows"></div>
+        <button type="button" class="btn btn--small" id="add-subtask">+ Step</button>
+      </fieldset>
+
       <div class="field-row" data-for="DAILY" hidden>
         <label class="field">
           <span class="field__label">From</span>
