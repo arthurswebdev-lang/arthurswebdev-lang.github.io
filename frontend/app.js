@@ -12,7 +12,7 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=6';
+} from './api.js?v=7';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -412,7 +412,7 @@ function render() {
     return;
   }
 
-  cleanupButton.hidden = doneOnScreen().length === 0;
+  cleanupButton.hidden = sweepable().length === 0;
 
   const ordered = [...tasks].sort(inListOrder);
   const groups = groupOrder
@@ -487,17 +487,21 @@ const confirmDelete = (question) => window.confirm(question);
 
 const cleanupButton = document.getElementById('cleanup');
 
-/** Exactly what is on screen and finished — not everything finished. */
-const doneOnScreen = () => tasks.filter((task) => task.status === 'DONE');
+/**
+ * Sweeping belongs to the passed list, and there it takes everything shown.
+ * A passed task is spent whether or not it was ever ticked off — needing to
+ * mark it done first would be busywork to reach the bin.
+ */
+const sweepable = () => (activeFilter === 'passed' ? tasks : []);
 
 cleanupButton.addEventListener('click', () => {
-  const finished = doneOnScreen();
-  if (finished.length === 0) return;
+  const spent = sweepable();
+  if (spent.length === 0) return;
 
-  const count = String(finished.length);
-  if (!confirmDelete(`Clear ${count} done task${finished.length === 1 ? '' : 's'} from this list?`)) return;
+  const count = String(spent.length);
+  if (!confirmDelete(`Clear ${count} passed task${spent.length === 1 ? '' : 's'} from this list?`)) return;
 
-  const ids = finished.map((task) => task.id);
+  const ids = spent.map((task) => task.id);
 
   apply(
     () => { tasks = tasks.filter((task) => !ids.includes(task.id)); },
