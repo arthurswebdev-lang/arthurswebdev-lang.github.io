@@ -114,6 +114,8 @@ one blank line before a `return` that follows logic.
   a subtask carries at most one.
 - **`GET /tasks?category=…`** narrows in the Mongo query (plain equality, indexed), while
   `filter=` stays in the rule functions. Neither is required; together they intersect.
+- **A dateless task (`BASIC`) counts as `actual`.** A filter names a position in time and it
+  has none, so it is always relevant; excluding it from every filter hid plain to-dos entirely.
 - **`GET /tasks?filter=actual|passed|upcoming`** filters in the service, using the rules in
   `src/filters/tasks.filters.ts`, not in the Mongo query — `actual`/`upcoming` depend on each
   event's own `activeLogic` window, which is worth reading as functions rather than as an

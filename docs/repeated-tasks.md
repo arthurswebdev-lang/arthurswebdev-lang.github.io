@@ -90,6 +90,9 @@ month, on `fromDay` at 00:00** — not one event per day of the range.
 
 Evaluated in this order, for an event task:
 
+0. **A task with no date is always `actual`** — nothing makes it pass and nothing
+   makes it wait. Leaving it out of every filter made a plain to-do invisible in an app
+   whose list is always filtered.
 1. **`passed`** — its date is in the past (`passedDate` is set).
 2. **`actual`** — not passed, and its date falls inside the window its `activeLogic` defines.
 3. **`upcoming`** — not passed, but outside that window.

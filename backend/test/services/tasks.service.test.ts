@@ -43,10 +43,10 @@ describe('GET /tasks without a filter', () => {
 });
 
 describe('GET /tasks?filter=...', () => {
-  it('actual returns only what is relevant right now', async () => {
+  it('actual returns what is relevant right now, dateless tasks included', async () => {
     const listed = await serviceWith(tasks).listAll({ userId: TEST_USER_ID, filter: TaskFilter.ACTUAL });
 
-    assert.deepEqual(listed.map((task) => task.name), ['rent']);
+    assert.deepEqual(listed.map((task) => task.name), ['buy milk', 'rent']);
   });
 
   it('passed returns what has gone by', async () => {
@@ -61,16 +61,18 @@ describe('GET /tasks?filter=...', () => {
     assert.deepEqual(listed.map((task) => task.name), ['gym monday']);
   });
 
-  it('drops basic tasks from every filtered list', async () => {
+  it('puts a basic task under actual and nowhere else', async () => {
     const service = serviceWith(tasks);
+    const listFor = (filter: TaskFilter) => service.listAll({ userId: TEST_USER_ID, filter });
 
-    const lists = await Promise.all(
-      Object.values(TaskFilter).map((filter) => service.listAll({ userId: TEST_USER_ID, filter: filter })),
-    );
+    const [actual, passed, upcoming] = await Promise.all([
+      listFor(TaskFilter.ACTUAL), listFor(TaskFilter.PASSED), listFor(TaskFilter.UPCOMING),
+    ]);
+    const holdsMilk = (list: Task[]) => list.some((task) => task.name === 'buy milk');
 
-    for (const listed of lists) {
-      assert.equal(listed.some((task) => task.name === 'buy milk'), false);
-    }
+    assert.equal(holdsMilk(actual), true);
+    assert.equal(holdsMilk(passed), false);
+    assert.equal(holdsMilk(upcoming), false);
   });
 });
 

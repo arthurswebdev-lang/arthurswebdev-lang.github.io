@@ -179,12 +179,13 @@ export function pendingEventOfConfig(
 // ── Applying a filter to a list ────────────────────────────────────────────
 
 /**
- * A filter names a position in time, which only event tasks have. Basic tasks
- * have no date, so a filtered list leaves them out. Configs cannot even reach
- * here — they are a separate resource in a separate store.
+ * A filter names a position in time. A task with no date has none: nothing
+ * makes it pass and nothing makes it wait, so it is always relevant and
+ * belongs under `actual`. Leaving it out of every filter would make a plain
+ * to-do invisible in an app whose list is always filtered.
  */
 export function matchesTaskFilter(task: Task, filter: TaskFilter, now: Date): boolean {
-  if (!isEventTask(task)) return false;
+  if (!isEventTask(task)) return filter === TaskFilter.ACTUAL;
 
   switch (filter) {
     case TaskFilter.PASSED:

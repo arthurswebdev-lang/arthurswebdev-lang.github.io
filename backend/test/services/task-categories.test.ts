@@ -85,13 +85,13 @@ describe('filters and dateless tasks', () => {
     categorised('squats', TaskCategory.GYM),
   ];
 
-  it('drops dateless tasks from a filtered list, category or not', async () => {
-    // A filter names a position in time, which only events have. Worth pinning:
-    // the frontend mock currently shows dateless tasks under "actual" instead.
+  it('shows dateless tasks under actual, so a plain to-do is never hidden', async () => {
     const { service } = withTasks(stored);
+    const query = { userId: TEST_USER_ID, category: TaskCategory.FOOD };
 
-    assert.equal((await service.listAll({ userId: TEST_USER_ID, filter: TaskFilter.ACTUAL, category: TaskCategory.FOOD })).length, 0);
-    assert.equal((await service.listAll({ userId: TEST_USER_ID, category: TaskCategory.FOOD })).length, 1);
+    assert.equal((await service.listAll({ ...query, filter: TaskFilter.ACTUAL })).length, 1);
+    assert.equal((await service.listAll({ ...query, filter: TaskFilter.PASSED })).length, 0);
+    assert.equal((await service.listAll(query)).length, 1);
   });
 });
 

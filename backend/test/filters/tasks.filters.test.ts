@@ -232,7 +232,7 @@ describe('filterTasks over a mixed list', () => {
   });
 
   it('returns only what is relevant now under actual', () => {
-    assert.deepEqual(namesFor(TaskFilter.ACTUAL), ['rent']);
+    assert.deepEqual(namesFor(TaskFilter.ACTUAL), ['buy milk', 'rent']);
   });
 
   it('returns what has gone by under passed', () => {
@@ -243,12 +243,14 @@ describe('filterTasks over a mixed list', () => {
     assert.deepEqual(namesFor(TaskFilter.UPCOMING), ['gym monday']);
   });
 
-  it('never returns basic tasks from a filtered list', () => {
-    for (const filter of Object.values(TaskFilter)) {
-      const kinds = filterTasks(mixedList, filter, saturday).map((task) => task.type);
+  it('keeps dateless tasks under actual, and only there', () => {
+    const named = (filter: TaskFilter) => filterTasks(mixedList, filter, saturday)
+      .filter((task) => task.type === TaskType.BASIC)
+      .map((task) => task.name);
 
-      assert.deepEqual([...new Set(kinds)].filter((kind) => kind !== TaskType.EVENT), []);
-    }
+    assert.deepEqual(named(TaskFilter.ACTUAL), ['buy milk']);
+    assert.deepEqual(named(TaskFilter.PASSED), []);
+    assert.deepEqual(named(TaskFilter.UPCOMING), []);
   });
 });
 
