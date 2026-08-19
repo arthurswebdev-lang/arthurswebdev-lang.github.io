@@ -36,6 +36,12 @@ export interface ITasksRepository extends IBaseRepository<Task, CreateTask, Upda
    */
   createGeneratedEvent(config: RepeatedTask, date: Date): Promise<EventTask>;
 
+  /**
+   * Removes exactly these tasks and nothing else — no cascade to any config.
+   * Scoped by owner, so an id belonging to someone else is simply not matched.
+   */
+  deleteManyByIds(ids: string[], userId: string): Promise<number>;
+
   /** Removes every event a config produced. Returns how many went. */
   deleteEventsOfConfig(configTaskId: string): Promise<number>;
 

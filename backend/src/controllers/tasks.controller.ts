@@ -11,6 +11,11 @@ import type {
 import { currentUserId } from '../middlewares/auth.middleware.js';
 import * as SuccessHandlerUtil from '../utils/success-handler.util.js';
 
+/** Body accepted by `POST /tasks/clear`. */
+interface ClearTasks {
+  ids: string[];
+}
+
 /** Route params for the subtask endpoint. */
 type SubtaskIdParams = Record<'id' | 'subtaskId', string>;
 
@@ -123,6 +128,19 @@ export class TasksController {
         request.body.status,
       );
       SuccessHandlerUtil.handleUpdate(response, next, task);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async clear(
+    request: BodyRequest<ClearTasks>,
+    response: Response<{ deleted: number }>,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const deleted = await this.tasksService.clear(request.body.ids, currentUserId(response));
+      response.json({ deleted });
     } catch (error) {
       next(error);
     }

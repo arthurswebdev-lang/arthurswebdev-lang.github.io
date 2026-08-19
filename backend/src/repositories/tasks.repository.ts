@@ -82,6 +82,14 @@ export class TasksRepository
     return event;
   }
 
+  async deleteManyByIds(ids: string[], userId: string): Promise<number> {
+    if (ids.length === 0) return 0;
+
+    const result = await this.collection.deleteMany({ _id: { $in: ids }, userId });
+
+    return result.deletedCount;
+  }
+
   async deleteEventsOfConfig(configTaskId: string): Promise<number> {
     const result = await this.collection.deleteMany({ type: TaskType.EVENT, configTaskId });
 

@@ -146,6 +146,13 @@ export class TasksService implements ITasksService {
     }
   }
 
+  clear(ids: string[], userId: string): Promise<number> {
+    // No ownership pre-check: the delete itself is scoped by owner, so an id
+    // that is not yours simply does not match. Reporting which ids failed
+    // would tell a caller whose they are.
+    return this.tasksRepository.deleteManyByIds(ids, userId);
+  }
+
   async deleteById(id: string, userId: string): Promise<void> {
     const task = await this.ownedOrMissing(id, userId);
 

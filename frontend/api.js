@@ -135,3 +135,9 @@ export const setStepStatus = (token, taskId, stepId, status) =>
   send("PATCH", `/tasks/${taskId}/subtasks/${stepId}/status`, token, { status });
 
 export const deleteTask = (token, id) => send("DELETE", `/tasks/${id}`, token);
+
+/**
+ * Removes exactly these tasks, leaving any repeat behind them alone — unlike
+ * deleteTask, which takes the whole rule when given one of its events.
+ */
+export const clearTasks = (token, ids) => send("POST", "/tasks/clear", token, { ids });

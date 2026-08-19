@@ -49,6 +49,12 @@ export const UpdateTaskSchema = CreateTaskSchema;
  * does nothing. Pagination and the type/status/search narrowing exist on the
  * repository (`listBy`) and can be added here when they are wired up.
  */
+/** Body for `POST /tasks/clear`: the exact tasks to remove. */
+export const ClearTasksSchema = Joi.object({
+  ids: Joi.array().items(ID).min(1).max(200).unique()
+    .required(),
+});
+
 /** Params for the subtask route: both ids, both uuids. */
 export const SubtaskIdInParams = Joi.object({
   id: ID.required(),

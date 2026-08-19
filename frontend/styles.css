@@ -842,3 +842,16 @@ select.field__input { appearance: none; background-image: none; }
 .task__body--tappable { cursor: pointer; }
 
 .repeat__text--tappable { cursor: pointer; }
+
+/* The broom mirrors the + on the other side: same size, quieter colours,
+   and only present when there is actually something to sweep. */
+.fab--clear {
+  right: auto;
+  left: max(1rem, calc(50% - 16rem));
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 1.35rem;
+}
+
+.fab--clear:hover { background: var(--surface-sunk); color: var(--ink); }

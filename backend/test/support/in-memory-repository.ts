@@ -82,6 +82,13 @@ export class InMemoryTasksRepository implements ITasksRepository {
     return Promise.resolve(event);
   }
 
+  deleteManyByIds(ids: string[], userId: string): Promise<number> {
+    const before = this.tasks.length;
+    this.tasks = this.tasks.filter((task) => !(ids.includes(task.id) && task.userId === userId));
+
+    return Promise.resolve(before - this.tasks.length);
+  }
+
   deleteEventsOfConfig(configTaskId: string): Promise<number> {
     const before = this.tasks.length;
     this.tasks = this.tasks.filter(

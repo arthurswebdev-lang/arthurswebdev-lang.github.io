@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 
 import {
+  ClearTasksSchema,
   CreateTaskSchema,
   ListTasksQuerySchema,
   TaskIdInParams,
@@ -75,6 +76,15 @@ export function validateUpdateSubtaskStatus(
   try {
     validate(SubtaskIdInParams, request.params);
     validate(UpdateSubtaskStatusSchema, request.body as object);
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function validateClear(request: Request, _response: Response, next: NextFunction): void {
+  try {
+    validate(ClearTasksSchema, request.body as object);
     next();
   } catch (error) {
     next(error);

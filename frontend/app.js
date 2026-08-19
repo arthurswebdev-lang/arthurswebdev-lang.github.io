@@ -9,10 +9,10 @@
    category they belong to; this file asks for a slice and draws it.
 --------------------------------------------------------------------------- */
 import {
-  createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
+  clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=5';
+} from './api.js?v=6';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -370,6 +370,7 @@ function render() {
   });
 
   if (status === 'loading') {
+    cleanupButton.hidden = true;
     summaryEl.textContent = '';
     listEl.replaceChildren(message('⏳', 'Loading…'));
 
@@ -377,6 +378,7 @@ function render() {
   }
 
   if (status === 'signed-out') {
+    cleanupButton.hidden = true;
     const signInAgain = document.createElement('button');
     signInAgain.type = 'button';
     signInAgain.className = 'btn state__action';
@@ -389,6 +391,7 @@ function render() {
   }
 
   if (status === 'error') {
+    cleanupButton.hidden = true;
     const retry = document.createElement('button');
     retry.type = 'button';
     retry.className = 'btn state__action';
@@ -408,6 +411,8 @@ function render() {
 
     return;
   }
+
+  cleanupButton.hidden = doneOnScreen().length === 0;
 
   const ordered = [...tasks].sort(inListOrder);
   const groups = groupOrder
@@ -479,6 +484,27 @@ function remove(task) {
 
 /** A plain confirm, deliberately: it is one question and it must block. */
 const confirmDelete = (question) => window.confirm(question);
+
+const cleanupButton = document.getElementById('cleanup');
+
+/** Exactly what is on screen and finished — not everything finished. */
+const doneOnScreen = () => tasks.filter((task) => task.status === 'DONE');
+
+cleanupButton.addEventListener('click', () => {
+  const finished = doneOnScreen();
+  if (finished.length === 0) return;
+
+  const count = String(finished.length);
+  if (!confirmDelete(`Clear ${count} done task${finished.length === 1 ? '' : 's'} from this list?`)) return;
+
+  const ids = finished.map((task) => task.id);
+
+  apply(
+    () => { tasks = tasks.filter((task) => !ids.includes(task.id)); },
+    () => clearTasks(credentials.token, ids),
+    `${count} cleared`,
+  );
+});
 
 /* --- loading -------------------------------------------------------------- */
 

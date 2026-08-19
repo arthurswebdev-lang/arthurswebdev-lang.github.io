@@ -2,6 +2,7 @@ import { type RequestHandler, Router } from 'express';
 
 import type { TasksController } from '../controllers/tasks.controller.js';
 import {
+  validateClear,
   validateCreate,
   validateDeleteById,
   validateGetById,
@@ -27,6 +28,9 @@ export class TasksRoutes {
 
     this.router.get('/tasks', validateList, controller.list.bind(controller));
     this.router.post('/tasks', validateCreate, controller.create.bind(controller));
+    // Ahead of /tasks/:id: otherwise "clear" is read as an id and fails as a
+    // malformed uuid.
+    this.router.post('/tasks/clear', validateClear, controller.clear.bind(controller));
     this.router.get('/tasks/:id', validateGetById, controller.getById.bind(controller));
     // PUT replaces the task: the body is the full representation, same rules as
     // create. Omitted fields are not kept — they fall back to their defaults.

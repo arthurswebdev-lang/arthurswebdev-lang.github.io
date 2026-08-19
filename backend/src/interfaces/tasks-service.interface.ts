@@ -42,6 +42,13 @@ export interface ITasksService {
   /** Applies `changes` to the stored task; throws when the id is unknown. */
   updateById(id: string, userId: string, changes: UpdateTask): Promise<Task>;
 
+  /**
+   * Clears tasks out of the way in bulk. Unlike `deleteById` this never
+   * touches a config: clearing one occurrence of a repeat drops that
+   * occurrence, leaving the rule to carry on. Returns how many went.
+   */
+  clear(ids: string[], userId: string): Promise<number>;
+
   /** Removes the task; throws when the id is unknown. */
   deleteById(id: string, userId: string): Promise<void>;
 }
