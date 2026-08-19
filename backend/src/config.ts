@@ -12,6 +12,8 @@ export interface Config {
   readonly mongoUrl: string;
   /** Database the collections live in. */
   readonly mongoDbName: string;
+  /** Origins allowed to call this API. `*` (the default) allows any. */
+  readonly allowedOrigins: string[];
   /** How often the event poller looks for tasks that just came due. */
   readonly pollIntervalMs: number;
 }
@@ -43,5 +45,6 @@ export const config: Config = {
   nodeEnv: process.env['NODE_ENV'] ?? 'development',
   mongoUrl: process.env['MONGO_URL'] ?? 'mongodb://127.0.0.1:27017',
   mongoDbName: process.env['MONGO_DB_NAME'] ?? 'todo-list',
+  allowedOrigins: (process.env['ORIGIN'] ?? '*').split(',').map((origin) => origin.trim()),
   pollIntervalMs: readPollInterval(process.env['POLL_INTERVAL_MS']),
 };
