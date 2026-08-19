@@ -115,6 +115,9 @@ export async function signUp(username, password) {
 
 export const createTask = (token, payload) => send("POST", "/tasks", token, payload);
 
+/** PUT replaces the task outright — the payload is its whole new state. */
+export const replaceTask = (token, id, payload) => send("PUT", `/tasks/${id}`, token, payload);
+
 export const createRepeatedTask = (token, payload) =>
   send("POST", "/repeated-tasks", token, payload);
 

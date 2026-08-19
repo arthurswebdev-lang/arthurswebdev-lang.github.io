@@ -10,8 +10,8 @@
 --------------------------------------------------------------------------- */
 import {
   createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTasks,
-  fetchTasks, forgetCredentials, readCredentials, saveCredentials, setStepStatus,
-  setTaskStatus, signUp,
+  fetchTasks, forgetCredentials, readCredentials, replaceTask, saveCredentials,
+  setStepStatus, setTaskStatus, signUp,
 } from './api.js';
 
 /**
@@ -235,6 +235,14 @@ function taskItem(task) {
   const actions = document.createElement('div');
   actions.className = 'task__actions';
   actions.append(iconButton(`Delete ${task.name}`, '🗑', () => { remove(task); }));
+
+  // Tapping the card edits it. Clicks that land on a control inside it — a
+  // step's check, a link, delete — are that control's, not the card's.
+  body.addEventListener('click', (event) => {
+    if (event.target.closest('button, a')) return;
+    openEditor(task);
+  });
+  body.classList.add('task__body--tappable');
 
   item.append(check, body, actions);
 
@@ -657,7 +665,7 @@ const wizardTitle = document.getElementById('wizard-title');
 const wizardSteps = document.getElementById('wizard-steps');
 const backButton = document.getElementById('wizard-back');
 
-const draft = { kind: null, schedule: null };
+const draft = { kind: null, schedule: null, editing: null };
 
 const stepPanel = (name) => document.querySelector(`[data-step="${name}"]`);
 
@@ -666,6 +674,8 @@ const TITLES = {
   schedule: 'How often?',
   details: 'Details',
 };
+
+const saveButton = document.getElementById('details-save');
 
 function toggleGroup(container, options, selected) {
   container.replaceChildren(...options.map(({ value, label }) => {
@@ -762,11 +772,16 @@ function showStep(name) {
     }
   }
 
+  const editing = draft.editing !== null;
   const total = draft.kind === 'REPEATED' ? 3 : 2;
   const current = name === 'kind' ? 1 : (name === 'schedule' ? 2 : total);
-  wizardTitle.textContent = TITLES[name];
-  wizardSteps.textContent = `Step ${String(current)} of ${String(total)}`;
-  backButton.hidden = name === 'kind';
+
+  wizardTitle.textContent = editing ? 'Edit task' : TITLES[name];
+  // Editing has no earlier step to report or return to: the type is fixed.
+  wizardSteps.textContent = editing ? 'Changing the type means deleting and adding again'
+    : `Step ${String(current)} of ${String(total)}`;
+  backButton.hidden = editing || name === 'kind';
+  saveButton.textContent = editing ? 'Save' : 'Add';
   composer.dataset.step = name;
 }
 
@@ -798,6 +813,7 @@ document.getElementById('add-subtask').addEventListener('click', () => { addSubt
 document.getElementById('add').addEventListener('click', () => {
   draft.kind = null;
   draft.schedule = null;
+  draft.editing = null;
   composerForm.reset();
   fillCategories();
   linkRows.replaceChildren();
@@ -807,6 +823,47 @@ document.getElementById('add').addEventListener('click', () => {
   showStep('kind');
   composer.showModal();
 });
+
+/** Fills the final step with a task's own values and opens it there. */
+function openEditor(task) {
+  if (task.configTaskId) {
+    announcer.textContent = `${task.name} comes from a repeat — edit the repeat instead`;
+    void openRepeats();
+
+    return;
+  }
+
+  draft.kind = task.type;
+  draft.schedule = null;
+  draft.editing = task;
+
+  composerForm.reset();
+  fillCategories();
+  linkRows.replaceChildren();
+  subtaskRows.replaceChildren();
+  toggleGroup(document.getElementById('weekday-toggles'), WEEKDAYS, []);
+  toggleGroup(document.getElementById('month-toggles'), MONTHS, []);
+
+  composerForm.elements['name'].value = task.name;
+  composerForm.elements['category'].value = task.category;
+  if (task.date) {
+    // datetime-local wants local wall-clock time, not the stored UTC string.
+    const local = new Date(new Date(task.date).getTime() - new Date().getTimezoneOffset() * 60000);
+    composerForm.elements['date'].value = local.toISOString().slice(0, 16);
+  }
+
+  for (const url of task.links ?? []) addLinkRow().querySelector('input').value = url;
+  for (const step of task.subtasks) {
+    const [name, link] = addSubtaskRow().querySelectorAll('input');
+    name.value = step.name;
+    if (step.link) link.value = step.link;
+  }
+
+  showStep('details');
+  composer.showModal();
+}
+
+document.getElementById('details-cancel').addEventListener('click', () => { composer.close(); });
 
 const timeParts = (value) => {
   const [hour, minute] = String(value).split(':').map(Number);
@@ -868,22 +925,23 @@ composerForm.addEventListener('submit', () => {
 
   // A repeat is a config: the server makes the event, so reload rather than
   // guessing what it produced.
-  const send = draft.kind === 'REPEATED'
-    ? () => createRepeatedTask(credentials.token, payload)
-    : () => createTask(credentials.token, payload);
+  const editing = draft.editing;
+  let send = () => createTask(credentials.token, payload);
+  if (editing !== null) send = () => replaceTask(credentials.token, editing.id, payload);
+  else if (draft.kind === 'REPEATED') send = () => createRepeatedTask(credentials.token, payload);
 
   status = 'loading';
   render();
 
   void send().then(
     () => {
-      announcer.textContent = `${payload.name} added`;
+      announcer.textContent = `${payload.name} ${editing === null ? 'added' : 'saved'}`;
 
       return load();
     },
     (error) => {
       if (error.message === 'UNAUTHORIZED') return load();
-      announcer.textContent = `Could not add ${payload.name}: ${error.message}`;
+      announcer.textContent = `Could not save ${payload.name}: ${error.message}`;
 
       return load();
     },

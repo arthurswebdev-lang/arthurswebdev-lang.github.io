@@ -828,3 +828,6 @@ select.field__input { appearance: none; background-image: none; }
 .repeat:last-child { border-bottom: none; }
 
 .repeat__text { flex: 1; min-width: 0; font-size: 0.85rem; overflow-wrap: anywhere; }
+
+/* A card is tappable to edit; its own controls stay theirs. */
+.task__body--tappable { cursor: pointer; }
