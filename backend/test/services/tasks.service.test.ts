@@ -22,7 +22,7 @@ const tasks: Task[] = [
   aBasicTask('buy milk'),
   anEvent('gym friday', 'Fri 2026-08-21', ActiveLogic.THIS_WEEK),
   anEvent('gym monday', 'Mon 2026-08-24', ActiveLogic.THIS_WEEK),
-  anEvent('rent', '2026-09-01', ActiveLogic.NEXT_30_DAYS),
+  anEvent('rent', '2026-09-01', ActiveLogic.NEXT_10_DAYS),
 ];
 
 const saturday = utc('Sat 2026-08-22 10:00');

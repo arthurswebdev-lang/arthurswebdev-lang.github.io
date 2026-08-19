@@ -12,7 +12,7 @@ import type { RepeatedTask } from '../types/repeated-tasks.types.js';
  *
  * - `now` is always passed in, never read from the clock inside a rule. That is
  *   what makes "on Saturday, Monday's event is hidden" a thing you can check.
- * - Every boundary is **UTC**. Days, weeks and the 30-day horizon all start and
+ * - Every boundary is **UTC**. Days, weeks and the 10-day horizon all start and
  *   end at UTC midnight, so the same instant classifies identically wherever the
  *   server runs.
  * - Windows start at the start of today rather than at `now`, so an event
@@ -21,7 +21,7 @@ import type { RepeatedTask } from '../types/repeated-tasks.types.js';
  */
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const DAYS_IN_ACTIVE_MONTH_WINDOW = 30;
+const DAYS_IN_ACTIVE_MONTH_WINDOW = 10;
 const SUNDAY = 0;
 const DAYS_PER_WEEK = 7;
 
@@ -57,10 +57,13 @@ export function endOfThisWeek(now: Date): Date {
 }
 
 /**
- * The last instant of the 30th day from today — a rolling window, deliberately
- * not the calendar month, so on 19 August it reaches into September.
+ * The last instant of the 10th day from today — a rolling window, deliberately
+ * not the calendar month, so late in a month it reaches into the next one.
+ *
+ * The number lives in one constant, but it is also in the enum's name, so
+ * changing it means renaming ActiveLogic and migrating what is stored.
  */
-export function endOfNext30Days(now: Date): Date {
+export function endOfNext10Days(now: Date): Date {
   return endOfDay(new Date(now.getTime() + DAYS_IN_ACTIVE_MONTH_WINDOW * MS_PER_DAY));
 }
 
@@ -79,7 +82,7 @@ export function activeLogicForRepeatedTask(task: RepeatedTask): ActiveLogic {
     case TaskType.REPEATED_WEEKLY:
       return ActiveLogic.THIS_WEEK;
     case TaskType.REPEATED_MONTHLY:
-      return ActiveLogic.NEXT_30_DAYS;
+      return ActiveLogic.NEXT_10_DAYS;
   }
 }
 
@@ -103,11 +106,11 @@ export function isWithinThisWeek(date: Date, now: Date): boolean {
 }
 
 /**
- * Monthly rule. Rolling 30 days from today: on 19 August an event on
- * 1 September is inside (13 days out), one on 25 September is not (37 days).
+ * Monthly rule. Rolling 10 days from today: on 19 August an event on
+ * 25 August is inside (6 days out), one on 1 September is not (13 days).
  */
-export function isWithinNext30Days(date: Date, now: Date): boolean {
-  return date >= startOfDay(now) && date <= endOfNext30Days(now);
+export function isWithinNext10Days(date: Date, now: Date): boolean {
+  return date >= startOfDay(now) && date <= endOfNext10Days(now);
 }
 
 /** Dispatches an event to the window its own `activeLogic` names. */
@@ -117,8 +120,8 @@ export function isWithinActiveWindow(event: EventTask, now: Date): boolean {
       return isWithinToday(event.date, now);
     case ActiveLogic.THIS_WEEK:
       return isWithinThisWeek(event.date, now);
-    case ActiveLogic.NEXT_30_DAYS:
-      return isWithinNext30Days(event.date, now);
+    case ActiveLogic.NEXT_10_DAYS:
+      return isWithinNext10Days(event.date, now);
   }
 }
 

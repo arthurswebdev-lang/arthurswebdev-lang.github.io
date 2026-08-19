@@ -51,7 +51,7 @@ describe('generating a config\'s first event', () => {
 });
 
 describe('generating for weekly and monthly configs', () => {
-  it('gives a weekly event THIS_WEEK logic and a monthly one NEXT_30_DAYS', async () => {
+  it('gives a weekly event THIS_WEEK logic and a monthly one NEXT_10_DAYS', async () => {
     const gym = aWeeklyConfig('gym', [1, 5]);
     const rent = aMonthlyConfig('rent', { fromDay: 1, toDay: 5, months: [9] });
     const { generator } = withTasks([gym, rent]);

@@ -9,7 +9,7 @@ import type { TimeOfDay } from '../types/repeated-tasks.types.js';
 import { ID, JoiObject, varchar } from '../middlewares/validation/util/validation.util.js';
 
 /** Active logic given to an event the client created directly. */
-export const DEFAULT_EVENT_ACTIVE_LOGIC = ActiveLogic.NEXT_30_DAYS;
+export const DEFAULT_EVENT_ACTIVE_LOGIC = ActiveLogic.NEXT_10_DAYS;
 
 /** http(s) only: these get opened, so a javascript: or file: URL has no place. */
 const link = Joi.string().uri({ scheme: ['http', 'https'] }).max(2048);

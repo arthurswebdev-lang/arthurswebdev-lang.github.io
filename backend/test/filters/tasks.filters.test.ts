@@ -7,7 +7,7 @@ import { TaskType } from '../../src/enum/task-type.enum.js';
 import {
   activeLogicForRepeatedTask,
   endOfDay,
-  endOfNext30Days,
+  endOfNext10Days,
   endOfThisWeek,
   eventsOfConfig,
   filterTasks,
@@ -17,7 +17,7 @@ import {
   isMarkedPassed,
   isPassedEvent,
   isUpcomingEvent,
-  isWithinNext30Days,
+  isWithinNext10Days,
   isWithinThisWeek,
   isWithinToday,
   pendingEventOfConfig,
@@ -59,9 +59,10 @@ describe('endOfThisWeek — the week stops on Sunday', () => {
   });
 });
 
-describe('endOfNext30Days — rolling, not the calendar month', () => {
-  it('reaches into the following month', () => {
-    assert.deepEqual(endOfNext30Days(utc('2026-08-19 12:00')), utc('2026-09-18 23:59:59.999'));
+describe('endOfNext10Days — rolling, not the calendar month', () => {
+  it('reaches ten days out, crossing into the next month when it must', () => {
+    assert.deepEqual(endOfNext10Days(utc('2026-08-19 12:00')), utc('2026-08-29 23:59:59.999'));
+    assert.deepEqual(endOfNext10Days(utc('2026-08-27 12:00')), utc('2026-09-06 23:59:59.999'));
   });
 });
 
@@ -148,19 +149,19 @@ describe('weekly — Q15, the midnight problem', () => {
 describe('monthly — rolling 30 days', () => {
   const today = utc('2026-08-19 12:00');
 
-  it('counts 1 September as actual on 19 August (13 days out, next calendar month)', () => {
-    assert.equal(isWithinNext30Days(utc('2026-09-01'), today), true);
-    assert.equal(isActualEvent(aMonthlyEvent('rent', '2026-09-01'), today), true);
+  it('counts 25 August as actual on 19 August (6 days out)', () => {
+    assert.equal(isWithinNext10Days(utc('2026-08-25'), today), true);
+    assert.equal(isActualEvent(aMonthlyEvent('rent', '2026-08-25'), today), true);
   });
 
-  it('leaves 25 September upcoming (37 days out)', () => {
-    assert.equal(isWithinNext30Days(utc('2026-09-25'), today), false);
-    assert.equal(isUpcomingEvent(aMonthlyEvent('rent', '2026-09-25'), today), true);
+  it('leaves 1 September upcoming (13 days out)', () => {
+    assert.equal(isWithinNext10Days(utc('2026-09-01'), today), false);
+    assert.equal(isUpcomingEvent(aMonthlyEvent('rent', '2026-09-01'), today), true);
   });
 
   it('includes the last day of the window and excludes the next one', () => {
-    assert.equal(isWithinNext30Days(utc('2026-09-18 23:00'), today), true);
-    assert.equal(isWithinNext30Days(utc('2026-09-19 00:00'), today), false);
+    assert.equal(isWithinNext10Days(utc('2026-08-29 23:00'), today), true);
+    assert.equal(isWithinNext10Days(utc('2026-08-30 00:00'), today), false);
   });
 });
 
