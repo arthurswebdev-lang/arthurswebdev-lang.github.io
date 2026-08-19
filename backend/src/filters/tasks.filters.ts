@@ -1,7 +1,8 @@
 import { ActiveLogic } from '../enum/active-logic.enum.js';
 import { TaskFilter } from '../enum/task-filter.enum.js';
 import { TaskType } from '../enum/task-type.enum.js';
-import type { EventTask, RepeatedTask, Task } from '../types/tasks.types.js';
+import type { EventTask, Task } from '../types/tasks.types.js';
+import type { RepeatedTask } from '../types/repeated-tasks.types.js';
 
 /**
  * Every rule behind `GET /tasks?filter=actual|passed|upcoming`, one rule per

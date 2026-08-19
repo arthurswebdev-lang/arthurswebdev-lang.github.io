@@ -44,6 +44,11 @@ export const UpdateTaskSchema = CreateTaskSchema;
  * does nothing. Pagination and the type/status/search narrowing exist on the
  * repository (`listBy`) and can be added here when they are wired up.
  */
+/** Body for `PATCH /tasks/:id/status` — the one field, and nothing else. */
+export const UpdateTaskStatusSchema = Joi.object({
+  status: fields.status.required(),
+});
+
 export const ListTasksQuerySchema = Joi.object({
   filter: Joi.string().valid(...Object.values(TaskFilter)),
 });

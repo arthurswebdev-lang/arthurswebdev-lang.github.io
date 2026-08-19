@@ -4,10 +4,7 @@ import type {
 import type { IRepeatedTasksService } from '../interfaces/repeated-tasks-service.interface.js';
 import type { ITaskGeneratorService } from '../interfaces/task-generator.interface.js';
 import type { ITasksRepository } from '../interfaces/tasks-repository.interface.js';
-import type {
-  CreateRepeatedTask, RepeatedTask, UpdateRepeatedTask,
-} from '../types/tasks.types.js';
-import { assertRepeatedTaskUpdateAllowed } from '../rules/task-update.rules.js';
+import type { CreateRepeatedTask, RepeatedTask, UpdateRepeatedTask } from '../types/repeated-tasks.types.js';
 import { ResourceNotFoundError } from '../utils/http-errors/resource-not-found.error.js';
 
 /**
@@ -41,11 +38,6 @@ export class RepeatedTasksService implements IRepeatedTasksService {
   }
 
   async updateById(id: string, changes: UpdateRepeatedTask): Promise<RepeatedTask> {
-    const current = await this.repeatedTasksRepository.getById(id);
-    if (current === null) throw new ResourceNotFoundError(`No repeated task with id ${id}.`);
-
-    assertRepeatedTaskUpdateAllowed(current, changes);
-
     const updated = await this.repeatedTasksRepository.updateById(id, changes);
     if (updated === null) throw new ResourceNotFoundError(`No repeated task with id ${id}.`);
 

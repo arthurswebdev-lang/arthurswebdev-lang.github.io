@@ -1,4 +1,5 @@
 import type { TaskFilter } from '../enum/task-filter.enum.js';
+import type { TaskStatus } from '../enum/task-status.enum.js';
 import type { CreateTask, Task, UpdateTask } from '../types/tasks.types.js';
 
 export interface ITasksService {
@@ -12,6 +13,9 @@ export interface ITasksService {
   getById(id: string): Promise<Task | null>;
 
   create(input: CreateTask): Promise<Task>;
+
+  /** Changes only the status; throws when the id is unknown. */
+  updateStatus(id: string, status: TaskStatus): Promise<Task>;
 
   /** Applies `changes` to the stored task; throws when the id is unknown. */
   updateById(id: string, changes: UpdateTask): Promise<Task>;

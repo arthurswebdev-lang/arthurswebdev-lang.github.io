@@ -1,6 +1,4 @@
-import type {
-  CreateRepeatedTask, RepeatedTask, UpdateRepeatedTask,
-} from '../types/tasks.types.js';
+import type { CreateRepeatedTask, RepeatedTask, UpdateRepeatedTask } from '../types/repeated-tasks.types.js';
 import type { IBaseRepository } from './base-repository.interface.js';
 
 /**

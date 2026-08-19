@@ -2,12 +2,6 @@ import type { ActiveLogic } from '../enum/active-logic.enum.js';
 import type { TaskStatus } from '../enum/task-status.enum.js';
 import type { TaskType } from '../enum/task-type.enum.js';
 
-/** Wall-clock time of day on a 24h clock: hour 0-23, minute 0-59. */
-export interface TimeOfDay {
-  hour: number;
-  minute: number;
-}
-
 export interface Subtask {
   id: string;
   name: string;
@@ -39,36 +33,6 @@ export interface EventTask extends BaseTask {
   /** The repeated task that generated this event; `null` if a client made it. */
   configTaskId: string | null;
 }
-
-export interface DailyTask extends BaseTask {
-  type: TaskType.REPEATED_DAILY;
-  startsAt: TimeOfDay;
-  endsAt: TimeOfDay;
-  /** Gap between two runs within the window, as hours + minutes. */
-  repeatEach: TimeOfDay;
-}
-
-export interface WeeklyTask extends BaseTask {
-  type: TaskType.REPEATED_WEEKLY;
-  /** Days of the week the task repeats on: 0 = Sunday ... 6 = Saturday. */
-  weekdays: number[];
-}
-
-export interface MonthlyTask extends BaseTask {
-  type: TaskType.REPEATED_MONTHLY;
-  /** Day of month the window opens on, 1-31. */
-  fromDay: number;
-  /** Day of month the window closes on, 1-31. */
-  toDay: number;
-  /** Months the task repeats in: 1 = January ... 12 = December. */
-  months: number[];
-}
-
-/**
- * The configs. These are recipes that generate events, never things a user
- * completes, and they live in their own store — see `RepeatedTasksRepository`.
- */
-export type RepeatedTask = DailyTask | WeeklyTask | MonthlyTask;
 
 /**
  * What the user actually works with, discriminated on `type`. Configs are
@@ -114,15 +78,9 @@ export type CreateBasicTask = WithSubtaskDrafts<BasicTask>;
 export type CreateEventTask =
   Omit<WithSubtaskDrafts<EventTask>, ServerOwnedEventFields | 'activeLogic'>
   & { activeLogic?: ActiveLogic };
-export type CreateDailyTask = Draft<DailyTask>;
-export type CreateWeeklyTask = Draft<WeeklyTask>;
-export type CreateMonthlyTask = Draft<MonthlyTask>;
 
 /** Payload for `POST /tasks`. */
 export type CreateTask = CreateBasicTask | CreateEventTask;
-
-/** Payload for `POST /repeated-tasks`. */
-export type CreateRepeatedTask = CreateDailyTask | CreateWeeklyTask | CreateMonthlyTask;
 
 /**
  * PUT replaces the whole task, so an update payload is the same full
@@ -134,5 +92,3 @@ export type CreateRepeatedTask = CreateDailyTask | CreateWeeklyTask | CreateMont
  */
 export type UpdateTask = CreateTask;
 
-/** Same rule for configs: PUT replaces, so an update is a full representation. */
-export type UpdateRepeatedTask = CreateRepeatedTask;

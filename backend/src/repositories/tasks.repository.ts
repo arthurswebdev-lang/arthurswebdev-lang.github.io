@@ -7,9 +7,8 @@ import { TaskType } from '../enum/task-type.enum.js';
 import { activeLogicForRepeatedTask } from '../filters/tasks.filters.js';
 import type { ITasksRepository, TaskQuery } from '../interfaces/tasks-repository.interface.js';
 import { DEFAULT_EVENT_ACTIVE_LOGIC } from '../schemes/common.schemes.js';
-import type {
-  CreateTask, EventTask, RepeatedTask, Subtask, SubtaskDraft, Task, UpdateTask,
-} from '../types/tasks.types.js';
+import type { CreateTask, EventTask, Subtask, SubtaskDraft, Task, UpdateTask } from '../types/tasks.types.js';
+import type { RepeatedTask } from '../types/repeated-tasks.types.js';
 import { InputValidationError } from '../utils/http-errors/input-validation.error.js';
 import type { Persisted } from './entity.interface.js';
 import { MongoRepository } from './mongo.repository.js';
@@ -76,6 +75,20 @@ export class TasksRepository
     const result = await this.collection.deleteMany({ type: TaskType.EVENT, configTaskId });
 
     return result.deletedCount;
+  }
+
+  /**
+   * A single-field write, not a read-modify-replace: status is the one thing a
+   * generated event may change, and PATCH must not disturb anything else.
+   */
+  async updateStatus(id: string, status: TaskStatus): Promise<Task | null> {
+    const updated = await this.collection.findOneAndUpdate(
+      this.byId(id),
+      { $set: { status } },
+      { returnDocument: 'after' },
+    );
+
+    return updated === null ? null : this.toDomain(updated);
   }
 
   async markEventPassed(eventId: string, passedAt: Date): Promise<EventTask | null> {

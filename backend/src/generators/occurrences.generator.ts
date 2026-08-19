@@ -1,7 +1,5 @@
 import { TaskType } from '../enum/task-type.enum.js';
-import type {
-  DailyTask, MonthlyTask, RepeatedTask, TimeOfDay, WeeklyTask,
-} from '../types/tasks.types.js';
+import type { DailyTask, MonthlyTask, RepeatedTask, TimeOfDay, WeeklyTask } from '../types/repeated-tasks.types.js';
 
 /**
  * Works out *when* a repeated config's next event falls. Nothing here creates

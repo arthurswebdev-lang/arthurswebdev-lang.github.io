@@ -5,7 +5,7 @@ import type { ITaskGeneratorService } from '../interfaces/task-generator.interfa
 import type { ITasksRepository } from '../interfaces/tasks-repository.interface.js';
 import type { ITasksService } from '../interfaces/tasks-service.interface.js';
 import type { CreateTask, Task, UpdateTask } from '../types/tasks.types.js';
-import { assertTaskUpdateAllowed } from '../rules/task-update.rules.js';
+import { assertTaskReplaceAllowed } from '../rules/task-update.rules.js';
 import { ResourceNotFoundError } from '../utils/http-errors/resource-not-found.error.js';
 
 export class TasksService implements ITasksService {
@@ -42,13 +42,26 @@ export class TasksService implements ITasksService {
     return this.tasksRepository.create(input);
   }
 
+  /**
+   * The only way to move a generated event. Finishing one early still brings
+   * its successor forward, exactly as a full replacement used to.
+   */
+  async updateStatus(id: string, status: TaskStatus): Promise<Task> {
+    const updated = await this.tasksRepository.updateStatus(id, status);
+    if (updated === null) throw new ResourceNotFoundError(`No task with id ${id}.`);
+
+    await this.afterUpdate(updated);
+
+    return updated;
+  }
+
   async updateById(id: string, changes: UpdateTask): Promise<Task> {
     // Read before writing: what a client may change depends on what is stored —
     // a generated event takes status changes only.
     const current = await this.tasksRepository.getById(id);
     if (current === null) throw new ResourceNotFoundError(`No task with id ${id}.`);
 
-    assertTaskUpdateAllowed(current, changes);
+    assertTaskReplaceAllowed(current);
 
     const updated = await this.tasksRepository.updateById(id, changes);
     if (updated === null) throw new ResourceNotFoundError(`No task with id ${id}.`);

@@ -1,7 +1,11 @@
 import type { NextFunction, Request, Response } from 'express';
 
 import {
-  CreateTaskSchema, ListTasksQuerySchema, TaskIdInParams, UpdateTaskSchema,
+  CreateTaskSchema,
+  ListTasksQuerySchema,
+  TaskIdInParams,
+  UpdateTaskSchema,
+  UpdateTaskStatusSchema,
 } from '../../schemes/tasks.schemes.js';
 import { validate, validateQuery } from './util/validation.util.js';
 
@@ -41,6 +45,20 @@ export function validateUpdate(request: Request, _response: Response, next: Next
   try {
     validate(TaskIdInParams, request.params);
     validate(UpdateTaskSchema, request.body as object);
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function validateUpdateStatus(
+  request: Request,
+  _response: Response,
+  next: NextFunction,
+): void {
+  try {
+    validate(TaskIdInParams, request.params);
+    validate(UpdateTaskStatusSchema, request.body as object);
     next();
   } catch (error) {
     next(error);

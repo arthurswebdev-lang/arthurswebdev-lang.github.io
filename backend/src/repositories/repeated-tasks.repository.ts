@@ -2,11 +2,8 @@ import { randomUUID } from 'node:crypto';
 
 import type { Db } from 'mongodb';
 
-import { TaskStatus } from '../enum/task-status.enum.js';
 import type { IRepeatedTasksRepository } from '../interfaces/repeated-tasks-repository.interface.js';
-import type {
-  CreateRepeatedTask, RepeatedTask, UpdateRepeatedTask,
-} from '../types/tasks.types.js';
+import type { CreateRepeatedTask, RepeatedTask, UpdateRepeatedTask } from '../types/repeated-tasks.types.js';
 import { InputValidationError } from '../utils/http-errors/input-validation.error.js';
 import { MongoRepository } from './mongo.repository.js';
 
@@ -26,12 +23,7 @@ export class RepeatedTasksRepository
   }
 
   protected toEntity(input: CreateRepeatedTask): RepeatedTask {
-    return {
-      ...input,
-      id: randomUUID(),
-      createdAt: new Date(),
-      status: input.status ?? TaskStatus.TODO,
-    };
+    return { ...input, id: randomUUID(), createdAt: new Date() };
   }
 
   /** PUT replaces the config outright; only id and createdAt survive. */

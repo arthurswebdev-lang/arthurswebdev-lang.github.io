@@ -1,8 +1,7 @@
 import type { TaskStatus } from '../enum/task-status.enum.js';
 import type { TaskType } from '../enum/task-type.enum.js';
-import type {
-  CreateTask, EventTask, RepeatedTask, Task, UpdateTask,
-} from '../types/tasks.types.js';
+import type { CreateTask, EventTask, Task, UpdateTask } from '../types/tasks.types.js';
+import type { RepeatedTask } from '../types/repeated-tasks.types.js';
 import type { IBaseRepository } from './base-repository.interface.js';
 
 /**
@@ -29,6 +28,9 @@ export interface ITasksRepository extends IBaseRepository<Task, CreateTask, Upda
 
   /** Removes every event a config produced. Returns how many went. */
   deleteEventsOfConfig(configTaskId: string): Promise<number>;
+
+  /** Sets just the status; returns null if the id is unknown. */
+  updateStatus(id: string, status: TaskStatus): Promise<Task | null>;
 
   /** Stamps `passedDate`; returns null if the id is unknown. */
   markEventPassed(eventId: string, passedAt: Date): Promise<EventTask | null>;

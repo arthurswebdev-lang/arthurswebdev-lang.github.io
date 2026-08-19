@@ -4,7 +4,8 @@ import { describe, it } from 'node:test';
 import { TaskStatus } from '../../src/enum/task-status.enum.js';
 import { isEventTask, pendingEventOfConfig } from '../../src/filters/tasks.filters.js';
 import { TaskGeneratorService } from '../../src/services/task-generator.service.js';
-import type { EventTask, RepeatedTask, Task } from '../../src/types/tasks.types.js';
+import type { EventTask, Task } from '../../src/types/tasks.types.js';
+import type { RepeatedTask } from '../../src/types/repeated-tasks.types.js';
 import { InMemoryRepeatedTasksRepository } from '../support/in-memory-repeated-repository.js';
 import { InMemoryTasksRepository } from '../support/in-memory-repository.js';
 import {

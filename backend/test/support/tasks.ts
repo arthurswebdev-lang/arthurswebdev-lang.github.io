@@ -1,9 +1,8 @@
 import { ActiveLogic } from '../../src/enum/active-logic.enum.js';
 import { TaskStatus } from '../../src/enum/task-status.enum.js';
 import { TaskType } from '../../src/enum/task-type.enum.js';
-import type {
-  BasicTask, DailyTask, EventTask, MonthlyTask, TimeOfDay, WeeklyTask,
-} from '../../src/types/tasks.types.js';
+import type { BasicTask, EventTask } from '../../src/types/tasks.types.js';
+import type { DailyTask, MonthlyTask, TimeOfDay, WeeklyTask } from '../../src/types/repeated-tasks.types.js';
 import { utc } from './time.js';
 
 /**
@@ -71,7 +70,6 @@ export function aWeeklyConfig(name: string, weekdays: number[]): WeeklyTask {
   return {
     id: `config-${name}`,
     type: TaskType.REPEATED_WEEKLY,
-    status: TaskStatus.TODO,
     name,
     createdAt: CREATED_AT,
     weekdays,
@@ -92,7 +90,6 @@ export function aDailyConfig(
   return {
     id: `config-${name}`,
     type: TaskType.REPEATED_DAILY,
-    status: TaskStatus.TODO,
     name,
     createdAt: CREATED_AT,
     startsAt: timeOfDay(schedule.startsAt),
@@ -108,7 +105,6 @@ export function aMonthlyConfig(
   return {
     id: `config-${name}`,
     type: TaskType.REPEATED_MONTHLY,
-    status: TaskStatus.TODO,
     name,
     createdAt: CREATED_AT,
     ...schedule,

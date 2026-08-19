@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import { ActiveLogic } from '../../src/enum/active-logic.enum.js';
 import { TaskFilter } from '../../src/enum/task-filter.enum.js';
+import { TaskStatus } from '../../src/enum/task-status.enum.js';
 import { TaskGeneratorService } from '../../src/services/task-generator.service.js';
 import { TasksService } from '../../src/services/tasks.service.js';
 import type { Task } from '../../src/types/tasks.types.js';
@@ -69,5 +70,25 @@ describe('GET /tasks?filter=...', () => {
     for (const listed of lists) {
       assert.equal(listed.some((task) => task.name === 'buy milk'), false);
     }
+  });
+});
+
+describe('PATCH /tasks/:id/status', () => {
+  it('changes the status and leaves everything else alone', async () => {
+    const stored = anEvent('gym', 'Mon 2026-08-24', ActiveLogic.THIS_WEEK);
+    const service = serviceWith([stored]);
+
+    const updated = await service.updateStatus(stored.id, TaskStatus.DONE);
+
+    assert.equal(updated.status, TaskStatus.DONE);
+    assert.equal(updated.name, 'gym');
+    assert.deepEqual(updated.id, stored.id);
+  });
+
+  it('rejects an id that matches nothing', async () => {
+    await assert.rejects(
+      () => serviceWith([]).updateStatus('00000000-0000-4000-8000-000000000000', TaskStatus.DONE),
+      /No task with id/,
+    );
   });
 });

@@ -1,17 +1,13 @@
 import Joi from 'joi';
 
-import { TaskStatus } from '../enum/task-status.enum.js';
 import { TaskType } from '../enum/task-type.enum.js';
-import type {
-  CreateDailyTask, CreateMonthlyTask, CreateWeeklyTask,
-} from '../types/tasks.types.js';
+import type { CreateDailyTask, CreateMonthlyTask, CreateWeeklyTask } from '../types/repeated-tasks.types.js';
 import { JoiObject } from '../middlewares/validation/util/validation.util.js';
 import { byType, fields, typeOf } from './common.schemes.js';
 
 export const CreateDailyTaskSchema = JoiObject<CreateDailyTask>({
   type: typeOf(TaskType.REPEATED_DAILY),
   name: fields.name.required(),
-  status: fields.status.default(TaskStatus.TODO),
   startsAt: fields.time.required(),
   endsAt: fields.time.required(),
   repeatEach: fields.time.required(),
@@ -20,14 +16,12 @@ export const CreateDailyTaskSchema = JoiObject<CreateDailyTask>({
 export const CreateWeeklyTaskSchema = JoiObject<CreateWeeklyTask>({
   type: typeOf(TaskType.REPEATED_WEEKLY),
   name: fields.name.required(),
-  status: fields.status.default(TaskStatus.TODO),
   weekdays: fields.weekdays.required(),
 });
 
 export const CreateMonthlyTaskSchema = JoiObject<CreateMonthlyTask>({
   type: typeOf(TaskType.REPEATED_MONTHLY),
   name: fields.name.required(),
-  status: fields.status.default(TaskStatus.TODO),
   fromDay: fields.dayOfMonth.required(),
   toDay: fields.dayOfMonth.min(Joi.ref('fromDay')).required(),
   months: fields.months.required(),

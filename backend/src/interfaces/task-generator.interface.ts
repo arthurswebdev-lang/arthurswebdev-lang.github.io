@@ -1,4 +1,5 @@
-import type { EventTask, RepeatedTask } from '../types/tasks.types.js';
+import type { EventTask } from '../types/tasks.types.js';
+import type { RepeatedTask } from '../types/repeated-tasks.types.js';
 
 export interface ITaskGeneratorService {
   /** Stamps `passedDate` on every event whose moment has gone by. */

@@ -1,12 +1,18 @@
 import type { NextFunction, Response } from 'express';
 
 import type { TaskFilter } from '../enum/task-filter.enum.js';
+import type { TaskStatus } from '../enum/task-status.enum.js';
 import type { ITasksService } from '../interfaces/tasks-service.interface.js';
 import type { BodyRequest, ParamsRequest, QueryRequest } from '../types/request.type.js';
 import type {
   CreateTask, Task, TaskIdParams, UpdateTask,
 } from '../types/tasks.types.js';
 import * as SuccessHandlerUtil from '../utils/success-handler.util.js';
+
+/** Body accepted by `PATCH /tasks/:id/status`. */
+interface UpdateTaskStatus {
+  status: TaskStatus;
+}
 
 /** Query accepted by `GET /tasks`, after validation has narrowed it. */
 interface ListTasksQuery {
@@ -62,6 +68,22 @@ export class TasksController {
   ): Promise<void> {
     try {
       const task: Task = await this.tasksService.updateById(request.params.id, request.body);
+      SuccessHandlerUtil.handleUpdate(response, next, task);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateStatus(
+    request: BodyRequest<UpdateTaskStatus, TaskIdParams>,
+    response: Response<Task>,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const task: Task = await this.tasksService.updateStatus(
+        request.params.id,
+        request.body.status,
+      );
       SuccessHandlerUtil.handleUpdate(response, next, task);
     } catch (error) {
       next(error);

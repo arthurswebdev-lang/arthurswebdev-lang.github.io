@@ -4,9 +4,8 @@ import { TaskStatus } from '../../src/enum/task-status.enum.js';
 import { TaskType } from '../../src/enum/task-type.enum.js';
 import { activeLogicForRepeatedTask } from '../../src/filters/tasks.filters.js';
 import type { ITasksRepository, TaskQuery } from '../../src/interfaces/tasks-repository.interface.js';
-import type {
-  CreateTask, EventTask, RepeatedTask, Task, UpdateTask,
-} from '../../src/types/tasks.types.js';
+import type { CreateTask, EventTask, Task, UpdateTask } from '../../src/types/tasks.types.js';
+import type { RepeatedTask } from '../../src/types/repeated-tasks.types.js';
 
 /**
  * The tasks repository backed by an array instead of a file, so generation can
@@ -76,6 +75,17 @@ export class InMemoryTasksRepository implements ITasksRepository {
     );
 
     return Promise.resolve(before - this.tasks.length);
+  }
+
+  updateStatus(id: string, status: TaskStatus): Promise<Task | null> {
+    const index = this.tasks.findIndex((task) => task.id === id);
+    const found = this.tasks[index];
+    if (found === undefined) return Promise.resolve(null);
+
+    const updated = { ...found, status };
+    this.tasks[index] = updated;
+
+    return Promise.resolve(updated);
   }
 
   markEventPassed(eventId: string, passedAt: Date): Promise<EventTask | null> {

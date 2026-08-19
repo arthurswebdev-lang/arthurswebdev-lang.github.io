@@ -2,9 +2,8 @@ import type { NextFunction, Request, Response } from 'express';
 
 import type { IRepeatedTasksService } from '../interfaces/repeated-tasks-service.interface.js';
 import type { BodyRequest, ParamsRequest } from '../types/request.type.js';
-import type {
-  CreateRepeatedTask, RepeatedTask, TaskIdParams, UpdateRepeatedTask,
-} from '../types/tasks.types.js';
+import type { TaskIdParams } from '../types/tasks.types.js';
+import type { CreateRepeatedTask, RepeatedTask, UpdateRepeatedTask } from '../types/repeated-tasks.types.js';
 import * as SuccessHandlerUtil from '../utils/success-handler.util.js';
 
 export class RepeatedTasksController {

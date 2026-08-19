@@ -3,7 +3,8 @@ import Joi from 'joi';
 import { ActiveLogic } from '../enum/active-logic.enum.js';
 import { TaskStatus } from '../enum/task-status.enum.js';
 import type { TaskType } from '../enum/task-type.enum.js';
-import type { SubtaskDraft, TimeOfDay } from '../types/tasks.types.js';
+import type { SubtaskDraft } from '../types/tasks.types.js';
+import type { TimeOfDay } from '../types/repeated-tasks.types.js';
 import { ID, JoiObject, varchar } from '../middlewares/validation/util/validation.util.js';
 
 /** Active logic given to an event the client created directly. */

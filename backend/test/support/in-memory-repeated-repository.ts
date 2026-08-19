@@ -1,12 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
-import { TaskStatus } from '../../src/enum/task-status.enum.js';
 import type {
   IRepeatedTasksRepository,
 } from '../../src/interfaces/repeated-tasks-repository.interface.js';
-import type {
-  CreateRepeatedTask, RepeatedTask, UpdateRepeatedTask,
-} from '../../src/types/tasks.types.js';
+import type { CreateRepeatedTask, RepeatedTask, UpdateRepeatedTask } from '../../src/types/repeated-tasks.types.js';
 
 /** The configs store, backed by an array. */
 export class InMemoryRepeatedTasksRepository implements IRepeatedTasksRepository {
@@ -21,12 +18,7 @@ export class InMemoryRepeatedTasksRepository implements IRepeatedTasksRepository
   }
 
   create(input: CreateRepeatedTask): Promise<RepeatedTask> {
-    const config = {
-      ...input,
-      id: randomUUID(),
-      createdAt: new Date(),
-      status: input.status ?? TaskStatus.TODO,
-    };
+    const config = { ...input, id: randomUUID(), createdAt: new Date() };
 
     this.configs.push(config);
 

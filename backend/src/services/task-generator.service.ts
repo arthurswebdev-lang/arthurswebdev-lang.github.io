@@ -5,7 +5,8 @@ import type {
 } from '../interfaces/repeated-tasks-repository.interface.js';
 import type { ITaskGeneratorService } from '../interfaces/task-generator.interface.js';
 import type { ITasksRepository } from '../interfaces/tasks-repository.interface.js';
-import type { EventTask, RepeatedTask } from '../types/tasks.types.js';
+import type { EventTask } from '../types/tasks.types.js';
+import type { RepeatedTask } from '../types/repeated-tasks.types.js';
 
 /**
  * Keeps the stored tasks in step with what the configs imply: every config has
