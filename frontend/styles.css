@@ -481,6 +481,10 @@ body {
 .category__icon { line-height: 1; }
 
 .category[aria-pressed="true"] {
+  /* Plain fallback first: without color-mix the selected pill would otherwise
+     be indistinguishable from the rest. */
+  background: var(--surface-sunk);
+  border-color: var(--line-strong);
   background: color-mix(in srgb, var(--cat, var(--accent)) 22%, var(--surface));
   border-color: color-mix(in srgb, var(--cat, var(--accent)) 55%, var(--line));
   transform: translateY(-1px);
@@ -493,6 +497,8 @@ body {
 }
 
 .chip--category {
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
   background: color-mix(in srgb, var(--cat) 16%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--cat) 40%, var(--line));
   color: var(--ink);
