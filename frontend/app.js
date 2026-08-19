@@ -269,11 +269,6 @@ function taskItem(task) {
     meta.append(chip(overdue ? `Missed · ${whenLabel(task)}` : whenLabel(task), modifier));
   }
 
-  const category = categoryOf(task.category);
-  const categoryChip = chip(`${category.icon} ${category.label}`, "category");
-  categoryChip.style.setProperty("--cat", category.color);
-  meta.append(categoryChip);
-
   if (task.repeat) meta.append(chip(`🔁 ${task.repeat}`, "repeat"));
   if (task.subtasks.length > 0) meta.append(chip(subtaskLabel(task)));
   if (!hasDate(task)) meta.append(chip("No date"));
@@ -291,7 +286,7 @@ function taskItem(task) {
 }
 
 function emptyState() {
-  const wrap = document.createElement("li");
+  const wrap = document.createElement("div");
   wrap.className = "empty";
   const messages = {
     passed: ["🕓", "Nothing has gone by yet."],
@@ -350,6 +345,41 @@ function renderCategories() {
 const inCategory = (task) =>
   activeCategory === "all" || (task.category ?? NONE_KEY) === activeCategory;
 
+/** Fixed slots first, then the neutral bucket — never re-ordered by count. */
+const groupOrder = [...Object.keys(CATEGORIES), NONE_KEY];
+
+function taskGroup(key, items) {
+  const { label, icon, color } = categoryOf(key === NONE_KEY ? undefined : key);
+
+  const section = document.createElement("section");
+  section.className = "group";
+  section.style.setProperty("--cat", color);
+
+  const heading = document.createElement("h3");
+  heading.className = "group__title";
+
+  const mark = document.createElement("span");
+  mark.className = "group__icon";
+  mark.setAttribute("aria-hidden", "true");
+  mark.textContent = icon;
+
+  const name = document.createElement("span");
+  name.textContent = label;
+
+  const count = document.createElement("span");
+  count.className = "group__count";
+  count.textContent = String(items.length);
+
+  heading.append(mark, name, count);
+
+  const list = document.createElement("ul");
+  list.className = "group__items";
+  list.append(...items.map(taskItem));
+
+  section.append(heading, list);
+  return section;
+}
+
 function render() {
   const counts = { passed: 0, actual: 0, upcoming: 0 };
   tasks.forEach((task) => { counts[stateOf(task)] += 1; });
@@ -367,7 +397,17 @@ function render() {
   const left = shown.filter((task) => task.status !== "DONE").length;
   summaryEl.textContent = shown.length === 0 ? "" : `${left} of ${shown.length} left`;
 
-  listEl.replaceChildren(...(shown.length === 0 ? [emptyState()] : shown.map(taskItem)));
+  if (shown.length === 0) {
+    listEl.replaceChildren(emptyState());
+    return;
+  }
+
+  const groups = groupOrder
+    .map((key) => [key, shown.filter((task) => (task.category ?? NONE_KEY) === key)])
+    .filter(([, items]) => items.length > 0)
+    .map(([key, items]) => taskGroup(key, items));
+
+  listEl.replaceChildren(...groups);
 }
 
 /* --- actions ------------------------------------------------------------- */

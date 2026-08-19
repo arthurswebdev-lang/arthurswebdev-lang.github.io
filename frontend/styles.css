@@ -196,9 +196,52 @@ body {
 .list {
   display: flex;
   flex-direction: column;
+  gap: 1.35rem;
+  padding-top: 1rem;
+}
+
+/* --- category groups ----------------------------------------------------- */
+.group { --cat: var(--accent); }
+
+.group__title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.55rem;
+  padding-left: 0.55rem;
+  border-left: 3px solid color-mix(in srgb, var(--cat) 65%, var(--line));
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.group__icon {
+  font-size: 0.95rem;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.group__count {
+  margin-left: auto;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--surface-sunk);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: normal;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.group__items {
+  display: flex;
+  flex-direction: column;
   gap: 0.6rem;
   margin: 0;
-  padding: 1rem 0 0;
+  padding: 0;
   list-style: none;
 }
 
@@ -496,10 +539,3 @@ body {
   color: var(--accent-ink);
 }
 
-.chip--category {
-  background: var(--surface-sunk);
-  border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--cat) 16%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--cat) 40%, var(--line));
-  color: var(--ink);
-}
