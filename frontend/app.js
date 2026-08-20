@@ -48,6 +48,17 @@ let tasks = [];
 let credentials = null;
 let activeFilter = 'actual';
 let activeCategory = 'all';
+
+/**
+ * Which categories currently hold something, as of the last unnarrowed read.
+ *
+ * Kept rather than derived on the spot because `tasks` is not always the whole
+ * picture: the server narrows the query when a category is picked, so deriving
+ * from it then would leave that one pill on screen and no way back to the
+ * others. Refreshed only while 'all' is showing, which is the one time the
+ * list is known to cover every category.
+ */
+let categoriesInUse = new Set();
 let status = 'loading';
 
 /* --- formatting ----------------------------------------------------------- */
@@ -328,6 +339,10 @@ function emptyState() {
 }
 
 function renderCategories() {
+  if (activeCategory === 'all') {
+    categoriesInUse = new Set(tasks.map((task) => task.category));
+  }
+
   const all = document.createElement('button');
   all.type = 'button';
   all.className = 'category category--all';
@@ -338,7 +353,11 @@ function renderCategories() {
   all.textContent = 'All';
   all.addEventListener('click', () => { selectCategory('all'); });
 
+  // An empty category is noise: the icons are only useful as a way into
+  // something. The selected one stays whatever happens, so clearing the last
+  // task in it does not pull the pill out from under its own list.
   const buttons = [...Object.entries(CATEGORIES), [OTHER_KEY, OTHER_CATEGORY]]
+    .filter(([key]) => categoriesInUse.has(key) || key === activeCategory)
     .map(([key, meta]) => {
       const button = document.createElement('button');
       button.type = 'button';
@@ -358,6 +377,8 @@ function renderCategories() {
       return button;
     });
 
+  // Nothing to choose between: a lone "All" is a control that does nothing.
+  categoriesEl.hidden = buttons.length === 0;
   categoriesEl.replaceChildren(all, ...buttons);
 }
 
