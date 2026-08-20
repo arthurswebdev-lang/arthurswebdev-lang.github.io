@@ -197,6 +197,81 @@ describe('finishing an event early (B3)', () => {
   });
 });
 
+/**
+ * Reported from the phone: a 14:00 occurrence sitting in Passed was ticked off,
+ * and switching to Actual showed the 15:00 one twice.
+ *
+ * The poller had already generated the successor when 14:00 went by, and
+ * finishing the passed event generated it a second time.
+ */
+async function afterAPassedTick() {
+  const { repository, generator } = withTasks([water]);
+  const passed = await generator.ensurePendingEvent(water, utc('2026-08-19 12:45'));
+  assert.ok(passed !== null);
+
+  // 13:00 goes by, and the poller tops the config back up with 15:00.
+  const afterwards = utc('2026-08-19 13:00:49');
+  await generator.markPassedEvents(afterwards);
+  await generator.syncPendingEvents(afterwards);
+
+  return {
+    repository, generator, passed, afterwards,
+  };
+}
+
+describe('finishing an event that had already passed', () => {
+  it('does not generate a second copy of the successor the poller made', async () => {
+    const {
+      repository, generator, passed, afterwards,
+    } = await afterAPassedTick();
+    assert.equal(eventsIn(repository).length, 2);
+
+    const next = await generator.generateNextAfter({ ...passed, status: TaskStatus.DONE }, afterwards);
+
+    assert.equal(next, null);
+    assert.deepEqual(
+      eventsIn(repository).map((event) => event.date),
+      [utc('2026-08-19 13:00'), utc('2026-08-19 15:00')],
+    );
+  });
+
+  it('still generates when the poller has not got there yet', async () => {
+    const { repository, generator } = withTasks([water]);
+    const passed = await generator.ensurePendingEvent(water, utc('2026-08-19 12:45'));
+    assert.ok(passed !== null);
+
+    // No poll in between: nothing else exists, so finishing it must move on.
+    const finished = { ...passed, status: TaskStatus.DONE };
+    const next = await generator.generateNextAfter(finished, utc('2026-08-19 13:00:49'));
+
+    assert.deepEqual(next?.date, utc('2026-08-19 15:00'));
+    assert.equal(eventsIn(repository).length, 2);
+  });
+});
+
+// The guard must not harden into "one event per config, ever": a sibling that
+// has itself been finished is not something to keep waiting on.
+describe('a sibling that was also finished', () => {
+  it('does not block the next occurrence', async () => {
+    const { repository, generator } = withTasks([water]);
+    const first = await generator.ensurePendingEvent(water, utc('2026-08-19 12:45'));
+    assert.ok(first !== null);
+    const second = await generator.generateNextAfter(first, utc('2026-08-19 12:50'));
+    assert.ok(second !== null);
+
+    // 13:00 is done but has not passed yet, so only its status stops it
+    // counting as the successor still being waited on.
+    await repository.updateStatus(first.id, TaskStatus.DONE);
+    const next = await generator.generateNextAfter(
+      { ...second, status: TaskStatus.DONE },
+      utc('2026-08-19 12:55'),
+    );
+
+    assert.deepEqual(next?.date, utc('2026-08-19 17:00'));
+    assert.equal(eventsIn(repository).length, 3);
+  });
+});
+
 describe('regenerating after a config is edited (B5)', () => {
   it('clears every existing event and creates one fresh', async () => {
     const { repository, generator } = withTasks([water]);

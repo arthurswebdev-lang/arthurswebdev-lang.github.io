@@ -637,7 +637,25 @@ body {
   gap: 0.4rem;
 }
 
-.field-row--times .field__input { padding-inline: 0.4rem; text-align: center; }
+/* iOS is the problem here, not the grid. A native time input carries a minimum
+   intrinsic width of its own that `min-width: 0` does not touch, so three of
+   them plus the gaps came out wider than the dialog even with the tracks told
+   they may shrink to nothing.
+   Dropping the native appearance is what lets the control obey its track;
+   ::-webkit-date-and-time-value is where iOS actually lays the digits out, and
+   its default margins are part of that intrinsic width. */
+.field-row--times .field__input {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-inline: 0.3rem;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.field-row--times .field__input::-webkit-date-and-time-value {
+  margin: 0;
+  text-align: center;
+}
 
 .toggles { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 

@@ -1,4 +1,7 @@
-import { isEventTask, pendingEventOfConfig } from '../filters/tasks.filters.js';
+import {
+  eventsOfConfig, isEventTask, isPassedEvent, pendingEventOfConfig,
+} from '../filters/tasks.filters.js';
+import { TaskStatus } from '../enum/task-status.enum.js';
 import { nextOccurrence } from '../generators/occurrences.generator.js';
 import type {
   IRepeatedTasksRepository,
@@ -74,6 +77,23 @@ export class TaskGeneratorService implements ITaskGeneratorService {
 
     const config = await this.repeatedTasksRepository.getById(event.configTaskId);
     if (config === null) return null;
+
+    // The poller may already have moved this config on. Finishing an event that
+    // had *already* passed means `syncPendingEvents` generated its successor on
+    // some tick in between, and generating a second one here is what put two
+    // identical occurrences in the list.
+    //
+    // The check cannot simply be `pendingEventOfConfig`, because finishing
+    // early — the case this method exists for — leaves the event being finished
+    // sitting there unpassed and would block its own successor. So the event in
+    // hand is excluded, and a finished one never counts as still waiting.
+    const tasks = await this.tasksRepository.listBy({ userId: config.userId });
+    const successor = eventsOfConfig(tasks, config.id).find((other) => (
+      other.id !== event.id
+      && other.status !== TaskStatus.DONE
+      && !isPassedEvent(other, now)
+    ));
+    if (successor !== undefined) return null;
 
     // Measured from the finished event's own date when that is still ahead, so
     // finishing early yields the *following* occurrence, not the same one again.

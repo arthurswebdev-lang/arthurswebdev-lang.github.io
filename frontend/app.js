@@ -12,10 +12,10 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=10';
+} from './api.js?v=11';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=10';
+} from './notifications.js?v=11';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
