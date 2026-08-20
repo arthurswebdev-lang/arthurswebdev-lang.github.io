@@ -21,19 +21,19 @@ import {
  * the surface (see styles.css), so they read as identity without shouting.
  */
 const CATEGORIES = {
-  IMPORTANT: { label: 'Important', color: '#fb1919', icon: '⭐' },
-  WORK: { label: 'Work', color: '#13c2f9', icon: '💼' },
-  SUPPLEMENTS: { label: 'Supplements', color: '#27b621', icon: '💊' },
-  FOOD: { label: 'Food', color: '#ffed02', icon: '🍎' },
-  EDUCATION: { label: 'Education', color: '#bce211', icon: '🎓' },
-  SELFCARE: { label: 'Selfcare', color: '#13d4c7', icon: '🧘' },
-  GYM: { label: 'Gym', color: '#ff8000', icon: '🏋️' },
-  READING: { label: 'Reading', color: '#f5228e', icon: '📖' },
+  IMPORTANT: { label: 'Important', color: '#db4437', icon: '⭐' },
+  WORK: { label: 'Work', color: '#4285f4', icon: '💼' },
+  SUPPLEMENTS: { label: 'Supplements', color: '#0f9d58', icon: '💊' },
+  FOOD: { label: 'Food', color: '#f4b400', icon: '🍎' },
+  EDUCATION: { label: 'Education', color: '#9334e6', icon: '🎓' },
+  SELFCARE: { label: 'Selfcare', color: '#12b5cb', icon: '🧘' },
+  GYM: { label: 'Gym', color: '#e8710a', icon: '🏋️' },
+  READING: { label: 'Reading', color: '#e52592', icon: '📖' },
 };
 
 /** The server's bucket for anything created without a category. */
 const OTHER_KEY = 'OTHER';
-const OTHER_CATEGORY = { label: 'Other', color: '#9ca3af', icon: '🗂️' };
+const OTHER_CATEGORY = { label: 'Other', color: '#666666', icon: '🗂️' };
 
 const categoryOf = (key) => CATEGORIES[key] ?? OTHER_CATEGORY;
 

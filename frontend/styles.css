@@ -1,8 +1,15 @@
 /* ---------------------------------------------------------------------------
-   Cappuccino, kept light. Cream ground, foam surfaces, caramel accent and
-   espresso text; the three states stay distinguishable by hue but sit at low
-   saturation so nothing shouts. Every ink was solved against its own
-   background for at least 4.5:1 rather than picked by eye.
+   Google's Visual Assets Guidelines palette. The four brand hues
+   (#4285F4 blue, #DB4437 red, #F4B400 yellow, #0F9D58 green) carry meaning;
+   the K5-K90 neutral ramp carries everything else. Lighter tints are built the
+   way the guidelines build theirs - a white overlay over the brand hue - so
+   the chip fills below are the same construction as the 40%/60% rows, taken
+   one step further to 80%.
+   Every ink was solved against its own background for at least 4.5:1 rather
+   than picked by eye. The one place the brand palette cannot pay that on its
+   own is white text on #4285F4 (3.56:1), so the accent *fill* is Google's own
+   darker companion blue #3367D6 (5.18:1) and the brand blue stays as the
+   ring and border.
    Deliberately single-theme: the app is light whatever the device is set to.
    `color-scheme: light` is what stops the browser from darkening its own
    widgets (the date picker, scrollbars, form controls) on a dark-mode device.
@@ -10,31 +17,33 @@
 :root {
   color-scheme: light;
 
-  --ground: #fff6e6;
-  --surface: #fffaf5;
-  --surface-sunk: #f6e3d3;
-  --line: #ecd6c2;
-  --line-strong: #dcbfa4;
-  --ink: #4a3527;
-  --ink-soft: #776353;
-  --ink-faint: #827060;
+  --ground: #f2f2f2;
+  --surface: #ffffff;
+  --surface-sunk: #e6e6e6;
+  /* Same tone as the sunk fill on purpose: an edge and a recess are the one
+     step down from white, and a second grey between them reads as a mistake. */
+  --line: #e6e6e6;
+  --line-strong: #cccccc;
+  --ink: #1a1a1a;
+  --ink-soft: #4d4d4d;
+  --ink-faint: #666666;
 
-  --accent: #f2c9a3;
-  --accent-ink: #6b4526;
-  --accent-ring: #dfae84;
+  --accent: #3367d6;
+  --accent-ink: #ffffff;
+  --accent-ring: #4285f4;
 
-  --actual-bg: #fddaaf;
-  --actual-ink: #8a5216;
-  --passed-bg: #dde2d0;
-  --passed-ink: #5a6844;
-  --upcoming-bg: #e2dced;
-  --upcoming-ink: #63598f;
-  --overdue-bg: #f7d2c6;
-  --overdue-ink: #954939;
-  --done-bg: #dde2d0;
-  --done-ink: #5a6844;
+  --actual-bg: #fdf0cc;
+  --actual-ink: #8b6700;
+  --passed-bg: #cfebde;
+  --passed-ink: #0b7642;
+  --upcoming-bg: #d9e7fd;
+  --upcoming-ink: #3265b9;
+  --overdue-bg: #f8dad7;
+  --overdue-ink: #b4382d;
+  --done-bg: #cfebde;
+  --done-ink: #0b7642;
 
-  --shadow: 0 1px 2px rgb(74 53 39 / 6%), 0 8px 20px rgb(74 53 39 / 5%);
+  --shadow: 0 1px 2px rgb(26 26 26 / 8%), 0 8px 20px rgb(26 26 26 / 6%);
   --radius: 16px;
   --radius-sm: 10px;
 
@@ -382,7 +391,7 @@ body {
   color: var(--ink);
 }
 
-.composer::backdrop { background: rgb(75 58 44 / 35%); }
+.composer::backdrop { background: rgb(26 26 26 / 40%); }
 
 .composer__title {
   margin: 0 0 0.9rem;
@@ -618,6 +627,17 @@ body {
 .field-row .field { min-width: 0; margin-bottom: 0; }
 
 .field-row .field__input { width: 100%; min-width: 0; }
+
+/* From / until / every read as one sentence and belong on one line. A 7.5rem
+   minimum leaves no room for a third column on a phone, so this row names its
+   three columns outright and lets them go as narrow as the screen asks; the
+   inputs give up their side padding to pay for it. */
+.field-row--times {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.field-row--times .field__input { padding-inline: 0.4rem; text-align: center; }
 
 .toggles { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 
