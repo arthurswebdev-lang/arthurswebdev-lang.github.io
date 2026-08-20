@@ -3,6 +3,7 @@ import express, { type Express, type RequestHandler } from 'express';
 import { config } from './config.js';
 
 import type { Container } from './container.js';
+import { DevicesController } from './controllers/devices.controller.js';
 import { HealthController } from './controllers/health.controller.js';
 import { RepeatedTasksController } from './controllers/repeated-tasks.controller.js';
 import { UsersController } from './controllers/users.controller.js';
@@ -10,6 +11,7 @@ import { TasksController } from './controllers/tasks.controller.js';
 import { authenticate } from './middlewares/auth.middleware.js';
 import { cors } from './middlewares/cors.middleware.js';
 import { errorHandler } from './middlewares/error-handler.middleware.js';
+import { DevicesRoutes } from './routes/devices.routes.js';
 import { HealthRoutes } from './routes/health.routes.js';
 import { RepeatedTasksRoutes } from './routes/repeated-tasks.routes.js';
 import { UsersRoutes } from './routes/users.routes.js';
@@ -49,6 +51,10 @@ export function createApp(container: Container): Express {
   const requireUser = authenticate(container.usersService);
 
   app.use(new UsersRoutes(new UsersController(container.usersService), requireUser).initRoutes());
+  app.use(new DevicesRoutes(
+    new DevicesController(container.devicesService),
+    requireUser,
+  ).initRoutes());
   mountTaskRoutes(app, container, requireUser);
 
   // Registered last: Express only reaches it once every route has passed.

@@ -1,5 +1,6 @@
-# Deploy config for the tasks API. Secrets (MONGO_URL, MONGO_DB_NAME, ORIGIN)
-# are set with `fly secrets set`, never committed here.
+# Deploy config for the tasks API. Secrets (MONGO_URL, MONGO_DB_NAME, ORIGIN,
+# FIREBASE_SERVICE_ACCOUNT, APP_URL) are set with `fly secrets set`, never
+# committed here.
 app = 'artur-todo-list-api'
 primary_region = 'fra'
 
@@ -8,9 +9,15 @@ primary_region = 'fra'
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = 'stop'
+  # The machine must stay up. Notifications come from a setInterval inside this
+  # process (EventPollingService), not from an incoming request, so a machine
+  # stopped for want of HTTP traffic simply stops noticing that anything is due.
+  # Worse, the poller's "what have I already announced" window lives in memory:
+  # a restart resets it, so events that came due while the machine was down are
+  # never announced at all, even once it wakes back up.
+  auto_stop_machines = 'off'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ['app']
 
   [[http_service.checks]]

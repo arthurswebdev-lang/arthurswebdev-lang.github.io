@@ -1,8 +1,0 @@
-+  1. when selected concrete category use that as default in create task forms
-+  2. center 'v' symbol for steps
-+  3. when open application sometimes it doesn't load anything, I need reset it again and it works
-+  4. first call is too slow, do we have iterative await calls?
--  5. sort first by status, done move to end, then by date (nulls last), then by id
--      ex.    event 12:00, event 14:39, basic-1, basic-2, basic-3, done done done
-+  6. on delete require accept action
-+  7. when I tap to task, it doesn't ope with edit mode

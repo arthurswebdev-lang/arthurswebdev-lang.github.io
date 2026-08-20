@@ -113,6 +113,14 @@ export async function signUp(username, password) {
   return response.json();
 }
 
+/**
+ * Hands this install's FCM token to the API, so the server knows where to push
+ * when one of this user's events comes due. Safe to repeat — the API keys on
+ * the token, so re-registering the same browser updates rather than duplicates.
+ */
+export const registerDevice = (token, fcmToken) =>
+  send("POST", "/devices", token, { token: fcmToken });
+
 export const createTask = (token, payload) => send("POST", "/tasks", token, payload);
 
 /** PUT replaces the task outright — the payload is its whole new state. */

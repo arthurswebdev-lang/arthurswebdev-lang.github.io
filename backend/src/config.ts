@@ -16,6 +16,13 @@ export interface Config {
   readonly allowedOrigins: string[];
   /** How often the event poller looks for tasks that just came due. */
   readonly pollIntervalMs: number;
+  /**
+   * Firebase service-account key, as JSON or base64 of it. Absent means push
+   * is not configured and due events are logged instead of sent.
+   */
+  readonly firebaseServiceAccount: string | undefined;
+  /** Where a tapped notification opens — the GitHub Pages URL of the app. */
+  readonly appUrl: string | undefined;
 }
 
 function readPort(raw: string | undefined): number {
@@ -47,4 +54,6 @@ export const config: Config = {
   mongoDbName: process.env['MONGO_DB_NAME'] ?? 'todo-list',
   allowedOrigins: (process.env['ORIGIN'] ?? '*').split(',').map((origin) => origin.trim()),
   pollIntervalMs: readPollInterval(process.env['POLL_INTERVAL_MS']),
+  firebaseServiceAccount: process.env['FIREBASE_SERVICE_ACCOUNT'],
+  appUrl: process.env['APP_URL'],
 };

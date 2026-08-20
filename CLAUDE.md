@@ -76,6 +76,11 @@ one blank line before a `return` that follows logic.
 - **Joi schemas live in `src/schemes/`** — they are not middlewares. Validation *middlewares*
   live in `src/middlewares/validation/`. `common.schemes.ts` holds the shared field vocabulary
   both resources build on.
+- **A third collection, `devices`, holds push registrations** — one row per FCM
+  token, unique on the token so re-registering a browser updates rather than
+  making every alert arrive twice. `POST /devices` is the only endpoint; dead
+  tokens are deleted by `FcmNotificationService` when FCM rejects them, not by a
+  route. See `docs/push-notifications.md`.
 - **Two resources, two collections.** `/tasks` (`tasks`) holds `BASIC` and `EVENT`;
   `/repeated-tasks` (`repeatedTasks`) holds the configs. The `Task` union is
   `BasicTask | EventTask` — configs are deliberately outside it, so a config can never reach
@@ -142,6 +147,12 @@ one blank line before a `return` that follows logic.
 - **`npm install <pkg>` needs `--legacy-peer-deps`.** `eslint-config-airbnb-extended` declares a
   peer of eslint 9 while the repo runs eslint 10. The ERESOLVE failure is pre-existing and has
   nothing to do with the package being added.
+- **The fly.io machine may not auto-stop.** Notifications come from a
+  `setInterval` inside the process, not from an incoming request, so
+  `min_machines_running = 1` / `auto_stop_machines = 'off'` in `fly.toml` are
+  load-bearing. A stopped machine notices nothing, and because the poller's
+  "already announced" window is in memory, a restart means those events are
+  never announced at all — not even late.
 - **`TaskType.REPEATED_DAILY` has the value `'DAILY'`** while its siblings are `'REPEATED_*'`.
   Known inconsistency; it is visible in API responses and the Postman collection.
 
@@ -160,6 +171,9 @@ these non-negotiable:
 - **iOS gives web push only to home-screen apps**: the user must Add to Home Screen, and
   permission must be requested from a user gesture inside the installed app.
 - Pages and fly.io are different origins, so the API needs CORS for the Pages origin.
+- Push lives in `frontend/notifications.js`, kept out of `app.js`. It contributes
+  a token and nothing else — the server owns the schedule, so there is no task
+  syncing on the client.
 
 ## Commands
 

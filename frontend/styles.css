@@ -753,7 +753,11 @@ select.field__input { appearance: none; background-image: none; }
   cursor: pointer;
 }
 
-.menu__item:hover { background: var(--surface-sunk); }
+/* A disabled item is still worth reading — "Notifications on", "Add to Home
+   Screen first" — so it stays visible and only stops behaving like a target. */
+.menu__item:disabled { color: var(--ink-faint); cursor: default; }
+
+.menu__item:hover:not(:disabled) { background: var(--surface-sunk); }
 
 .menu__item:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: -2px; }
 

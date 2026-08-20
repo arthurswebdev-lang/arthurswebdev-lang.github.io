@@ -12,7 +12,10 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=9';
+} from './api.js?v=10';
+import {
+  enableNotifications, notificationState, refreshRegistration,
+} from './notifications.js?v=10';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -542,6 +545,9 @@ async function load() {
       category: activeCategory,
     });
     status = 'ready';
+    // Fire and forget: a rotated token is worth fixing, but never worth
+    // holding the list up for.
+    void refreshRegistration(credentials.token);
   } catch (error) {
     if (error.message === 'UNAUTHORIZED') {
       await forgetCredentials();
@@ -576,6 +582,7 @@ document.querySelectorAll('.filter').forEach((button) => {
 
 function showWho() {
   whoEl.textContent = credentials === null ? '' : credentials.username;
+  showNotificationsItem();
 }
 
 const optionsButton = document.getElementById('options');
@@ -597,6 +604,48 @@ optionsButton.addEventListener('click', (event) => {
 document.addEventListener('click', closeMenu);
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenu(); });
 menuPanel.addEventListener('click', (event) => { event.stopPropagation(); });
+
+/* --- notifications -------------------------------------------------------- */
+/* One menu item that says what the situation is and, when there is something
+   to do about it, does it. The click is the user gesture iOS requires. */
+
+const notificationsItem = document.getElementById('notifications');
+
+const NOTIFICATION_LABEL = {
+  granted: 'Notifications on',
+  default: 'Turn on notifications',
+  denied: 'Notifications blocked',
+  'needs-install': 'Add to Home Screen first',
+};
+
+function showNotificationsItem() {
+  const state = notificationState();
+  const label = NOTIFICATION_LABEL[state];
+
+  // No label means unsupported: a desktop browser without the SDK, say. An
+  // item that cannot lead anywhere is worse than no item.
+  notificationsItem.hidden = label === undefined || credentials === null;
+  notificationsItem.textContent = label ?? '';
+  notificationsItem.disabled = state !== 'default';
+}
+
+notificationsItem.addEventListener('click', () => {
+  closeMenu();
+  notificationsItem.textContent = 'Asking…';
+
+  void enableNotifications(credentials.token).then(
+    (state) => {
+      showNotificationsItem();
+      announcer.textContent = state === 'granted'
+        ? 'Notifications are on for this device'
+        : 'Notifications were not enabled';
+    },
+    (error) => {
+      showNotificationsItem();
+      announcer.textContent = `Could not turn notifications on: ${error.message}`;
+    },
+  );
+});
 
 document.getElementById('signout').addEventListener('click', () => {
   closeMenu();

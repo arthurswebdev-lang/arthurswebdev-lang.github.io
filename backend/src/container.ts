@@ -1,8 +1,10 @@
 import type { Db } from 'mongodb';
 
+import { DevicesRepository } from './repositories/devices.repository.js';
 import { RepeatedTasksRepository } from './repositories/repeated-tasks.repository.js';
 import { TasksRepository } from './repositories/tasks.repository.js';
 import { UsersRepository } from './repositories/users.repository.js';
+import { DevicesService } from './services/devices.service.js';
 import { TaskGeneratorService } from './services/task-generator.service.js';
 import { UsersService } from './services/users.service.js';
 
@@ -12,6 +14,8 @@ export interface Container {
   readonly tasksRepository: TasksRepository;
   readonly repeatedTasksRepository: RepeatedTasksRepository;
   readonly taskGenerator: TaskGeneratorService;
+  readonly devicesRepository: DevicesRepository;
+  readonly devicesService: DevicesService;
 }
 
 /**
@@ -23,6 +27,7 @@ export function createContainer(db: Db): Container {
   const tasksRepository = new TasksRepository(db);
   const repeatedTasksRepository = new RepeatedTasksRepository(db);
   const usersRepository = new UsersRepository(db);
+  const devicesRepository = new DevicesRepository(db);
 
   return {
     usersRepository,
@@ -30,6 +35,8 @@ export function createContainer(db: Db): Container {
     tasksRepository,
     repeatedTasksRepository,
     taskGenerator: new TaskGeneratorService(tasksRepository, repeatedTasksRepository),
+    devicesRepository,
+    devicesService: new DevicesService(devicesRepository),
   };
 }
 
@@ -39,5 +46,6 @@ export async function ensureIndexes(container: Container): Promise<void> {
     container.tasksRepository.ensureIndexes(),
     container.repeatedTasksRepository.ensureIndexes(),
     container.usersRepository.ensureIndexes(),
+    container.devicesRepository.ensureIndexes(),
   ]);
 }
