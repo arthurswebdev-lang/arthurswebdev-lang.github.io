@@ -12,10 +12,10 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, sendTestNotification, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=20';
+} from './api.js?v=21';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=20';
+} from './notifications.js?v=21';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -530,8 +530,8 @@ function confirmButton({ id, label, danger }, choose) {
 /**
  * The app's own question, in place of `window.confirm`.
  *
- * Resolves with the chosen action's id, or null for cancel — which includes
- * Escape and the backdrop, since `close` fires for those too and nothing has
+ * Resolves with the chosen action's id, or null for cancel — Escape and a
+ * click outside included, since `close` fires for those too and nothing has
  * set a choice by then.
  *
  * More than one destructive answer is the point: deleting one occurrence of a
@@ -556,6 +556,25 @@ function ask({ title, message, actions }) {
     confirmDialog.showModal();
   });
 }
+
+/**
+ * A click outside the sheet means cancel. A modal dialog does not do this on
+ * its own — Escape closes it, the backdrop does not.
+ *
+ * Both halves of the test earn their place. Without the target check, a button
+ * activated by keyboard reports a click at (0, 0), which is outside any box and
+ * would dismiss the dialog. Without the geometry check, the sheet's own padding
+ * counts as the dialog and a tap just inside the edge would do the same.
+ */
+confirmDialog.addEventListener('click', (event) => {
+  if (event.target !== confirmDialog) return;
+
+  const box = confirmDialog.getBoundingClientRect();
+  const outside = event.clientX < box.left || event.clientX > box.right
+    || event.clientY < box.top || event.clientY > box.bottom;
+
+  if (outside) confirmDialog.close();
+});
 
 /**
  * A generated event is one occurrence of a rule, so the bin has two meanings
