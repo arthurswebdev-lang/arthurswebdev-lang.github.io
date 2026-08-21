@@ -759,6 +759,11 @@ select.field__input { appearance: none; background-image: none; }
    stood the checkbox, name and link on top of each other. */
 .row-stack { display: flex; flex-direction: column; gap: 0.35rem; }
 
+/* A step can be two lines once it has a link, so the space *between* steps has
+   to be clearly bigger than the space inside one. At the same gap they read as
+   one long undifferentiated list of inputs. */
+.rows--steps { gap: 1rem; }
+
 .row-stack__add-link { flex: 0 0 auto; padding: 0.3rem 0.55rem; font-size: 0.75rem; }
 
 /* An empty list should not still pay for the gap under it — with no links yet,
@@ -854,6 +859,26 @@ select.field__input { appearance: none; background-image: none; }
 .menu__item:hover:not(:disabled) { background: var(--surface-sunk); }
 
 .menu__item:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: -2px; }
+
+/* --- toast ---------------------------------------------------------------- */
+/* Above the floating buttons, inside the content column, out of the way of the
+   thumb. It reports failures, so it borrows the overdue palette rather than
+   inventing a third red. */
+.toast {
+  position: fixed;
+  right: var(--app-edge);
+  bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  left: var(--app-edge);
+  z-index: 30;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--overdue-ink);
+  border-radius: var(--radius-sm);
+  background: var(--overdue-bg);
+  color: var(--overdue-ink);
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
 
 /* --- steps ---------------------------------------------------------------- */
 .steps { margin-top: 0.55rem; }

@@ -51,13 +51,26 @@ export function forgetCredentials() {
 
 /* --- reads ---------------------------------------------------------------- */
 
+/**
+ * The reason the server gave, or the status if it did not give one.
+ *
+ * The API answers a rejected write with `{ status, message, code }`, and that
+ * message is the only thing that says *why*. Throwing "Request failed (400)"
+ * instead turned a precise complaint into a shrug.
+ */
+async function failure(response, fallback) {
+  const problem = await response.json().catch(() => null);
+
+  return new Error(problem?.message ?? `${fallback} (${String(response.status)})`);
+}
+
 async function get(path, token) {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: { Authorization: `Basic ${token}` },
   });
 
   if (response.status === 401) throw new Error("UNAUTHORIZED");
-  if (!response.ok) throw new Error(`Request failed (${String(response.status)})`);
+  if (!response.ok) throw await failure(response, "Request failed");
 
   return response.json();
 }
@@ -91,7 +104,7 @@ async function send(method, path, token, body) {
   });
 
   if (response.status === 401) throw new Error("UNAUTHORIZED");
-  if (!response.ok) throw new Error(`Request failed (${String(response.status)})`);
+  if (!response.ok) throw await failure(response, "Request failed");
 
   return response.status === 204 ? null : response.json();
 }
@@ -105,10 +118,7 @@ export async function signUp(username, password) {
   });
 
   if (response.status === 409) throw new Error("TAKEN");
-  if (!response.ok) {
-    const problem = await response.json().catch(() => null);
-    throw new Error(problem?.message ?? `Sign up failed (${String(response.status)})`);
-  }
+  if (!response.ok) throw await failure(response, "Sign up failed");
 
   return response.json();
 }

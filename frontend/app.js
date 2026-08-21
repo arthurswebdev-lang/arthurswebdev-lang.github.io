@@ -12,10 +12,10 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, sendTestNotification, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=22';
+} from './api.js?v=23';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=22';
+} from './notifications.js?v=23';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -109,6 +109,25 @@ const listEl = document.getElementById('list');
 const summaryEl = document.getElementById('summary');
 const categoriesEl = document.getElementById('categories');
 const announcer = document.getElementById('announcer');
+const toastEl = document.getElementById('toast');
+
+let toastTimer = null;
+
+/**
+ * Says something went wrong, visibly.
+ *
+ * `announcer` is a screen-reader live region, so a failed save used to look
+ * exactly like a successful one. Both are written to: the announcer keeps
+ * carrying it to assistive tech, this carries it to eyes.
+ */
+function report(message) {
+  announcer.textContent = message;
+  toastEl.textContent = message;
+  toastEl.hidden = false;
+
+  if (toastTimer !== null) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toastEl.hidden = true; }, 6000);
+}
 const whoEl = document.getElementById('who');
 
 function chip(text, modifier) {
@@ -483,7 +502,7 @@ function apply(change, send, describe) {
     () => { announcer.textContent = describe; },
     (error) => {
       if (error.message === 'UNAUTHORIZED') return load();
-      announcer.textContent = 'That did not save — reloading';
+      report(`That did not save — reloading. ${error.message}`);
 
       return load();
     },
@@ -784,7 +803,7 @@ notificationsItem.addEventListener('click', () => {
     },
     (error) => {
       showNotificationsItem();
-      announcer.textContent = `Could not turn notifications on: ${error.message}`;
+      report(`Could not turn notifications on: ${error.message}`);
     },
   );
 });
@@ -806,7 +825,7 @@ testItem.addEventListener('click', () => {
     },
     (error) => {
       showNotificationsItem();
-      announcer.textContent = `Could not send the test: ${error.message}`;
+      report(`Could not send the test: ${error.message}`);
     },
   );
 });
@@ -1220,7 +1239,7 @@ function openEditor(task) {
 
     void fetchRepeatedTask(credentials.token, task.configTaskId).then(
       (config) => { openConfigEditor(config); },
-      () => { announcer.textContent = `Could not open the repeat behind ${task.name}`; },
+      () => { report(`Could not open the repeat behind ${task.name}`); },
     );
 
     return;
@@ -1348,20 +1367,22 @@ function draftPayload(data) {
   const subtasks = subtaskValues()
     .map(({ name: stepName, link }) => (link ? { name: stepName, link } : { name: stepName }));
 
+  const shared = { name, category, ...(links.length ? { links } : {}) };
+
   // One number and the unit it is counted in, stored as plain minutes.
+  //
+  // Only for kinds that have a date. A one-time task has no moment to be
+  // active after, so the field does not exist on it — and the control is
+  // hidden rather than removed, so `data` carries a value regardless. Sending
+  // it anyway is a 400 that used to fail silently.
   const activeForMins = Number(data.get('activeFor')) * Number(data.get('activeForUnit'));
-  const shared = {
-    name,
-    category,
-    ...(links.length ? { links } : {}),
-    ...(activeForMins > 0 ? { activeForMins } : {}),
-  };
+  const dated = { ...shared, ...(activeForMins > 0 ? { activeForMins } : {}) };
 
   if (draft.kind === 'BASIC') return { type: 'BASIC', ...shared, subtasks };
   if (draft.kind === 'EVENT') {
     return {
       type: 'EVENT',
-      ...shared,
+      ...dated,
       subtasks,
       date: new Date(String(data.get('date'))).toISOString(),
     };
@@ -1370,7 +1391,7 @@ function draftPayload(data) {
   if (draft.schedule === 'DAILY') {
     return {
       type: 'DAILY',
-      ...shared,
+      ...dated,
       startsAt: toUtcParts(data.get('startsAt')),
       endsAt: toUtcParts(data.get('endsAt')),
       // A gap, not a clock time: two hours is two hours in any zone.
@@ -1381,14 +1402,14 @@ function draftPayload(data) {
   if (draft.schedule === 'REPEATED_WEEKLY') {
     return {
       type: 'REPEATED_WEEKLY',
-      ...shared,
+      ...dated,
       weekdays: chosenValues(document.getElementById('weekday-toggles')),
     };
   }
 
   return {
     type: 'REPEATED_MONTHLY',
-    ...shared,
+    ...dated,
     fromDay: Number(data.get('fromDay')),
     months: chosenValues(document.getElementById('month-toggles')),
   };
@@ -1427,7 +1448,7 @@ composerForm.addEventListener('submit', () => {
     },
     (error) => {
       if (error.message === 'UNAUTHORIZED') return load();
-      announcer.textContent = `Could not save ${payload.name}: ${error.message}`;
+      report(`Could not save ${payload.name}: ${error.message}`);
 
       return load();
     },
