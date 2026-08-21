@@ -47,6 +47,12 @@
   --radius: 16px;
   --radius-sm: 10px;
 
+  /* The content column. Anything fixed that should line up with the edge of a
+     card derives its offset from this rather than repeating half of it —
+     widening the app used to leave the floating buttons behind. */
+  --app-width: 48rem;
+  --app-edge: max(1rem, calc(50% - var(--app-width) / 2 + 1rem));
+
   --font-display: "Quicksand", ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
   --font-body: "Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -69,9 +75,7 @@ body {
 }
 
 .app {
-  /* 34rem was a phone width worn on every screen. A tablet has the room and
-     nothing here reads worse for having it. */
-  max-width: 48rem;
+  max-width: var(--app-width);
   margin: 0 auto;
   padding: 0 1rem calc(6.5rem + env(safe-area-inset-bottom));
 }
@@ -371,8 +375,8 @@ body {
 /* --- add button --------------------------------------------------------- */
 .fab {
   position: fixed;
-  right: max(1rem, calc(50% - 16rem));
-  bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  right: var(--app-edge);
+  bottom: calc(1.5rem + env(safe-area-inset-bottom));
   display: grid;
   place-items: center;
   width: 3.5rem;
@@ -934,7 +938,7 @@ select.field__input { appearance: none; background-image: none; }
    and only present when there is actually something to sweep. */
 .fab--clear {
   right: auto;
-  left: max(1rem, calc(50% - 16rem));
+  left: var(--app-edge);
   border-color: var(--line-strong);
   background: var(--surface);
   color: var(--ink-soft);
