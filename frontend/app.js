@@ -12,10 +12,10 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, sendTestNotification, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=19';
+} from './api.js?v=20';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=19';
+} from './notifications.js?v=20';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -572,10 +572,10 @@ function deleteChoiceFor(task) {
 
   return ask({
     title: `Delete "${task.name}"?`,
-    message: 'This is one occurrence of a repeat.',
+    message: 'This task repeats.',
     actions: [
-      { id: 'one', label: 'Just this one', danger: true },
-      { id: 'all', label: 'The repeat and every event it made', danger: true },
+      { id: 'one', label: 'Only this one', danger: true },
+      { id: 'all', label: 'Delete forever', danger: true },
     ],
   });
 }
@@ -617,7 +617,7 @@ cleanupButton.addEventListener('click', () => {
 
   void ask({
     title: `Clear ${count} task${spent.length === 1 ? '' : 's'}?`,
-    message: 'Repeats behind them are kept, and will carry on making events.',
+    message: 'Repeats are kept.',
     actions: [{ id: 'clear', label: `Clear ${count}`, danger: true }],
   }).then((choice) => {
     if (choice === null) return;
@@ -820,9 +820,9 @@ function repeatRow(config) {
     repeatsDialog.close();
 
     void ask({
-      title: `Delete the "${config.name}" repeat?`,
-      message: 'Every event it has made goes with it.',
-      actions: [{ id: 'delete', label: 'Delete the repeat', danger: true }],
+      title: `Delete "${config.name}"?`,
+      message: 'This task repeats.',
+      actions: [{ id: 'delete', label: 'Delete forever', danger: true }],
     }).then((choice) => {
       if (choice === null) return openRepeats();
 
