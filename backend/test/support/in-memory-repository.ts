@@ -73,6 +73,7 @@ export class InMemoryTasksRepository implements ITasksRepository {
       subtasks: [],
       date,
       activeLogic: activeLogicForRepeatedTask(config),
+      activeForMins: config.activeForMins,
       passedDate: null,
       configTaskId: config.id,
     };

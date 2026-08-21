@@ -11,6 +11,13 @@ import { ID, JoiObject, varchar } from '../middlewares/validation/util/validatio
 /** Active logic given to an event the client created directly. */
 export const DEFAULT_EVENT_ACTIVE_LOGIC = ActiveLogic.NEXT_10_DAYS;
 
+/**
+ * How long a dated task stays actual after its moment, when nothing says
+ * otherwise. Ten minutes: enough that reaching for the phone does not already
+ * put the thing you were alerted about under "missed".
+ */
+export const DEFAULT_ACTIVE_FOR_MINS = 10;
+
 /** http(s) only: these get opened, so a javascript: or file: URL has no place. */
 const link = Joi.string().uri({ scheme: ['http', 'https'] }).max(2048);
 
@@ -41,6 +48,13 @@ export const fields = {
   time: TimeOfDaySchema,
   /** 0 = Sunday ... 6 = Saturday, each day at most once. */
   weekdays: Joi.array().items(Joi.number().integer().min(0).max(6)).unique().min(1),
+  /**
+   * How long a dated task stays worth acting on, in minutes. Ten by default —
+   * long enough that an alert is not already "missed" by the time you look at
+   * the phone. Capped at a year, which is the point past which "still active"
+   * stops meaning anything.
+   */
+  activeForMins: Joi.number().integer().min(1).max(525_600),
   dayOfMonth: Joi.number().integer().min(1).max(31),
   /** 1 = January ... 12 = December, each month at most once. */
   months: Joi.array().items(Joi.number().integer().min(1).max(12)).unique().min(1),

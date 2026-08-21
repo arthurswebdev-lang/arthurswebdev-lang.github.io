@@ -248,7 +248,14 @@ nothing reads it.
 **Q13 — Retention.** A daily config with a 2-hour cadence produces 8 events a day, forever, in a
 single JSON file. Do passed events get cleaned up after some period, or is that a later problem?
 
-**Q14 — What is `toDay` for now?** With one event generated on `fromDay`, `toDay` no longer
+**Q14 — What is `toDay` for now? ANSWERED: reading (c) then (b).** `toDay` is gone. It was
+collected, validated and stored, and nothing ever read it — the form promised a window it did
+not deliver. Its successor is `activeForMins`, a duration on *any* dated task rather than a
+day range on monthly alone: how long the task stays actual after its moment, ten minutes by
+default. Migrated by `backend/scripts/2026-08-21-active-for-mins.ts`, which turns days 8–12
+into the 6660 minutes from the occurrence to the end of day 12.
+
+**Q14 (original) — What is `toDay` for now?** With one event generated on `fromDay`, `toDay` no longer
 affects anything. Three uses I can imagine: (a) nothing yet, keep the field for later; (b) a
 deadline — the event stays actual until `toDay` even if its date has passed; (c) drop the field.
 I assumed (a) and left it stored but unused.

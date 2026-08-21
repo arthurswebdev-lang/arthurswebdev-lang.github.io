@@ -118,7 +118,7 @@ describe('weekly — next occurrence', () => {
 });
 
 describe('monthly — next occurrence', () => {
-  const rent = aMonthlyConfig('rent', { fromDay: 1, toDay: 5, months: [1, 2, 3] });
+  const rent = aMonthlyConfig('rent', { fromDay: 1, months: [1, 2, 3] });
 
   it('knows which months it runs in', () => {
     assert.equal(runsInMonth(rent, utc('2026-02-01')), true);
@@ -138,7 +138,7 @@ describe('monthly — next occurrence', () => {
   });
 
   it('generates only on fromDay — toDay does not schedule anything (Q4)', () => {
-    const wide = aMonthlyConfig('rent', { fromDay: 1, toDay: 28, months: [2] });
+    const wide = aMonthlyConfig('rent', { fromDay: 1, months: [2] });
 
     assert.deepEqual(nextMonthlyOccurrence(wide, utc('2026-01-15')), utc('2026-02-01 09:00'));
   });
@@ -150,13 +150,13 @@ describe('monthly — short months (B13)', () => {
   });
 
   it('clamps day 31 to 28 in a non-leap February', () => {
-    const late = aMonthlyConfig('rent', { fromDay: 31, toDay: 31, months: [2] });
+    const late = aMonthlyConfig('rent', { fromDay: 31, months: [2] });
 
     assert.deepEqual(nextMonthlyOccurrence(late, utc('2026-01-15')), utc('2026-02-28 09:00'));
   });
 
   it('reaches 29 February in a leap year', () => {
-    const late = aMonthlyConfig('rent', { fromDay: 31, toDay: 31, months: [2] });
+    const late = aMonthlyConfig('rent', { fromDay: 31, months: [2] });
 
     assert.deepEqual(nextMonthlyOccurrence(late, utc('2028-01-15')), utc('2028-02-29 09:00'));
   });
@@ -176,7 +176,7 @@ describe('nextOccurrence dispatches on config type', () => {
 
   it('routes a monthly config', () => {
     assert.deepEqual(
-      nextOccurrence(aMonthlyConfig('rent', { fromDay: 1, toDay: 5, months: [9] }), utc('2026-08-19')),
+      nextOccurrence(aMonthlyConfig('rent', { fromDay: 1, months: [9] }), utc('2026-08-19')),
       utc('2026-09-01 09:00'),
     );
   });

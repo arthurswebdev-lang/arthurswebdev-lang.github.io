@@ -7,7 +7,7 @@ import { TaskStatus } from '../enum/task-status.enum.js';
 import { TaskType } from '../enum/task-type.enum.js';
 import { activeLogicForRepeatedTask } from '../filters/tasks.filters.js';
 import type { ITasksRepository, TaskQuery } from '../interfaces/tasks-repository.interface.js';
-import { DEFAULT_EVENT_ACTIVE_LOGIC } from '../schemes/common.schemes.js';
+import { DEFAULT_ACTIVE_FOR_MINS, DEFAULT_EVENT_ACTIVE_LOGIC } from '../schemes/common.schemes.js';
 import type { CreateTask, EventTask, Subtask, SubtaskDraft, Task, UpdateTask } from '../types/tasks.types.js';
 import type { RepeatedTask } from '../types/repeated-tasks.types.js';
 import { InputValidationError } from '../utils/http-errors/input-validation.error.js';
@@ -70,6 +70,7 @@ export class TasksRepository
       // be useful has to come from the config.
       category: config.category,
       links: [...config.links],
+      activeForMins: config.activeForMins,
       subtasks: [],
       date,
       activeLogic: activeLogicForRepeatedTask(config),
@@ -166,6 +167,7 @@ export class TasksRepository
           subtasks: toSubtasks(input.subtasks),
           date: new Date(input.date),
           activeLogic: input.activeLogic ?? DEFAULT_EVENT_ACTIVE_LOGIC,
+          activeForMins: input.activeForMins ?? DEFAULT_ACTIVE_FOR_MINS,
           // Server-owned. The poller stamps passedDate; the generator is the
           // only thing that ever sets configTaskId.
           passedDate: null,

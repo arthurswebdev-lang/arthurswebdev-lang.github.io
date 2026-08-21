@@ -17,6 +17,7 @@ import {
   isMarkedPassed,
   isPassedEvent,
   isUpcomingEvent,
+  isWithinActiveWindow,
   isWithinNext10Days,
   isWithinThisWeek,
   isWithinToday,
@@ -82,8 +83,14 @@ describe('daily — "drink water", grid 09:00 to 23:00 every 2h', () => {
     assert.equal(isActualEvent(aDailyEvent('water', '2026-08-19 13:00'), utc('2026-08-19 11:45')), true);
   });
 
-  it('is passed once 13:01 arrives', () => {
-    assert.equal(isPassedEvent(aDailyEvent('water', '2026-08-19 13:00'), utc('2026-08-19 13:01')), true);
+  it('stays actual for its window, then passes', () => {
+    const water = aDailyEvent('water', '2026-08-19 13:00');
+
+    // Ten minutes by default. Being told about something no longer files it
+    // under "missed" in the same breath.
+    assert.equal(isPassedEvent(water, utc('2026-08-19 13:01')), false);
+    assert.equal(isActualEvent(water, utc('2026-08-19 13:01')), true);
+    assert.equal(isPassedEvent(water, utc('2026-08-19 13:11')), true);
   });
 
   it('makes 15:00 the actual one after 13:00 goes by (grid, so not 14:00)', () => {
@@ -133,16 +140,22 @@ describe('weekly — a session that belongs to next week', () => {
   });
 });
 
+// Q15 asked what to do about an event that reads as passed all through the very
+// day it belongs to. `activeForMins` is the answer: the window is the task's
+// own, so a whole-day task can be given a whole day.
 describe('weekly — Q15, the midnight problem', () => {
-  it('OPEN QUESTION Q15: a 00:00 event reads as passed all through its own day', () => {
-    // Documents today's behaviour, not an endorsement of it. Because generated
-    // weekly events sit at 00:00, the event is passed from the first instant of
-    // the day the user is meant to act on it.
-    const monday = aWeeklyEvent('gym', 'Mon 2026-08-24');
+  const monday = aWeeklyEvent('gym', 'Mon 2026-08-24');
 
-    assert.equal(isPassedEvent(monday, utc('Mon 2026-08-24 00:00')), true);
+  it('is still spent by morning on the default ten minutes', () => {
     assert.equal(isPassedEvent(monday, utc('Mon 2026-08-24 08:00')), true);
-    assert.equal(isActualEvent(monday, utc('Mon 2026-08-24 08:00')), false);
+  });
+
+  it('stays actual all day when it is given all day', () => {
+    const allDay = { ...monday, activeForMins: 24 * 60 };
+
+    assert.equal(isPassedEvent(allDay, utc('Mon 2026-08-24 08:00')), false);
+    assert.equal(isActualEvent(allDay, utc('Mon 2026-08-24 08:00')), true);
+    assert.equal(isPassedEvent(allDay, utc('Tue 2026-08-25 00:01')), true);
   });
 });
 
@@ -182,12 +195,36 @@ describe('the three states are exclusive', () => {
     }
   });
 
-  it('reads passed from the date, not from the poller stamp', () => {
+  it('reads passed from the date and window, not from the poller stamp', () => {
     // The poller runs a minute behind, so passedDate is still null here.
-    const justExpired = aDailyEvent('water', '2026-08-19 11:59');
+    const justExpired = aDailyEvent('water', '2026-08-19 11:49');
 
     assert.equal(isMarkedPassed(justExpired), false);
     assert.equal(isPassedEvent(justExpired, now), true);
+  });
+});
+
+/**
+ * The window and the date answer different questions, and conflating them was
+ * the whole hazard in adding one. These two describe the split.
+ */
+describe('an event inside its window', () => {
+  const standup = { ...aMonthlyEvent('bills', '2026-09-08 09:00'), activeForMins: 3 * 24 * 60 };
+
+  it('is actual even once its own window logic has stopped matching', () => {
+    // Two days in: the date is behind startOfDay(now), so every activeLogic
+    // window rejects it. Judged by the window alone it would read as Upcoming
+    // — filed under the future, while it is the thing to do right now.
+    const twoDaysIn = utc('2026-09-10 12:00');
+
+    assert.equal(isWithinActiveWindow(standup, twoDaysIn), false);
+    assert.equal(isUpcomingEvent(standup, twoDaysIn), false);
+    assert.equal(isActualEvent(standup, twoDaysIn), true);
+  });
+
+  it('passes once the window closes, not when the date goes by', () => {
+    assert.equal(isPassedEvent(standup, utc('2026-09-10 12:00')), false);
+    assert.equal(isPassedEvent(standup, utc('2026-09-11 09:01')), true);
   });
 });
 

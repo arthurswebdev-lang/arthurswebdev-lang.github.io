@@ -58,6 +58,18 @@ export default defineConfig(
   },
 
   {
+    files: ['scripts/**/*.ts'],
+    rules: {
+      // One-off migrations are read at the terminal: a report on stdout is the
+      // whole interface, and the numbers it prints are how you decide to apply.
+      'no-console': 'off',
+      // The stored documents predate the types they are being migrated towards,
+      // so they are read as the untyped records they actually are.
+      '@typescript-eslint/dot-notation': 'off',
+    },
+  },
+
+  {
     files: ['src/server.ts'],
     rules: {
       // Process bootstrap: startup logging on stdout, and exiting from a signal

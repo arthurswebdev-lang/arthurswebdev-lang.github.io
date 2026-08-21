@@ -660,6 +660,18 @@ body {
    minimum leaves no room for a third column on a phone, so this row names its
    three columns outright and lets them go as narrow as the screen asks; the
    inputs give up their side padding to pay for it. */
+/* An amount and the unit it is counted in: the number needs far less room
+   than the word beside it. */
+.field-row--pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  gap: 0.5rem;
+}
+
+.field-row--pair .field { min-width: 0; margin-bottom: 0; }
+
+.field-row--pair .field__input { width: 100%; min-width: 0; }
+
 .field-row--times {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.4rem;

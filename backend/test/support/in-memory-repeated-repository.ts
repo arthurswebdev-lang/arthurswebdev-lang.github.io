@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { TaskCategory } from '../../src/enum/task-category.enum.js';
+import { DEFAULT_ACTIVE_FOR_MINS } from '../../src/schemes/common.schemes.js';
 
 import type {
   IRepeatedTasksRepository,
@@ -35,6 +36,7 @@ export class InMemoryRepeatedTasksRepository implements IRepeatedTasksRepository
       createdAt: new Date(),
       category: input.category ?? TaskCategory.OTHER,
       links: input.links ?? [],
+      activeForMins: input.activeForMins ?? DEFAULT_ACTIVE_FOR_MINS,
     };
 
     this.configs.push(config);

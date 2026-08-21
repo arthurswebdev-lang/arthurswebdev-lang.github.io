@@ -12,10 +12,10 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, sendTestNotification, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=17';
+} from './api.js?v=18';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=17';
+} from './notifications.js?v=18';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -72,7 +72,19 @@ const startOfDayOf = (date) => { const d = new Date(date); d.setHours(0, 0, 0, 0
 
 const hasDate = (task) => typeof task.date === 'string';
 
-const hasPassed = (task) => hasDate(task) && new Date(task.date) <= new Date();
+/** Default in the API too — a task stored before windows existed has none. */
+const DEFAULT_ACTIVE_FOR_MINS = 10;
+
+/** When a task stops being worth acting on: its moment plus its own window. */
+const activeUntil = (task) => new Date(
+  new Date(task.date).getTime() + (task.activeForMins ?? DEFAULT_ACTIVE_FOR_MINS) * 60000,
+);
+
+/**
+ * Spent. Mirrors the server's rule, window included — judging by the date alone
+ * would put "Missed" on a task the server still calls actual.
+ */
+const hasPassed = (task) => hasDate(task) && activeUntil(task) <= new Date();
 
 function whenLabel(task) {
   const date = new Date(task.date);
@@ -1121,6 +1133,7 @@ function openEditor(task) {
     composerForm.elements['date'].value = local.toISOString().slice(0, 16);
   }
 
+  fillActiveFor(task.activeForMins);
   for (const url of task.links ?? []) addLinkRow(url);
   for (const step of task.subtasks) addSubtaskRow(step);
 
@@ -1144,6 +1157,7 @@ function openConfigEditor(config) {
 
   composerForm.elements['name'].value = config.name;
   composerForm.elements['category'].value = config.category;
+  fillActiveFor(config.activeForMins);
   for (const url of config.links ?? []) addLinkRow(url);
 
   if (config.type === 'DAILY') {
@@ -1154,7 +1168,6 @@ function openConfigEditor(config) {
 
   if (config.type === 'REPEATED_MONTHLY') {
     composerForm.elements['fromDay'].value = String(config.fromDay);
-    composerForm.elements['toDay'].value = String(config.toDay);
   }
 
   showStep('details');
@@ -1203,6 +1216,18 @@ function clockFromUtc({ hour, minute }) {
 const clockOf = ({ hour, minute }) => `${pad(hour)}:${pad(minute)}`;
 
 /** What would be sent to the API, shaped exactly as the endpoints expect. */
+/**
+ * Puts a stored minute count back into the two controls, choosing the largest
+ * unit it divides cleanly by — 1440 comes back as "1 days", not "1440 minutes".
+ */
+function fillActiveFor(mins) {
+  const minutes = mins ?? DEFAULT_ACTIVE_FOR_MINS;
+  const unit = [1440, 60, 1].find((size) => minutes % size === 0) ?? 1;
+
+  composerForm.elements['activeFor'].value = String(minutes / unit);
+  composerForm.elements['activeForUnit'].value = String(unit);
+}
+
 function draftPayload(data) {
   const name = String(data.get('name')).trim();
   const category = String(data.get('category'));
@@ -1210,7 +1235,14 @@ function draftPayload(data) {
   const subtasks = subtaskValues()
     .map(({ name: stepName, link }) => (link ? { name: stepName, link } : { name: stepName }));
 
-  const shared = { name, category, ...(links.length ? { links } : {}) };
+  // One number and the unit it is counted in, stored as plain minutes.
+  const activeForMins = Number(data.get('activeFor')) * Number(data.get('activeForUnit'));
+  const shared = {
+    name,
+    category,
+    ...(links.length ? { links } : {}),
+    ...(activeForMins > 0 ? { activeForMins } : {}),
+  };
 
   if (draft.kind === 'BASIC') return { type: 'BASIC', ...shared, subtasks };
   if (draft.kind === 'EVENT') {
@@ -1245,7 +1277,6 @@ function draftPayload(data) {
     type: 'REPEATED_MONTHLY',
     ...shared,
     fromDay: Number(data.get('fromDay')),
-    toDay: Number(data.get('toDay')),
     months: chosenValues(document.getElementById('month-toggles')),
   };
 }

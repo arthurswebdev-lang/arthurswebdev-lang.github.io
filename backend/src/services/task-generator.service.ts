@@ -1,5 +1,5 @@
 import {
-  eventsOfConfig, isEventTask, isPassedEvent, pendingEventOfConfig,
+  eventsOfConfig, hasDatePassed, isEventTask, pendingEventOfConfig,
 } from '../filters/tasks.filters.js';
 import { TaskStatus } from '../enum/task-status.enum.js';
 import { nextOccurrence } from '../generators/occurrences.generator.js';
@@ -91,7 +91,7 @@ export class TaskGeneratorService implements ITaskGeneratorService {
     const successor = eventsOfConfig(tasks, config.id).find((other) => (
       other.id !== event.id
       && other.status !== TaskStatus.DONE
-      && !isPassedEvent(other, now)
+      && !hasDatePassed(other.date, now)
     ));
     if (successor !== undefined) return null;
 

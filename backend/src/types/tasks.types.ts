@@ -41,6 +41,12 @@ export interface EventTask extends BaseTask {
   subtasks: Subtask[];
   date: Date;
   activeLogic: ActiveLogic;
+  /**
+   * How long after `date` this stays worth acting on, in minutes. Keeps a
+   * reminder in the list for a while instead of filing it under "missed" the
+   * moment it is announced. A generated event inherits it from its config.
+   */
+  activeForMins: number;
   /** Set once the event's date is in the past; `null` while it is still ahead. */
   passedDate: Date | null;
   /** The repeated task that generated this event; `null` if a client made it. */
@@ -100,10 +106,13 @@ type ServerOwnedEventFields = 'passedDate' | 'configTaskId';
 
 export type CreateBasicTask = WithSubtaskDrafts<BasicTask>;
 
-/** `activeLogic` is optional on create — see `DEFAULT_EVENT_ACTIVE_LOGIC`. */
+/**
+ * `activeLogic` and `activeForMins` are optional on create — see
+ * `DEFAULT_EVENT_ACTIVE_LOGIC` and `DEFAULT_ACTIVE_FOR_MINS`.
+ */
 export type CreateEventTask =
-  Omit<WithSubtaskDrafts<EventTask>, ServerOwnedEventFields | 'activeLogic'>
-  & { activeLogic?: ActiveLogic };
+  Omit<WithSubtaskDrafts<EventTask>, ServerOwnedEventFields | 'activeLogic' | 'activeForMins'>
+  & { activeLogic?: ActiveLogic; activeForMins?: number };
 
 /** Payload for `POST /tasks`. */
 export type CreateTask = CreateBasicTask | CreateEventTask;

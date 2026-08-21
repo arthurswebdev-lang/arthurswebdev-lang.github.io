@@ -2,6 +2,7 @@ import { ActiveLogic } from '../../src/enum/active-logic.enum.js';
 import { TaskCategory } from '../../src/enum/task-category.enum.js';
 import { TaskStatus } from '../../src/enum/task-status.enum.js';
 import { TaskType } from '../../src/enum/task-type.enum.js';
+import { DEFAULT_ACTIVE_FOR_MINS } from '../../src/schemes/common.schemes.js';
 import type { BasicTask, EventTask } from '../../src/types/tasks.types.js';
 import type { DailyTask, MonthlyTask, TimeOfDay, WeeklyTask } from '../../src/types/repeated-tasks.types.js';
 import { utc } from './time.js';
@@ -36,6 +37,7 @@ export function anEvent(
     subtasks: [],
     date: utc(date),
     activeLogic,
+    activeForMins: DEFAULT_ACTIVE_FOR_MINS,
     passedDate: null,
     configTaskId: 'config-1',
     ...overrides,
@@ -89,6 +91,7 @@ export function aWeeklyConfig(
     createdAt: CREATED_AT,
     category: TaskCategory.OTHER,
     links: [],
+    activeForMins: DEFAULT_ACTIVE_FOR_MINS,
     weekdays,
     ...overrides,
   };
@@ -113,6 +116,7 @@ export function aDailyConfig(
     createdAt: CREATED_AT,
     category: TaskCategory.OTHER,
     links: [],
+    activeForMins: DEFAULT_ACTIVE_FOR_MINS,
     startsAt: timeOfDay(schedule.startsAt),
     endsAt: timeOfDay(schedule.endsAt),
     repeatEach: timeOfDay(schedule.repeatEach),
@@ -121,7 +125,7 @@ export function aDailyConfig(
 
 export function aMonthlyConfig(
   name: string,
-  schedule: { fromDay: number; toDay: number; months: number[] },
+  schedule: { fromDay: number; months: number[] },
 ): MonthlyTask {
   return {
     id: `config-${name}`,
@@ -131,6 +135,7 @@ export function aMonthlyConfig(
     createdAt: CREATED_AT,
     category: TaskCategory.OTHER,
     links: [],
+    activeForMins: DEFAULT_ACTIVE_FOR_MINS,
     ...schedule,
   };
 }

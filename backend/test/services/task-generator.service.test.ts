@@ -53,7 +53,7 @@ describe('generating a config\'s first event', () => {
 describe('generating for weekly and monthly configs', () => {
   it('gives a weekly event THIS_WEEK logic and a monthly one NEXT_10_DAYS', async () => {
     const gym = aWeeklyConfig('gym', [1, 5]);
-    const rent = aMonthlyConfig('rent', { fromDay: 1, toDay: 5, months: [9] });
+    const rent = aMonthlyConfig('rent', { fromDay: 1, months: [9] });
     const { generator } = withTasks([gym, rent]);
 
     const gymEvent = await generator.ensurePendingEvent(gym, utc('Sat 2026-08-22 10:00'));
@@ -269,6 +269,29 @@ describe('a sibling that was also finished', () => {
 
     assert.deepEqual(next?.date, utc('2026-08-19 17:00'));
     assert.equal(eventsIn(repository).length, 3);
+  });
+});
+
+/**
+ * The window must not gate generation. `pendingEventOfConfig` asks whether the
+ * moment has gone by, not whether the user is still allowed to act on it —
+ * otherwise a config repeating more often than its window is long silently
+ * loses the occurrences in between.
+ */
+describe('a window longer than the repeat interval', () => {
+  it('still generates every occurrence on the grid', async () => {
+    const slow = aDailyConfig('water', { startsAt: '09:00', endsAt: '23:00', repeatEach: '02:00' });
+    const wide = { ...slow, activeForMins: 3 * 60 };
+    const { repository, generator } = withTasks([wide]);
+
+    await generator.ensurePendingEvent(wide, utc('2026-08-19 08:00'));
+    // 09:00 has gone by but its three-hour window is still open at 09:01.
+    await generator.syncPendingEvents(utc('2026-08-19 09:01'));
+
+    assert.deepEqual(
+      eventsIn(repository).map((event) => event.date),
+      [utc('2026-08-19 09:00'), utc('2026-08-19 11:00')],
+    );
   });
 });
 

@@ -7,7 +7,7 @@ import { TaskType } from '../enum/task-type.enum.js';
 import type { CreateBasicTask, CreateEventTask } from '../types/tasks.types.js';
 import { ID, JoiObject } from '../middlewares/validation/util/validation.util.js';
 import {
-  byType, DEFAULT_EVENT_ACTIVE_LOGIC, fields, typeOf,
+  byType, DEFAULT_ACTIVE_FOR_MINS, DEFAULT_EVENT_ACTIVE_LOGIC, fields, typeOf,
 } from './common.schemes.js';
 
 export const CreateBasicTaskSchema = JoiObject<CreateBasicTask>({
@@ -29,6 +29,7 @@ export const CreateEventTaskSchema = JoiObject<CreateEventTask>({
   date: fields.date.required(),
   // `passedDate` and `configTaskId` are absent on purpose: the server owns both.
   activeLogic: fields.activeLogic.default(DEFAULT_EVENT_ACTIVE_LOGIC),
+  activeForMins: fields.activeForMins.default(DEFAULT_ACTIVE_FOR_MINS),
 });
 
 /** Body schema for `POST /tasks`. Configs are a different resource entirely. */

@@ -28,6 +28,12 @@ export interface BaseRepeatedTask {
   createdAt: Date;
   category: TaskCategory;
   links: string[];
+  /**
+   * How long each generated occurrence stays worth acting on, in minutes.
+   * Inherited by the event for the same reason as category and links: a
+   * generated event cannot be edited, so this can only come from here.
+   */
+  activeForMins: number;
 }
 
 export interface DailyTask extends BaseRepeatedTask {
@@ -46,10 +52,8 @@ export interface WeeklyTask extends BaseRepeatedTask {
 
 export interface MonthlyTask extends BaseRepeatedTask {
   type: TaskType.REPEATED_MONTHLY;
-  /** Day of month the window opens on, 1-31. */
+  /** Day of month the occurrence falls on, 1-31. */
   fromDay: number;
-  /** Day of month the window closes on, 1-31. */
-  toDay: number;
   /** Months the task repeats in: 1 = January ... 12 = December. */
   months: number[];
 }
@@ -58,9 +62,10 @@ export type RepeatedTask = DailyTask | WeeklyTask | MonthlyTask;
 
 /** A config as the client sends it: the server owns `id` and `createdAt`. */
 export type RepeatedDraft<T extends BaseRepeatedTask> =
-  Omit<T, 'id' | 'userId' | 'createdAt' | 'category' | 'links'> & {
+  Omit<T, 'id' | 'userId' | 'createdAt' | 'category' | 'links' | 'activeForMins'> & {
     category?: TaskCategory;
     links?: string[];
+    activeForMins?: number;
   };
 
 export type CreateDailyTask = RepeatedDraft<DailyTask>;
