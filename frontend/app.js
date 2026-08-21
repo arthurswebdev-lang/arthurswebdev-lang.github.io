@@ -12,10 +12,10 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=13';
+} from './api.js?v=14';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=13';
+} from './notifications.js?v=14';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -906,7 +906,9 @@ function linkToggle(onOpen) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'btn btn--small row-stack__add-link';
-  button.textContent = '+ Link';
+  button.textContent = '+ 🔗';
+  // The icon carries no name of its own, so give it one.
+  button.setAttribute('aria-label', 'Add link');
   button.addEventListener('click', () => { onOpen(); });
 
   return button;

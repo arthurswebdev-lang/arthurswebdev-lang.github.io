@@ -69,7 +69,9 @@ body {
 }
 
 .app {
-  max-width: 34rem;
+  /* 34rem was a phone width worn on every screen. A tablet has the room and
+     nothing here reads worse for having it. */
+  max-width: 48rem;
   margin: 0 auto;
   padding: 0 1rem calc(6.5rem + env(safe-area-inset-bottom));
 }
@@ -80,7 +82,24 @@ body {
   top: 0;
   z-index: 10;
   padding-top: calc(1.25rem + env(safe-area-inset-top));
-  background: linear-gradient(var(--ground) 78%, transparent);
+  /* Opaque, not a fade. The gradient used to reach `transparent` at 78%, and
+     the category row is the last thing in here — so tasks scrolling past came
+     up through the icons. A sticky bar holding controls has to hide what runs
+     underneath it. */
+  background: var(--ground);
+}
+
+/* The soft edge the gradient used to give, moved to just below the bar where
+   it costs nothing: content fades out as it leaves rather than cutting. */
+.header::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  height: 0.75rem;
+  background: linear-gradient(var(--ground), transparent);
+  pointer-events: none;
 }
 
 .header__bar {
@@ -381,7 +400,7 @@ body {
 
 /* --- composer ----------------------------------------------------------- */
 .composer {
-  width: min(30rem, calc(100vw - 2rem));
+  width: min(38rem, calc(100vw - 2rem));
   margin: auto auto 0;
   padding: 1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
   border: 1px solid var(--line);
