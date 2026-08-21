@@ -689,6 +689,16 @@ select.field__input { appearance: none; background-image: none; }
 
 .row .field__input { flex: 1; min-width: 0; }
 
+/* A step stacks: the name keeps the whole width, and the link it may not have
+   drops onto its own line underneath rather than halving the name. */
+.step { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.step__add-link { flex: 0 0 auto; padding: 0.3rem 0.55rem; font-size: 0.75rem; }
+
+/* An empty list should not still pay for the gap under it — with no links yet,
+   the button sits directly under the category. */
+.rows:empty { margin-bottom: 0; }
+
 .btn--small {
   padding: 0.35rem 0.7rem;
   font-size: 0.8rem;

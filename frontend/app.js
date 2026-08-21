@@ -12,10 +12,10 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=11';
+} from './api.js?v=12';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=11';
+} from './notifications.js?v=12';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -873,7 +873,7 @@ function inputCell(placeholder, type = 'text') {
 }
 
 /** One removable row; `cells` are the inputs it holds. */
-function addRow(container, cells) {
+function addRow(container, cells, onRemove = () => {}) {
   const row = document.createElement('div');
   row.className = 'row';
 
@@ -882,7 +882,10 @@ function addRow(container, cells) {
   remove.className = 'row__remove';
   remove.textContent = '✕';
   remove.setAttribute('aria-label', 'Remove');
-  remove.addEventListener('click', () => { row.remove(); });
+  remove.addEventListener('click', () => {
+    row.remove();
+    onRemove();
+  });
 
   row.append(...cells, remove);
   container.append(row);
@@ -890,21 +893,75 @@ function addRow(container, cells) {
   return row;
 }
 
-const addLinkRow = () => addRow(linkRows, [inputCell('https://…', 'url')]);
+const addLinkRow = (url = '') => {
+  const input = inputCell('https://…', 'url');
+  input.value = url;
+  addRow(linkRows, [input]);
 
-const addSubtaskRow = () => addRow(subtaskRows, [
-  inputCell('Step name'),
-  inputCell('https://… (optional)', 'url'),
-]);
+  return input;
+};
 
-/** Non-empty values from a row container, column by column. */
-function rowValues(container) {
-  return [...container.querySelectorAll('.row')].map((row) => {
-    const inputs = [...row.querySelectorAll('.field__input')];
+/** The small control that trades itself for the input it opens. */
+function linkToggle(onOpen) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn btn--small step__add-link';
+  button.textContent = '+ Link';
+  button.addEventListener('click', () => { onOpen(); });
 
-    return inputs.map((input) => input.value.trim());
-  });
+  return button;
 }
+
+/**
+ * A step is a column, not a row: its name keeps the full width, and a link —
+ * which most steps do not have — only appears once asked for, on a line of its
+ * own where a url is actually readable. Side by side, neither fitted a phone.
+ */
+function addSubtaskRow({ name = '', link = '' } = {}) {
+  const step = document.createElement('div');
+  step.className = 'step';
+
+  const nameInput = inputCell('Step name');
+  nameInput.dataset.field = 'name';
+  nameInput.value = name;
+
+  const openLink = (url = '') => {
+    const input = inputCell('https://…', 'url');
+    input.dataset.field = 'link';
+    input.value = url;
+    // Removing the link puts the control back, so the step returns to the
+    // state it started in rather than keeping an empty field forever.
+    const row = addRow(step, [input], () => { toggle.hidden = false; });
+    toggle.hidden = true;
+    step.append(toggle);
+
+    return { input, row };
+  };
+
+  const toggle = linkToggle(() => { openLink().input.focus(); });
+
+  // The ✕ on the name line belongs to the whole step, not just that line —
+  // otherwise removing it strands an empty .step behind the link underneath.
+  addRow(step, [nameInput, toggle], () => { step.remove(); });
+  if (link !== '') openLink(link);
+
+  subtaskRows.append(step);
+
+  return step;
+}
+
+/** Every non-empty task link, in the order they were entered. */
+const linkValues = () => [...linkRows.querySelectorAll('input')]
+  .map((input) => input.value.trim())
+  .filter(Boolean);
+
+/** Steps that were actually named; an empty row is an abandoned one. */
+const subtaskValues = () => [...subtaskRows.querySelectorAll('.step')]
+  .map((step) => ({
+    name: step.querySelector('[data-field="name"]').value.trim(),
+    link: step.querySelector('[data-field="link"]')?.value.trim() ?? '',
+  }))
+  .filter((step) => step.name !== '');
 
 const chosenValues = (container) => [...container.querySelectorAll('[aria-pressed="true"]')]
   .map((button) => Number(button.dataset.value));
@@ -1034,12 +1091,8 @@ function openEditor(task) {
     composerForm.elements['date'].value = local.toISOString().slice(0, 16);
   }
 
-  for (const url of task.links ?? []) addLinkRow().querySelector('input').value = url;
-  for (const step of task.subtasks) {
-    const [name, link] = addSubtaskRow().querySelectorAll('input');
-    name.value = step.name;
-    if (step.link) link.value = step.link;
-  }
+  for (const url of task.links ?? []) addLinkRow(url);
+  for (const step of task.subtasks) addSubtaskRow(step);
 
   showStep('details');
   composer.showModal();
@@ -1061,7 +1114,7 @@ function openConfigEditor(config) {
 
   composerForm.elements['name'].value = config.name;
   composerForm.elements['category'].value = config.category;
-  for (const url of config.links ?? []) addLinkRow().querySelector('input').value = url;
+  for (const url of config.links ?? []) addLinkRow(url);
 
   if (config.type === 'DAILY') {
     composerForm.elements['startsAt'].value = clockFromUtc(config.startsAt);
@@ -1123,10 +1176,9 @@ const clockOf = ({ hour, minute }) => `${pad(hour)}:${pad(minute)}`;
 function draftPayload(data) {
   const name = String(data.get('name')).trim();
   const category = String(data.get('category'));
-  const links = rowValues(linkRows).map(([url]) => url).filter(Boolean);
-  const subtasks = rowValues(subtaskRows)
-    .filter(([stepName]) => stepName !== '')
-    .map(([stepName, link]) => (link ? { name: stepName, link } : { name: stepName }));
+  const links = linkValues();
+  const subtasks = subtaskValues()
+    .map(({ name: stepName, link }) => (link ? { name: stepName, link } : { name: stepName }));
 
   const shared = { name, category, ...(links.length ? { links } : {}) };
 
