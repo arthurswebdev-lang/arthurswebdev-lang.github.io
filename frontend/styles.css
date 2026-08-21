@@ -451,6 +451,28 @@ body {
   outline-offset: 1px;
 }
 
+/* A confirm is short, so its buttons stack rather than crowd: on a phone the
+   difference between "this occurrence" and "the whole repeat" is worth reading
+   properly before tapping. */
+.confirm { max-width: min(24rem, calc(100vw - 2 * var(--app-pad))); }
+
+.confirm__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1.1rem;
+}
+
+.confirm__actions .btn { width: 100%; text-align: center; }
+
+.btn--danger {
+  border-color: var(--overdue-ink);
+  background: var(--overdue-bg);
+  color: var(--overdue-ink);
+}
+
+.btn--danger:hover { filter: brightness(0.97); }
+
 .composer__actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
 
 .btn {

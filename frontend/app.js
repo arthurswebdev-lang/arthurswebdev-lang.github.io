@@ -12,10 +12,10 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, sendTestNotification, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=18';
+} from './api.js?v=19';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=18';
+} from './notifications.js?v=19';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -510,58 +510,124 @@ function toggleStep(task, step) {
   );
 }
 
-function remove(task) {
-  // Under "passed" the bin means "clear this spent one out of the way", so it
-  // goes without taking its repeat. Everywhere else it still means delete,
-  // which for a generated event takes the whole rule and every event it made.
-  const clearing = activeFilter === 'passed';
+/* --- asking before destroying ---------------------------------------------- */
 
-  let question = `Delete "${task.name}"?`;
-  if (clearing) question = `Clear "${task.name}" from the list?`;
-  else if (task.configTaskId) {
-    question = `"${task.name}" repeats. Delete the repeat and every event it made?`;
-  }
+const confirmDialog = document.getElementById('confirm');
+const confirmTitle = document.getElementById('confirm-title');
+const confirmMessage = document.getElementById('confirm-message');
+const confirmActions = document.getElementById('confirm-actions');
 
-  if (!confirmDelete(question)) return;
+function confirmButton({ id, label, danger }, choose) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = danger ? 'btn btn--danger' : 'btn';
+  button.textContent = label;
+  button.addEventListener('click', () => { choose(id); });
 
-  apply(
-    () => {
-      const index = tasks.indexOf(task);
-      if (index !== -1) tasks.splice(index, 1);
-    },
-    () => (clearing
-      ? clearTasks(credentials.token, [task.id])
-      : deleteTask(credentials.token, task.id)),
-    `${task.name} ${clearing ? 'cleared' : 'deleted'}`,
-  );
+  return button;
 }
 
-/** A plain confirm, deliberately: it is one question and it must block. */
-const confirmDelete = (question) => window.confirm(question);
+/**
+ * The app's own question, in place of `window.confirm`.
+ *
+ * Resolves with the chosen action's id, or null for cancel — which includes
+ * Escape and the backdrop, since `close` fires for those too and nothing has
+ * set a choice by then.
+ *
+ * More than one destructive answer is the point: deleting one occurrence of a
+ * repeat and deleting the repeat itself are different things, and a yes/no box
+ * can only offer one of them.
+ */
+function ask({ title, message, actions }) {
+  confirmTitle.textContent = title;
+  confirmMessage.textContent = message ?? '';
+  confirmMessage.hidden = message === undefined;
+
+  return new Promise((resolve) => {
+    let chosen = null;
+    const choose = (id) => { chosen = id; confirmDialog.close(); };
+
+    confirmActions.replaceChildren(
+      ...actions.map((action) => confirmButton(action, choose)),
+      confirmButton({ id: null, label: 'Cancel' }, choose),
+    );
+
+    confirmDialog.addEventListener('close', () => { resolve(chosen); }, { once: true });
+    confirmDialog.showModal();
+  });
+}
+
+/**
+ * A generated event is one occurrence of a rule, so the bin has two meanings
+ * and the user picks: drop this occurrence and leave the rule making more, or
+ * take the rule and everything it has made. Anything else is a plain delete.
+ */
+function deleteChoiceFor(task) {
+  if (!task.configTaskId) {
+    return ask({
+      title: `Delete "${task.name}"?`,
+      actions: [{ id: 'one', label: 'Delete', danger: true }],
+    });
+  }
+
+  return ask({
+    title: `Delete "${task.name}"?`,
+    message: 'This is one occurrence of a repeat.',
+    actions: [
+      { id: 'one', label: 'Just this one', danger: true },
+      { id: 'all', label: 'The repeat and every event it made', danger: true },
+    ],
+  });
+}
+
+function remove(task) {
+  void deleteChoiceFor(task).then((choice) => {
+    if (choice === null) return;
+
+    apply(
+      () => {
+        const index = tasks.indexOf(task);
+        if (index !== -1) tasks.splice(index, 1);
+      },
+      // `clearTasks` takes exactly what it is given; `deleteTask` escalates to
+      // the whole rule when handed a generated event.
+      () => (choice === 'all'
+        ? deleteTask(credentials.token, task.id)
+        : clearTasks(credentials.token, [task.id])),
+      `${task.name} deleted`,
+    );
+  });
+}
 
 const cleanupButton = document.getElementById('cleanup');
 
 /**
- * Sweeping belongs to the passed list, and there it takes everything shown.
- * A passed task is spent whether or not it was ever ticked off — needing to
- * mark it done first would be busywork to reach the bin.
+ * The bin at the bottom takes everything currently listed, under any filter.
+ * It always clears rather than deletes: a repeat behind one of these events is
+ * left alone to carry on, which is what makes sweeping safe to reach for.
  */
-const sweepable = () => (activeFilter === 'passed' ? tasks : []);
+const sweepable = () => tasks;
 
 cleanupButton.addEventListener('click', () => {
   const spent = sweepable();
   if (spent.length === 0) return;
 
   const count = String(spent.length);
-  if (!confirmDelete(`Clear ${count} passed task${spent.length === 1 ? '' : 's'} from this list?`)) return;
-
   const ids = spent.map((task) => task.id);
 
-  apply(
-    () => { tasks = tasks.filter((task) => !ids.includes(task.id)); },
-    () => clearTasks(credentials.token, ids),
-    `${count} cleared`,
-  );
+  void ask({
+    title: `Clear ${count} task${spent.length === 1 ? '' : 's'}?`,
+    message: 'Repeats behind them are kept, and will carry on making events.',
+    actions: [{ id: 'clear', label: `Clear ${count}`, danger: true }],
+  }).then((choice) => {
+    if (choice === null) return;
+
+    apply(
+      () => { tasks = tasks.filter((task) => !ids.includes(task.id)); },
+      () => clearTasks(credentials.token, ids),
+      `${count} cleared`,
+    );
+  });
 });
 
 /* --- loading -------------------------------------------------------------- */
@@ -749,12 +815,22 @@ function repeatRow(config) {
   remove.textContent = '🗑';
   remove.setAttribute('aria-label', `Delete the ${config.name} repeat`);
   remove.addEventListener('click', () => {
-    if (!confirmDelete(`Delete the "${config.name}" repeat and the events it made?`)) return;
+    // The repeats dialog is modal, and a second modal on top of it is refused,
+    // so it steps aside for the question and comes back after.
+    repeatsDialog.close();
 
-    void deleteRepeatedTask(credentials.token, config.id).then(() => {
-      announcer.textContent = `${config.name} repeat deleted`;
+    void ask({
+      title: `Delete the "${config.name}" repeat?`,
+      message: 'Every event it has made goes with it.',
+      actions: [{ id: 'delete', label: 'Delete the repeat', danger: true }],
+    }).then((choice) => {
+      if (choice === null) return openRepeats();
 
-      return Promise.all([openRepeats(), load()]);
+      return deleteRepeatedTask(credentials.token, config.id).then(() => {
+        announcer.textContent = `${config.name} repeat deleted`;
+
+        return Promise.all([openRepeats(), load()]);
+      });
     });
   });
 
