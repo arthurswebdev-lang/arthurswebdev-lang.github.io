@@ -12,10 +12,10 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, sendTestNotification, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=21';
+} from './api.js?v=22';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=21';
+} from './notifications.js?v=22';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -621,11 +621,29 @@ function remove(task) {
 const cleanupButton = document.getElementById('cleanup');
 
 /**
- * The bin at the bottom takes everything currently listed, under any filter.
- * It always clears rather than deletes: a repeat behind one of these events is
- * left alone to carry on, which is what makes sweeping safe to reach for.
+ * What the bin at the bottom would take, which depends on where you are.
+ *
+ * Under `passed` everything shown is spent, ticked off or not — needing to
+ * mark a missed task done before it could be binned would be busywork.
+ *
+ * Under `actual` only the finished ones go: the rest are the list, and a
+ * single tap that emptied your day would be the worst button in the app.
+ *
+ * Under `upcoming` nothing has happened yet, so there is nothing to tidy and
+ * the button does not appear at all.
+ *
+ * It always clears rather than deletes, so a repeat behind one of these events
+ * carries on. That is what makes it safe to reach for.
  */
-const sweepable = () => tasks;
+const sweepable = () => {
+  if (activeFilter === 'passed') return tasks;
+  if (activeFilter === 'actual') return tasks.filter((task) => task.status === 'DONE');
+
+  return [];
+};
+
+/** What the question calls them, since the bin does not mean the same thing twice. */
+const sweepLabel = () => (activeFilter === 'passed' ? 'passed' : 'finished');
 
 cleanupButton.addEventListener('click', () => {
   const spent = sweepable();
@@ -635,7 +653,7 @@ cleanupButton.addEventListener('click', () => {
   const ids = spent.map((task) => task.id);
 
   void ask({
-    title: `Clear ${count} task${spent.length === 1 ? '' : 's'}?`,
+    title: `Clear ${count} ${sweepLabel()} task${spent.length === 1 ? '' : 's'}?`,
     message: 'Repeats are kept.',
     actions: [{ id: 'clear', label: `Clear ${count}`, danger: true }],
   }).then((choice) => {
