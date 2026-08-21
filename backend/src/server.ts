@@ -1,11 +1,7 @@
 import { createApp } from './app.js';
 import { config } from './config.js';
 import { createContainer, ensureIndexes } from './container.js';
-import type { INotificationService } from './interfaces/notification-service.interface.js';
-import { ConsoleNotificationService } from './services/console-notification.service.js';
 import { EventPollingService } from './services/event-polling.service.js';
-import { FcmNotificationService } from './services/fcm-notification.service.js';
-import { createMessaging } from './storage/fcm.storage.js';
 import { describeMongoTarget, MongoStorage } from './storage/mongo.storage.js';
 
 const storage = new MongoStorage(config.mongoUrl, config.mongoDbName);
@@ -16,17 +12,9 @@ await ensureIndexes(container);
 const app = createApp(container);
 const server = app.listen(config.port);
 
-// Real pushes when a service-account key is configured, the console channel
-// when it is not — so a developer without Firebase credentials still sees which
-// events came due, and deploying push is a matter of setting one secret.
-const messaging = createMessaging(config.firebaseServiceAccount);
-const notifications: INotificationService = messaging === null
-  ? new ConsoleNotificationService()
-  : new FcmNotificationService(container.devicesRepository, messaging, config.appUrl);
-
 const eventPolling = new EventPollingService(
   container.tasksRepository,
-  notifications,
+  container.notifications,
   container.taskGenerator,
   config.pollIntervalMs,
 );
@@ -43,7 +31,7 @@ server.on('listening', () => {
 
   eventPolling.start();
   console.log(`event polling every ${String(config.pollIntervalMs)}ms`);
-  console.log(messaging === null
+  console.log(!container.pushConfigured
     ? 'push: not configured (set FIREBASE_SERVICE_ACCOUNT) — logging due events instead'
     : 'push: firebase cloud messaging');
 });

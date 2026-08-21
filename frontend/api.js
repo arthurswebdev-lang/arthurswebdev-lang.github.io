@@ -121,6 +121,13 @@ export async function signUp(username, password) {
 export const registerDevice = (token, fcmToken) =>
   send("POST", "/devices", token, { token: fcmToken });
 
+/**
+ * Pushes a test to every install registered for this user, right now. Answers
+ * with how many it reached, so "nothing arrived" can be told apart from
+ * "nothing was registered".
+ */
+export const sendTestNotification = (token) => send("POST", "/devices/test", token);
+
 export const createTask = (token, payload) => send("POST", "/tasks", token, payload);
 
 /** PUT replaces the task outright — the payload is its whole new state. */

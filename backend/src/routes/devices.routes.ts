@@ -35,6 +35,9 @@ export class DevicesRoutes {
       controller.register.bind(controller),
     );
 
+    // No body, so nothing to validate — the caller is the whole input.
+    this.router.post('/devices/test', this.authenticate, controller.test.bind(controller));
+
     return this.router;
   }
 }

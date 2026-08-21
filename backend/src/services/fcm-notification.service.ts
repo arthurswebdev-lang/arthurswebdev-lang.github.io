@@ -1,4 +1,4 @@
-import type { Messaging } from 'firebase-admin/messaging';
+import type { Messaging, WebpushConfig } from 'firebase-admin/messaging';
 
 import type { IDevicesRepository } from '../interfaces/devices-repository.interface.js';
 import type { INotificationService } from '../interfaces/notification-service.interface.js';
@@ -46,30 +46,59 @@ export class FcmNotificationService implements INotificationService {
     private readonly appUrl: string | undefined,
   ) {}
 
+  notify(task: EventTask): Promise<void> {
+    return this.announce(task.userId, task.name, describe(task));
+  }
+
   /**
-   * One event, every install its owner registered. Nobody registered means no
+   * One message, every install its owner registered. Nobody registered means no
    * work, which is what makes this safe to run for accounts that never turned
    * notifications on.
    */
-  async notify(task: EventTask): Promise<void> {
-    const devices = await this.devicesRepository.listByUserId(task.userId);
+  async announce(userId: string, title: string, body: string): Promise<void> {
+    const devices = await this.devicesRepository.listByUserId(userId);
     if (devices.length === 0) return;
 
     // Read the list once and fan out: awaiting per device would make a user
-    // with a phone and a laptop wait two round-trips for one event.
-    const outcomes = await Promise.all(devices.map((device) => this.send(device.token, task)));
+    // with a phone and a laptop wait two round-trips for one message.
+    const outcomes = await Promise.all(devices.map((d) => this.send(d.token, title, body)));
     const dead = outcomes.filter((token): token is string => token !== null);
 
     await Promise.all(dead.map((token) => this.devicesRepository.deleteByToken(token)));
   }
 
+  /**
+   * Urgency:high asks for delivery now rather than batched with whatever else
+   * is queued. It governs *delivery*, not loudness — the sound a phone makes
+   * for a web push is the system's, and no field here can raise it.
+   *
+   * requireInteraction, renotify and vibrate are ignored on iOS and honoured
+   * everywhere else, so they cost nothing to send.
+   */
+  private webpushFor(title: string, body: string): WebpushConfig {
+    return {
+      headers: { Urgency: 'high', TTL: '600' },
+      notification: {
+        title,
+        body,
+        icon: './icons/icon-192.png',
+        badge: './icons/icon-192.png',
+        requireInteraction: true,
+        renotify: true,
+        tag: 'tasks',
+        vibrate: [200, 100, 200],
+      },
+      ...(this.appUrl === undefined ? {} : { fcmOptions: { link: this.appUrl } }),
+    };
+  }
+
   /** Sends one push. Returns the token when FCM says it is dead, else `null`. */
-  private async send(token: string, task: EventTask): Promise<string | null> {
+  private async send(token: string, title: string, body: string): Promise<string | null> {
     try {
       await this.messaging.send({
         token,
-        notification: { title: task.name, body: describe(task) },
-        ...(this.appUrl === undefined ? {} : { webpush: { fcmOptions: { link: this.appUrl } } }),
+        notification: { title, body },
+        webpush: this.webpushFor(title, body),
       });
 
       return null;
@@ -79,7 +108,7 @@ export class FcmNotificationService implements INotificationService {
       // A failed send is not retried: the poller's window has already moved
       // past this task, and a second attempt would need durable state the
       // service deliberately does not keep. See EventPollingService.
-      console.error(`[fcm] push failed for "${task.name}":`, error);
+      console.error(`[fcm] push failed for "${title}":`, error);
 
       return null;
     }

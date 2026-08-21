@@ -55,6 +55,7 @@ interface SentMessage {
   title: string;
   body: string;
   link: string | undefined;
+  urgency: string | undefined;
 }
 
 /** Stands in for `Messaging`, failing whichever tokens the test names. */
@@ -63,7 +64,7 @@ function fakeMessaging(sent: SentMessage[], failures: Record<string, string> = {
     send: (message: {
       token: string;
       notification: { title: string; body: string };
-      webpush?: { fcmOptions: { link: string } };
+      webpush?: { headers?: Record<string, string>; fcmOptions?: { link: string } };
     }) => {
       const failure = failures[message.token];
       if (failure !== undefined) return Promise.reject(fcmError(failure));
@@ -72,7 +73,8 @@ function fakeMessaging(sent: SentMessage[], failures: Record<string, string> = {
         token: message.token,
         title: message.notification.title,
         body: message.notification.body,
-        link: message.webpush?.fcmOptions.link,
+        link: message.webpush?.fcmOptions?.link,
+        urgency: message.webpush?.headers?.['Urgency'],
       });
 
       return Promise.resolve('sent');
@@ -152,6 +154,40 @@ describe('what the alert says', () => {
     await service.notify(event);
 
     assert.equal(sent[0]?.body, 'Due now');
+  });
+});
+
+describe('a message with no task behind it', () => {
+  it('reaches the same devices as a due event would', async () => {
+    const { service, sent } = harness(['phone', 'laptop']);
+
+    await service.announce(TEST_USER_ID, 'Tasks', 'Test notification');
+
+    assert.deepEqual(sent.map((message) => message.token), ['phone', 'laptop']);
+    assert.deepEqual(sent.map((message) => message.title), ['Tasks', 'Tasks']);
+    assert.deepEqual(
+      sent.map((message) => message.body),
+      ['Test notification', 'Test notification'],
+    );
+  });
+
+  it('says nothing when the user has no devices', async () => {
+    const { service, sent } = harness([]);
+
+    await service.announce(TEST_USER_ID, 'Tasks', 'Test notification');
+
+    assert.equal(sent.length, 0);
+  });
+});
+
+// Delivery, not loudness: iOS picks the sound, but a batched push is a late one.
+describe('every push', () => {
+  it('asks to be delivered now rather than queued', async () => {
+    const { service, sent } = harness(['phone']);
+
+    await service.notify(event);
+
+    assert.equal(sent[0]?.urgency, 'high');
   });
 });
 

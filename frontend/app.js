@@ -11,11 +11,11 @@
 import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
-  replaceTask, saveCredentials, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=16';
+  replaceTask, saveCredentials, sendTestNotification, setStepStatus, setTaskStatus, signUp,
+} from './api.js?v=17';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=16';
+} from './notifications.js?v=17';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -631,6 +631,7 @@ menuPanel.addEventListener('click', (event) => { event.stopPropagation(); });
    to do about it, does it. The click is the user gesture iOS requires. */
 
 const notificationsItem = document.getElementById('notifications');
+const testItem = document.getElementById('test-notification');
 
 const NOTIFICATION_LABEL = {
   granted: 'Notifications on',
@@ -648,6 +649,11 @@ function showNotificationsItem() {
   notificationsItem.hidden = label === undefined || credentials === null;
   notificationsItem.textContent = label ?? '';
   notificationsItem.disabled = state !== 'default';
+
+  // Only worth offering once there is something to test.
+  testItem.hidden = notificationsItem.hidden || state !== 'granted';
+  testItem.disabled = false;
+  testItem.textContent = 'Send a test';
 }
 
 notificationsItem.addEventListener('click', () => {
@@ -664,6 +670,28 @@ notificationsItem.addEventListener('click', () => {
     (error) => {
       showNotificationsItem();
       announcer.textContent = `Could not turn notifications on: ${error.message}`;
+    },
+  );
+});
+
+/* The round trip is the point: it proves registration, the server, FCM and the
+   phone's own settings all still work, without waiting for something to fall
+   due. Sent from the server, not shown locally, so it exercises the real path. */
+testItem.addEventListener('click', () => {
+  closeMenu();
+  testItem.disabled = true;
+  testItem.textContent = 'Sending…';
+
+  void sendTestNotification(credentials.token).then(
+    ({ delivered }) => {
+      showNotificationsItem();
+      announcer.textContent = delivered === 0
+        ? 'No device is registered for notifications'
+        : `Test sent to ${String(delivered)} device${delivered === 1 ? '' : 's'}`;
+    },
+    (error) => {
+      showNotificationsItem();
+      announcer.textContent = `Could not send the test: ${error.message}`;
     },
   );
 });

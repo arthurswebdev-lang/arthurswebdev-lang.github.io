@@ -12,4 +12,10 @@ export class ConsoleNotificationService implements INotificationService {
 
     return Promise.resolve();
   }
+
+  announce(userId: string, title: string, body: string): Promise<void> {
+    console.log(`[notification] ${title} — ${body} (user ${userId})`);
+
+    return Promise.resolve();
+  }
 }
