@@ -16,7 +16,7 @@
    does not exist at all, so the honest answer there is "Add to Home Screen
    first" rather than a button that cannot work.
 --------------------------------------------------------------------------- */
-import { registerDevice } from './api.js?v=12';
+import { registerDevice } from './api.js?v=13';
 
 const SW_PATH = './firebase-messaging-sw.js';
 

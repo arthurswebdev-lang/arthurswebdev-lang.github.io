@@ -12,10 +12,10 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=12';
+} from './api.js?v=13';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=12';
+} from './notifications.js?v=13';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -905,7 +905,7 @@ const addLinkRow = (url = '') => {
 function linkToggle(onOpen) {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'btn btn--small step__add-link';
+  button.className = 'btn btn--small row-stack__add-link';
   button.textContent = '+ Link';
   button.addEventListener('click', () => { onOpen(); });
 
@@ -919,7 +919,7 @@ function linkToggle(onOpen) {
  */
 function addSubtaskRow({ name = '', link = '' } = {}) {
   const step = document.createElement('div');
-  step.className = 'step';
+  step.className = 'row-stack';
 
   const nameInput = inputCell('Step name');
   nameInput.dataset.field = 'name';
@@ -956,7 +956,7 @@ const linkValues = () => [...linkRows.querySelectorAll('input')]
   .filter(Boolean);
 
 /** Steps that were actually named; an empty row is an abandoned one. */
-const subtaskValues = () => [...subtaskRows.querySelectorAll('.step')]
+const subtaskValues = () => [...subtaskRows.querySelectorAll('.row-stack')]
   .map((step) => ({
     name: step.querySelector('[data-field="name"]').value.trim(),
     link: step.querySelector('[data-field="link"]')?.value.trim() ?? '',
