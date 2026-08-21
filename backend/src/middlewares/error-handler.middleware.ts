@@ -41,12 +41,29 @@ function getErrorBody(error: unknown): ErrorBody {
   return { status, message, code: http.STATUS_CODES[status] };
 }
 
-/** Last middleware in the stack: turns thrown errors into JSON responses. */
-export const errorHandler: ErrorRequestHandler = (error, _request, response, _next) => {
+/**
+ * Last middleware in the stack: turns thrown errors into JSON responses, and
+ * records every one of them.
+ *
+ * A 4xx is logged as loudly as a 5xx here, which would be wrong for a public
+ * API and is right for this one. Nothing but our own frontend calls it, so a
+ * rejected request is not a stranger sending nonsense — it is this project
+ * sending something it should not, which is a bug of ours wearing a client's
+ * status code. Leaving it unlogged made exactly that invisible from both ends:
+ * the phone showed nothing and the log had nothing to show.
+ */
+export const errorHandler: ErrorRequestHandler = (error, request, response, _next) => {
   const body = getErrorBody(error);
+  const where = `[${String(body.status)}] ${request.method} ${request.originalUrl}`;
 
-  // Anything that maps to a 5xx is ours to investigate, so keep the original.
-  if (body.status >= HttpStatusCodes.INTERNAL_SERVER_ERROR) console.error(error);
+  if (body.status >= HttpStatusCodes.INTERNAL_SERVER_ERROR) {
+    // Ours outright: keep the original, stack and all.
+    console.error(where, error);
+  } else {
+    // The message already names the offending fields — it is what the client
+    // is told, and the whole reason the request was refused.
+    console.error(`${where} — ${body.message}`);
+  }
 
   response.status(body.status).json(body);
 };

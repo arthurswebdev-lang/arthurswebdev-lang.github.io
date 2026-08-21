@@ -12,10 +12,10 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, sendTestNotification, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=23';
+} from './api.js?v=24';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=23';
+} from './notifications.js?v=24';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -1091,9 +1091,12 @@ function linkToggle(onOpen) {
  * which most steps do not have — only appears once asked for, on a line of its
  * own where a url is actually readable. Side by side, neither fitted a phone.
  */
-function addSubtaskRow({ name = '', link = '' } = {}) {
+function addSubtaskRow({ name = '', link = '', status = 'TODO' } = {}) {
   const step = document.createElement('div');
   step.className = 'row-stack';
+  // Carried, not edited. PUT replaces the whole task, so a step that came back
+  // without its status would be un-ticked by the act of renaming the task.
+  step.dataset.status = status;
 
   const nameInput = inputCell('Step name');
   nameInput.dataset.field = 'name';
@@ -1134,6 +1137,7 @@ const subtaskValues = () => [...subtaskRows.querySelectorAll('.row-stack')]
   .map((step) => ({
     name: step.querySelector('[data-field="name"]').value.trim(),
     link: step.querySelector('[data-field="link"]')?.value.trim() ?? '',
+    status: step.dataset.status ?? 'TODO',
   }))
   .filter((step) => step.name !== '');
 
@@ -1365,7 +1369,9 @@ function draftPayload(data) {
   const category = String(data.get('category'));
   const links = linkValues();
   const subtasks = subtaskValues()
-    .map(({ name: stepName, link }) => (link ? { name: stepName, link } : { name: stepName }));
+    .map(({ name: stepName, link, status }) => ({
+      name: stepName, status, ...(link ? { link } : {}),
+    }));
 
   const shared = { name, category, ...(links.length ? { links } : {}) };
 
@@ -1378,11 +1384,17 @@ function draftPayload(data) {
   const activeForMins = Number(data.get('activeFor')) * Number(data.get('activeForUnit'));
   const dated = { ...shared, ...(activeForMins > 0 ? { activeForMins } : {}) };
 
-  if (draft.kind === 'BASIC') return { type: 'BASIC', ...shared, subtasks };
+  // Kept across a replace, for the same reason as a step's. Not in `shared`:
+  // a repeated config is a rule and has no status at all, so sending one would
+  // be refused exactly the way activeForMins was.
+  const kept = draft.editing === null ? {} : { status: draft.editing.status };
+
+  if (draft.kind === 'BASIC') return { type: 'BASIC', ...shared, ...kept, subtasks };
   if (draft.kind === 'EVENT') {
     return {
       type: 'EVENT',
       ...dated,
+      ...kept,
       subtasks,
       date: new Date(String(data.get('date'))).toISOString(),
     };
