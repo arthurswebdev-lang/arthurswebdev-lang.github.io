@@ -12,10 +12,10 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, sendTestNotification, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=24';
+} from './api.js?v=25';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=24';
+} from './notifications.js?v=25';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -200,19 +200,28 @@ function stepsSection(task) {
     const item = document.createElement('li');
     item.className = done ? 'step step--done' : 'step';
 
-    const check = document.createElement('button');
-    check.type = 'button';
+    const check = document.createElement('span');
     check.className = 'step__check';
     check.textContent = '✓';
-    check.setAttribute('aria-pressed', String(done));
-    check.setAttribute('aria-label', `Mark step ${step.name} as ${done ? 'not done' : 'done'}`);
-    check.addEventListener('click', () => { toggleStep(task, step); });
+    check.setAttribute('aria-hidden', 'true');
 
     const name = document.createElement('span');
     name.className = 'step__name';
     name.textContent = step.name;
 
-    item.append(check, name);
+    // The tick and the label are one control. Tapping the words is what people
+    // reach for, and it used to fall through to the card and open the editor —
+    // an edit form in place of the tick they meant. Two separate controls doing
+    // the same thing would also read as two to a screen reader.
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'step__toggle';
+    toggle.setAttribute('aria-pressed', String(done));
+    toggle.setAttribute('aria-label', `Mark step ${step.name} as ${done ? 'not done' : 'done'}`);
+    toggle.addEventListener('click', () => { toggleStep(task, step); });
+    toggle.append(check, name);
+
+    item.append(toggle);
 
     if (step.link) {
       const link = document.createElement('a');

@@ -928,28 +928,43 @@ select.field__input { appearance: none; background-image: none; }
   padding: 0.25rem 0;
 }
 
+/* The tick and the label are one button, so the words are a tap target rather
+   than a hole through to the card underneath. */
+.step__toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.15rem 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .step__check {
-  /* Grid centring rather than the button default: a button's own padding
-     pushes the tick off-centre in a circle this small. */
+  /* Grid centring rather than the default: inline padding would push the tick
+     off-centre in a circle this small. */
   display: grid;
   place-items: center;
   flex: 0 0 auto;
   width: 1.15rem;
   height: 1.15rem;
-  padding: 0;
   border: 1.5px solid var(--line-strong);
   border-radius: 50%;
   background: transparent;
   color: transparent;
   font-size: 0.62rem;
   line-height: 1;
-  cursor: pointer;
   transition: background 0.18s, border-color 0.18s, color 0.18s;
 }
 
-.step__check:hover { border-color: var(--accent-ring); }
+.step__toggle:hover .step__check { border-color: var(--accent-ring); }
 
-.step__check:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
+.step__toggle:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
 
 .step--done .step__check {
   background: var(--done-bg);
