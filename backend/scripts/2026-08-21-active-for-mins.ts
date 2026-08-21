@@ -20,6 +20,8 @@
 import { config } from '../src/config.js';
 import { DEFAULT_ACTIVE_FOR_MINS } from '../src/schemes/common.schemes.js';
 import { GENERATED_EVENT_TIME } from '../src/generators/occurrences.generator.js';
+import type { Db } from 'mongodb';
+
 import { MongoStorage } from '../src/storage/mongo.storage.js';
 
 const MINUTES_PER_HOUR = 60;
@@ -39,8 +41,7 @@ interface Plan {
   events: number;
 }
 
-async function planFor(storage: MongoStorage): Promise<Plan> {
-  const db = await storage.connect();
+async function planFor(db: Db): Promise<Plan> {
   const configs = await db.collection('repeatedTasks')
     .find({ activeForMins: { $exists: false } }).toArray();
 
@@ -60,8 +61,7 @@ async function planFor(storage: MongoStorage): Promise<Plan> {
   };
 }
 
-async function apply(storage: MongoStorage, plan: Plan): Promise<void> {
-  const db = await storage.connect();
+async function apply(db: Db, plan: Plan): Promise<void> {
   const configs = db.collection('repeatedTasks');
 
   // Read once, decide from that snapshot, then write — no awaiting in a loop.
@@ -96,8 +96,14 @@ async function apply(storage: MongoStorage, plan: Plan): Promise<void> {
 const write = process.argv.includes('--write');
 const storage = new MongoStorage(config.mongoUrl, config.mongoDbName);
 
+// Connect once and pass the Db around. `MongoStorage.connect()` builds a new
+// client each call and overwrites the previous one, so a second call orphans
+// the first — its socket keeps the process alive after close() long past the
+// work being done. The server only ever calls it once, so this never showed.
+const db = await storage.connect();
+
 try {
-  const plan = await planFor(storage);
+  const plan = await planFor(db);
 
   console.log(`database: ${config.mongoDbName}`);
   console.log(`configs to change: ${String(plan.configs.length)}`);
@@ -109,7 +115,7 @@ try {
   if (!write) {
     console.log('\ndry run. re-run with --write to apply.');
   } else {
-    await apply(storage, plan);
+    await apply(db, plan);
     console.log('\napplied.');
   }
 } finally {
