@@ -47,11 +47,13 @@
   --radius: 16px;
   --radius-sm: 10px;
 
-  /* The content column. Anything fixed that should line up with the edge of a
-     card derives its offset from this rather than repeating half of it —
-     widening the app used to leave the floating buttons behind. */
+  /* The content column, its gutter, and the edge derived from the two. Anything
+     fixed that should line up with the edge of a card reads --app-edge rather
+     than repeating the arithmetic — widening the app once left the floating
+     buttons behind, and changing the gutter would have done it again. */
   --app-width: 48rem;
-  --app-edge: max(1rem, calc(50% - var(--app-width) / 2 + 1rem));
+  --app-pad: 1.5rem;
+  --app-edge: max(var(--app-pad), calc(50% - var(--app-width) / 2 + var(--app-pad)));
 
   --font-display: "Quicksand", ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
   --font-body: "Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -77,7 +79,7 @@ body {
 .app {
   max-width: var(--app-width);
   margin: 0 auto;
-  padding: 0 1rem calc(6.5rem + env(safe-area-inset-bottom));
+  padding: 0 var(--app-pad) calc(6.5rem + env(safe-area-inset-bottom));
 }
 
 /* --- header ------------------------------------------------------------- */
@@ -404,7 +406,7 @@ body {
 
 /* --- composer ----------------------------------------------------------- */
 .composer {
-  width: min(38rem, calc(100vw - 2rem));
+  width: min(38rem, calc(100vw - 2 * var(--app-pad)));
   margin: auto auto 0;
   padding: 1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
   border: 1px solid var(--line);
@@ -486,7 +488,10 @@ body {
 .categories {
   display: flex;
   gap: 0.4rem;
-  padding: 0.7rem 0;
+  /* The side padding is inside the scroller, so the rule underneath still runs
+     the full width while the pills themselves stop short of both ends rather
+     than sitting hard against them. */
+  padding: 0.7rem 0.3rem;
   overflow-x: auto;
   border-bottom: 1px solid var(--line);
   scrollbar-width: none;
