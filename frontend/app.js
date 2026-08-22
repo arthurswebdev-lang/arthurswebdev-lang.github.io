@@ -12,10 +12,10 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, sendTestNotification, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=25';
+} from './api.js?v=26';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=25';
+} from './notifications.js?v=26';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -120,9 +120,10 @@ let toastTimer = null;
  * exactly like a successful one. Both are written to: the announcer keeps
  * carrying it to assistive tech, this carries it to eyes.
  */
-function report(message) {
+function report(message, { ok = false } = {}) {
   announcer.textContent = message;
   toastEl.textContent = message;
+  toastEl.classList.toggle('toast--ok', ok);
   toastEl.hidden = false;
 
   if (toastTimer !== null) clearTimeout(toastTimer);
@@ -835,6 +836,82 @@ testItem.addEventListener('click', () => {
     (error) => {
       showNotificationsItem();
       report(`Could not send the test: ${error.message}`);
+    },
+  );
+});
+
+/* --- taking a copy out ---------------------------------------------------- */
+
+/**
+ * Everything this account holds, as one JSON file.
+ *
+ * Both collections, not just the tasks. A generated event is a projection of
+ * the rule that made it, so a backup without the configs would restore a
+ * snapshot of occurrences that nothing keeps producing.
+ */
+async function backupPayload() {
+  const [tasks, repeatedTasks] = await Promise.all([
+    fetchTasks(credentials.token),
+    fetchRepeatedTasks(credentials.token),
+  ]);
+
+  return {
+    exportedAt: new Date().toISOString(),
+    username: credentials.username,
+    tasks,
+    repeatedTasks,
+  };
+}
+
+/**
+ * Hands the file to whatever the device uses for that.
+ *
+ * The share sheet first, because on an installed iOS app that is the only
+ * route to Files, Notes or a message to yourself — a plain download has
+ * nowhere to land. Elsewhere a download is the plainer thing, and the
+ * clipboard is the last resort when neither is available.
+ */
+async function offerBackup(filename, json) {
+  const file = new File([json], filename, { type: 'application/json' });
+
+  if (navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title: filename });
+
+    return 'Backup shared';
+  }
+
+  if ('download' in document.createElement('a')) {
+    const url = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    return `Saved ${filename}`;
+  }
+
+  await navigator.clipboard.writeText(json);
+
+  return 'Backup copied to the clipboard';
+}
+
+document.getElementById('export').addEventListener('click', () => {
+  closeMenu();
+
+  void backupPayload().then(
+    async (payload) => {
+      const stamp = payload.exportedAt.slice(0, 10);
+      const done = await offerBackup(`tasks-${stamp}.json`, JSON.stringify(payload, null, 2));
+      const counts = `${String(payload.tasks.length)} tasks, ${String(payload.repeatedTasks.length)} repeats`;
+
+      report(`${done} — ${counts}`, { ok: true });
+    },
+    (error) => {
+      // Dismissing the share sheet is a choice, not a failure.
+      if (error.name === 'AbortError') return;
+
+      report(`Could not export: ${error.message}`);
     },
   );
 });

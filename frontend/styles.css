@@ -880,6 +880,13 @@ select.field__input { appearance: none; background-image: none; }
   box-shadow: var(--shadow);
 }
 
+/* The same shape in the other register, for when nothing went wrong. */
+.toast--ok {
+  border-color: var(--done-ink);
+  background: var(--done-bg);
+  color: var(--done-ink);
+}
+
 /* --- steps ---------------------------------------------------------------- */
 .steps { margin-top: 0.55rem; }
 
