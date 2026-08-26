@@ -244,6 +244,10 @@ body {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  /* The card slides to its new place under script (see playMoves); this is the
+     other half of the same change — going grey should not beat the movement
+     there by three hundred milliseconds. */
+  transition: background 0.3s, border-color 0.3s;
 }
 
 .task--done { background: var(--surface-sunk); }
@@ -282,6 +286,7 @@ body {
 
 .task__name {
   margin: 0 0 0.3rem;
+  transition: color 0.3s;
   font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 600;

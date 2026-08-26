@@ -12,10 +12,10 @@ import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
   replaceTask, saveCredentials, sendTestNotification, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=26';
+} from './api.js?v=27';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=26';
+} from './notifications.js?v=27';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -106,6 +106,9 @@ const stepPercent = (task) => (task.subtasks.length === 0
 /* --- rendering ------------------------------------------------------------ */
 
 const listEl = document.getElementById('list');
+
+/** Matches the stylesheet's own reduced-motion rule, for scripted animation. */
+const motionIsUnwelcome = window.matchMedia('(prefers-reduced-motion: reduce)');
 const summaryEl = document.getElementById('summary');
 const categoriesEl = document.getElementById('categories');
 const announcer = document.getElementById('announcer');
@@ -262,6 +265,9 @@ function taskItem(task) {
   const done = task.status === 'DONE';
   const item = document.createElement('li');
   item.className = done ? 'task task--done' : 'task';
+  // The list is rebuilt wholesale on every change, so this is what lets a card
+  // be recognised as the same card either side of the rebuild.
+  item.dataset.id = task.id;
 
   const check = document.createElement('button');
   check.type = 'button';
@@ -504,9 +510,58 @@ function render() {
  * Draw the change straight away, then send it. A failure reloads from the
  * server rather than guessing what the truth is.
  */
+/**
+ * Where every card is right now, by task id.
+ *
+ * Viewport coordinates, measured either side of the same synchronous rebuild,
+ * so the scroll position cannot have moved between the two reads.
+ */
+function cardPositions() {
+  const positions = new Map();
+
+  for (const card of listEl.querySelectorAll('.task[data-id]')) {
+    positions.set(card.dataset.id, card.getBoundingClientRect());
+  }
+
+  return positions;
+}
+
+/**
+ * Slides each card from where it used to be to where it now is.
+ *
+ * Ticking a task re-sorts the list and `render` replaces every node, so a card
+ * does not move so much as vanish and reappear elsewhere — which is what reads
+ * as a jump. Nothing here changes the layout: the cards are already in their
+ * final places, and each is merely drawn offset by however far it travelled,
+ * easing back to zero.
+ *
+ * A card with no previous position is new to the list and simply appears.
+ */
+function playMoves(before) {
+  if (before.size === 0 || motionIsUnwelcome.matches) return;
+
+  for (const card of listEl.querySelectorAll('.task[data-id]')) {
+    const from = before.get(card.dataset.id);
+    if (from === undefined) continue;
+
+    const to = card.getBoundingClientRect();
+    const dx = from.left - to.left;
+    const dy = from.top - to.top;
+    if (dx === 0 && dy === 0) continue;
+
+    card.animate(
+      [{ transform: `translate(${String(dx)}px, ${String(dy)}px)` }, { transform: 'none' }],
+      { duration: 320, easing: 'cubic-bezier(0.2, 0, 0, 1)' },
+    );
+  }
+}
+
 function apply(change, send, describe) {
+  const before = cardPositions();
+
   change();
   render();
+  playMoves(before);
 
   void send().then(
     () => { announcer.textContent = describe; },
