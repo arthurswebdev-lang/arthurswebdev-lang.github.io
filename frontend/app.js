@@ -72,13 +72,15 @@ const startOfDayOf = (date) => { const d = new Date(date); d.setHours(0, 0, 0, 0
 
 const hasDate = (task) => typeof task.date === 'string';
 
-/** Default in the API too — a task stored before windows existed has none. */
+/** Defaults in the API too, for a task stored before the windows existed. */
+const DEFAULT_REMIND_BEFORE_MINS = 0;
+const DEFAULT_ACTIVE_BEFORE_MINS = 24 * 60;
 const DEFAULT_ACTIVE_FOR_MINS = 10;
 
+const shifted = (task, mins) => new Date(new Date(task.date).getTime() + mins * 60000);
+
 /** When a task stops being worth acting on: its moment plus its own window. */
-const activeUntil = (task) => new Date(
-  new Date(task.date).getTime() + (task.activeForMins ?? DEFAULT_ACTIVE_FOR_MINS) * 60000,
-);
+const activeUntil = (task) => shifted(task, task.activeForMins ?? DEFAULT_ACTIVE_FOR_MINS);
 
 /**
  * Spent. Mirrors the server's rule, window included — judging by the date alone
@@ -1413,7 +1415,7 @@ function openEditor(task) {
     composerForm.elements['date'].value = local.toISOString().slice(0, 16);
   }
 
-  fillActiveFor(task.activeForMins);
+  fillWindow(task);
   for (const url of task.links ?? []) addLinkRow(url);
   for (const step of task.subtasks) addSubtaskRow(step);
 
@@ -1437,7 +1439,7 @@ function openConfigEditor(config) {
 
   composerForm.elements['name'].value = config.name;
   composerForm.elements['category'].value = config.category;
-  fillActiveFor(config.activeForMins);
+  fillWindow(config);
   for (const url of config.links ?? []) addLinkRow(url);
   for (const step of config.subtasks ?? []) addSubtaskRow(step);
 
@@ -1501,12 +1503,23 @@ const clockOf = ({ hour, minute }) => `${pad(hour)}:${pad(minute)}`;
  * Puts a stored minute count back into the two controls, choosing the largest
  * unit it divides cleanly by — 1440 comes back as "1 days", not "1440 minutes".
  */
-function fillActiveFor(mins) {
-  const minutes = mins ?? DEFAULT_ACTIVE_FOR_MINS;
-  const unit = [1440, 60, 1].find((size) => minutes % size === 0) ?? 1;
+/**
+ * Puts a duration back into a number and a unit, choosing the largest unit that
+ * divides evenly — 180 reads as "3 hours", not "180 minutes".
+ */
+function fillDuration(field, mins, fallback) {
+  const minutes = mins ?? fallback;
+  const unit = minutes === 0 ? 1 : ([1440, 60, 1].find((size) => minutes % size === 0) ?? 1);
 
-  composerForm.elements['activeFor'].value = String(minutes / unit);
-  composerForm.elements['activeForUnit'].value = String(unit);
+  composerForm.elements[field].value = String(minutes / unit);
+  composerForm.elements[`${field}Unit`].value = String(unit);
+}
+
+/** All three windows of a task or config, back into their controls. */
+function fillWindow(source) {
+  fillDuration('remindBefore', source.remindBeforeMins, DEFAULT_REMIND_BEFORE_MINS);
+  fillDuration('activeBefore', source.activeBeforeMins, DEFAULT_ACTIVE_BEFORE_MINS);
+  fillDuration('activeFor', source.activeForMins, DEFAULT_ACTIVE_FOR_MINS);
 }
 
 function draftPayload(data) {
@@ -1527,14 +1540,21 @@ function draftPayload(data) {
 
   const shared = { name, category, ...(links.length ? { links } : {}) };
 
-  // One number and the unit it is counted in, stored as plain minutes.
-  //
   // Only for kinds that have a date. A one-time task has no moment to be
-  // active after, so the field does not exist on it — and the control is
-  // hidden rather than removed, so `data` carries a value regardless. Sending
-  // it anyway is a 400 that used to fail silently.
-  const activeForMins = Number(data.get('activeFor')) * Number(data.get('activeForUnit'));
-  const dated = { ...shared, ...(activeForMins > 0 ? { activeForMins } : {}) };
+  // active around, so these fields do not exist on it — and the controls are
+  // hidden rather than removed, so `data` carries values regardless. Sending
+  // them anyway is a 400 that used to fail silently.
+  // One number and the unit it is counted in, stored as plain minutes. The
+  // server refuses a reminder that would land while the task is still hidden,
+  // so the lead is capped here rather than sent to be rejected.
+  const minutesOf = (field) => Number(data.get(field)) * Number(data.get(`${field}Unit`));
+  const activeBeforeMins = minutesOf('activeBefore');
+  const dated = {
+    ...shared,
+    remindBeforeMins: Math.min(minutesOf('remindBefore'), activeBeforeMins),
+    activeBeforeMins,
+    activeForMins: minutesOf('activeFor'),
+  };
 
   /** What every repeated config sends, whichever schedule it describes. */
   const repeating = { ...dated, subtasks: templateSteps };

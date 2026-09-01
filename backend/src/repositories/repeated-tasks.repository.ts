@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { TaskCategory } from '../enum/task-category.enum.js';
-import { DEFAULT_ACTIVE_FOR_MINS } from '../schemes/common.schemes.js';
+import { windowWithDefaults } from '../schemes/common.schemes.js';
 
 import type { Db } from 'mongodb';
 
@@ -54,7 +54,7 @@ export class RepeatedTasksRepository
       createdAt: new Date(),
       category: input.category ?? TaskCategory.OTHER,
       links: input.links ?? [],
-      activeForMins: input.activeForMins ?? DEFAULT_ACTIVE_FOR_MINS,
+      ...windowWithDefaults(input),
       subtasks: toRepeatedSubtasks(input.subtasks),
     };
   }

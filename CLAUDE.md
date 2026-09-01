@@ -98,7 +98,7 @@ one blank line before a `return` that follows logic.
   are functions, not module-level constants, because repositories need a live `Db`.
 - Schemas are typed through `JoiObject<T>` so `StrictSchemaMap<T>` forces full field coverage.
   Variant schemas are built from shared field definitions in `fields`.
-- **A generated event only accepts a status change.** Its name, date, `activeLogic` and subtasks
+- **A generated event only accepts a status change.** Its name, date, window and subtasks
   come from its config and would be overwritten by the next regeneration, so `PUT /tasks/:id`
   rejects them with a 400 naming the offending fields and pointing at the config. Hand-made
   events (`configTaskId: null`) are unaffected — there is no config to edit instead. A config's
@@ -111,7 +111,7 @@ one blank line before a `return` that follows logic.
 - **Categories are fixed in code** (`TaskCategory`), not data — there are no endpoints to manage
   them. Anything created without one lands in `OTHER`, which keeps the field non-nullable and
   makes "uncategorised" filterable like any other value.
-- **A generated event inherits its config's category, links, `activeForMins` and `subtasks`.** It
+- **A generated event inherits its config's category, links, window and `subtasks`.** It
   has to: PUT refuses generated events, so whatever the occurrence needs to be useful — the call
   link, the category it groups under, the checklist to work through — can only come from the
   config. A config's steps are `RepeatedSubtask`: a `Subtask` minus `status`, because a config is
@@ -130,10 +130,27 @@ one blank line before a `return` that follows logic.
   `filter=` stays in the rule functions. Neither is required; together they intersect.
 - **A dateless task (`BASIC`) counts as `actual`.** A filter names a position in time and it
   has none, so it is always relevant; excluding it from every filter hid plain to-dos entirely.
+- **A dated task carries three durations, not a calendar window** — `TaskWindow` in
+  `tasks.types.ts`, all in minutes from the task's own `date`:
+  `remindBeforeMins` (when the push is sent), `activeBeforeMins` (when it stops being upcoming)
+  and `activeForMins` (when it becomes passed). `remindAt`, `activeFrom` and `activeUntil` in
+  `tasks.filters.ts` are the only places that arithmetic is written — there are now four instants
+  on an event, and picking the wrong one is the easiest mistake in the file. Generation asks
+  about `date` (`hasDatePassed`); the list asks about the window (`isPassedEvent`); the poller
+  asks about `remindAt`.
+- **`remindBeforeMins` must not exceed `activeBeforeMins`**, or a push would arrive while the
+  task is still hidden under upcoming. Enforced by `assertWindowOrder`, which wraps each dated
+  schema. It is an object-level `.custom()` and not a `Joi.ref` on purpose: a ref resolves
+  against the raw body, where a defaulted key is simply absent.
+- **This replaced `ActiveLogic`** (TODAY / THIS_WEEK / NEXT_10_DAYS), three UTC-midnight windows
+  chosen from a task's *type* rather than from the task. They could not say "an hour before",
+  they behaved differently depending on which day you asked, and five weekly configs sharing a
+  week all read as actual on Monday morning. Migrated by
+  `backend/scripts/2026-09-01-task-windows.ts`.
 - **`GET /tasks?filter=actual|passed|upcoming`** filters in the service, using the rules in
-  `src/filters/tasks.filters.ts`, not in the Mongo query — `actual`/`upcoming` depend on each
-  event's own `activeLogic` window, which is worth reading as functions rather than as an
-  aggregation pipeline. `passed` alone could move into the query if the collection grows.
+  `src/filters/tasks.filters.ts`, not in the Mongo query — the three states are one interval
+  each, and worth reading as functions rather than as an aggregation pipeline. `passed` alone
+  could move into the query if the collection grows.
 - **Query params go through `validateQuery`, never `validate`.** Express 5 re-parses `req.query`
   on every read, so the validated copy must be pinned back with `defineProperty`.
 - **Services that ask "what is true now" take a clock.** `TasksService` receives
@@ -156,6 +173,13 @@ one blank line before a `return` that follows logic.
 - **`npm install <pkg>` needs `--legacy-peer-deps`.** `eslint-config-airbnb-extended` declares a
   peer of eslint 9 while the repo runs eslint 10. The ERESOLVE failure is pre-existing and has
   nothing to do with the package being added.
+- **A reminder is owed when `notifiedAt` is null, not when the poller happens to be awake.**
+  `EventPollingService` used to hold the window between passes in memory, so a restart meant
+  anything that came due while the machine was down was never announced — not late, never. It
+  stamps `notifiedAt` **before** sending, so a send slower than the poll interval cannot be
+  started twice; the trade is that a failed send is not retried, which is right, because a
+  duplicate alert is worse than a missed one. It also declines to announce an event whose window
+  has already closed, so a machine down for a day does not wake up and read out yesterday.
 - **The fly.io machine may not auto-stop.** Notifications come from a
   `setInterval` inside the process, not from an incoming request, so
   `min_machines_running = 1` / `auto_stop_machines = 'off'` in `fly.toml` are

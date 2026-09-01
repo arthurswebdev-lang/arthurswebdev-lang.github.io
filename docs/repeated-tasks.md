@@ -294,6 +294,34 @@ The read side is done. These are what the write side needs.
   occurrence lands on the day before. Moving it needs
   `backend/scripts/2026-09-01-config-subtasks.ts`, which clears pending weekly and monthly events
   so the poller remakes them at the new hour — nothing rewrites an event once generated.
+- **B16 — `activeLogic` is gone, replaced by three durations.** A dated task now carries
+  `remindBeforeMins`, `activeBeforeMins` and `activeForMins`, all measured from its own date.
+  TODAY / THIS_WEEK / NEXT_10_DAYS were calendar windows starting at UTC midnight, and they were
+  chosen from the task's *type*, so no task could ask for anything. Three things went wrong with
+  them at once:
+
+  - they could not express a short lead — an interview could not be "show me an hour before",
+    only "show me for the next ten days", which is what the default did;
+  - the weekly window shrank to a single day on a Sunday (Q7), and a five-day gym split had all
+    five sessions reading as actual on Monday morning, twenty-five exercises deep;
+  - `activeForMins` already existed as a duration on the *other* side of the date, so the model
+    was asymmetric for no reason.
+
+  Now: `upcoming` is `now < date − activeBefore`, `passed` is `now > date + activeFor`, and
+  `actual` is everything between. Three intervals that partition the timeline exactly, with no
+  calendar functions and no dependence on the server's timezone. `startOfDay`, `endOfDay`,
+  `endOfThisWeek`, `endOfNext10Days` and `activeLogicForRepeatedTask` all went with it.
+
+  `remindBeforeMins` must be ≤ `activeBeforeMins`: a push arriving while the task is still under
+  Upcoming means tapping it opens a list that does not contain it. Migrated by
+  `backend/scripts/2026-09-01-task-windows.ts` — TODAY→1d, THIS_WEEK→7d, NEXT_10_DAYS→10d,
+  lead 0 everywhere so nobody is surprised by an early alert.
+- **B17 — a reminder is now stored, not remembered.** Events carry `notifiedAt`, and the poller
+  announces anything whose `remindAt` has arrived while the stamp is still null. The old
+  in-memory window lost every reminder that came due during downtime, and could not have coped
+  with a lead time at all: an occurrence generated *after* its own reminder moment — which is
+  what a repeat shorter than its lead produces — sat behind the window's start and was skipped
+  for ever. The stamp is written before the send, so an overrunning pass cannot double-announce.
 - **B2 — no timezone handling.** Everything stored is UTC. The one exception is
   `GENERATED_EVENT_TIME` above, which is a time chosen *for a person* and so is only meaningful
   in their clock; Armenia has been UTC+4 the year round since it dropped DST in 2012.

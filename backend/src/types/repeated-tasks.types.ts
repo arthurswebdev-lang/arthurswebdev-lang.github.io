@@ -1,6 +1,6 @@
 import type { TaskCategory } from '../enum/task-category.enum.js';
 import type { TaskType } from '../enum/task-type.enum.js';
-import type { Subtask } from './tasks.types.js';
+import type { Subtask, TaskWindow } from './tasks.types.js';
 
 /**
  * Repeated tasks are **configs**, not tasks. They are the rule that generates
@@ -33,7 +33,7 @@ export type RepeatedSubtaskDraft = Omit<RepeatedSubtask, 'id'>;
  * inherits both: a weekly standup needs its call link on every occurrence, and
  * a generated event cannot be edited to add one.
  */
-export interface BaseRepeatedTask {
+export interface BaseRepeatedTask extends TaskWindow {
   id: string;
   /** Owner. Set from the credentials, never from the payload. */
   userId: string;
@@ -42,12 +42,6 @@ export interface BaseRepeatedTask {
   createdAt: Date;
   category: TaskCategory;
   links: string[];
-  /**
-   * How long each generated occurrence stays worth acting on, in minutes.
-   * Inherited by the event for the same reason as category and links: a
-   * generated event cannot be edited, so this can only come from here.
-   */
-  activeForMins: number;
   /**
    * The checklist every occurrence starts with. Inherited for the same reason
    * again — `PUT /tasks/:id` refuses a generated event's subtasks, so a
@@ -82,9 +76,15 @@ export type RepeatedTask = DailyTask | WeeklyTask | MonthlyTask;
 
 /** A config as the client sends it: the server owns `id` and `createdAt`. */
 export type RepeatedDraft<T extends BaseRepeatedTask> =
-  Omit<T, 'id' | 'userId' | 'createdAt' | 'category' | 'links' | 'activeForMins' | 'subtasks'> & {
+  Omit<
+    T,
+    'id' | 'userId' | 'createdAt' | 'category' | 'links' | 'subtasks'
+    | 'remindBeforeMins' | 'activeBeforeMins' | 'activeForMins'
+  > & {
     category?: TaskCategory;
     links?: string[];
+    remindBeforeMins?: number;
+    activeBeforeMins?: number;
     activeForMins?: number;
     subtasks?: RepeatedSubtaskDraft[];
   };

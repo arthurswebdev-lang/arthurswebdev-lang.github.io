@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { ActiveLogic } from '../../src/enum/active-logic.enum.js';
 import { TaskFilter } from '../../src/enum/task-filter.enum.js';
 import { TaskStatus } from '../../src/enum/task-status.enum.js';
 import { TaskGeneratorService } from '../../src/services/task-generator.service.js';
@@ -9,20 +8,22 @@ import { TasksService } from '../../src/services/tasks.service.js';
 import type { Task } from '../../src/types/tasks.types.js';
 import { InMemoryRepeatedTasksRepository } from '../support/in-memory-repeated-repository.js';
 import { InMemoryTasksRepository } from '../support/in-memory-repository.js';
-import { aBasicTask, anEvent } from '../support/tasks.js';
-import { TEST_USER_ID } from '../support/tasks.js';
+import {
+  aBasicTask, anEvent, anEventWindowed, days, hours,
+  TEST_USER_ID,
+} from '../support/tasks.js';
 import { utc } from '../support/time.js';
 
 /**
  * Seen from Saturday 22 August: one basic task with no date at all, an event
- * that has gone by, one whose week has not started, and one inside the rolling
- * 30-day window.
+ * whose window has closed, one still outside its window, and one inside a
+ * ten-day one.
  */
 const tasks: Task[] = [
   aBasicTask('buy milk'),
-  anEvent('gym friday', 'Fri 2026-08-21', ActiveLogic.THIS_WEEK),
-  anEvent('gym monday', 'Mon 2026-08-24', ActiveLogic.THIS_WEEK),
-  anEvent('rent', '2026-09-01', ActiveLogic.NEXT_10_DAYS),
+  anEventWindowed('gym friday', 'Fri 2026-08-21 09:00', hours(2), hours(2)),
+  anEventWindowed('gym monday', 'Mon 2026-08-24 09:00', hours(2), hours(2)),
+  anEventWindowed('rent', '2026-09-01 09:00', days(10), hours(2)),
 ];
 
 const saturday = utc('Sat 2026-08-22 10:00');
@@ -79,16 +80,14 @@ describe('GET /tasks?filter=...', () => {
 });
 
 describe('PATCH /tasks/:id/status', () => {
-  it('changes the status and leaves everything else alone', async () => {
-    const stored = anEvent('gym', 'Mon 2026-08-24', ActiveLogic.THIS_WEEK);
+  it('changes the status and leaves everything else alone', async () => { const stored = anEvent('gym', 'Mon 2026-08-24');
     const service = serviceWith([stored]);
 
     const updated = await service.updateStatus(stored.id, TEST_USER_ID, TaskStatus.DONE);
 
     assert.equal(updated.status, TaskStatus.DONE);
     assert.equal(updated.name, 'gym');
-    assert.deepEqual(updated.id, stored.id);
-  });
+    assert.deepEqual(updated.id, stored.id); });
 
   it('rejects an id that matches nothing', async () => {
     await assert.rejects(

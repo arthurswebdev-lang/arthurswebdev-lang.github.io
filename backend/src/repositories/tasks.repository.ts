@@ -5,10 +5,11 @@ import type { Db, Filter } from 'mongodb';
 import { TaskCategory } from '../enum/task-category.enum.js';
 import { TaskStatus } from '../enum/task-status.enum.js';
 import { TaskType } from '../enum/task-type.enum.js';
-import { activeLogicForRepeatedTask } from '../filters/tasks.filters.js';
 import type { ITasksRepository, TaskQuery } from '../interfaces/tasks-repository.interface.js';
-import { DEFAULT_ACTIVE_FOR_MINS, DEFAULT_EVENT_ACTIVE_LOGIC } from '../schemes/common.schemes.js';
-import type { CreateTask, EventTask, Subtask, SubtaskDraft, Task, UpdateTask } from '../types/tasks.types.js';
+import { windowWithDefaults } from '../schemes/common.schemes.js';
+import type {
+  CreateTask, EventTask, Subtask, SubtaskDraft, Task, TaskWindow, UpdateTask,
+} from '../types/tasks.types.js';
 import type { RepeatedTask } from '../types/repeated-tasks.types.js';
 import { InputValidationError } from '../utils/http-errors/input-validation.error.js';
 import type { Persisted } from './entity.interface.js';
@@ -18,6 +19,23 @@ export const TASKS_COLLECTION = 'tasks';
 
 function toSubtasks(drafts: SubtaskDraft[] | undefined): Subtask[] {
   return (drafts ?? []).map((draft) => ({ ...draft, id: randomUUID() }));
+}
+
+/** The window an occurrence inherits wholesale from the config that made it. */
+function windowOf(config: RepeatedTask): TaskWindow {
+  return {
+    remindBeforeMins: config.remindBeforeMins,
+    activeBeforeMins: config.activeBeforeMins,
+    activeForMins: config.activeForMins,
+  };
+}
+
+/**
+ * The config's checklist, copied for one occurrence. Fresh ids and fresh ticks,
+ * so finishing last week's steps leaves this week's untouched.
+ */
+function stepsFrom(config: RepeatedTask): Subtask[] {
+  return config.subtasks.map((step) => ({ ...step, id: randomUUID(), status: TaskStatus.TODO }));
 }
 
 export class TasksRepository
@@ -70,17 +88,11 @@ export class TasksRepository
       // be useful has to come from the config.
       category: config.category,
       links: [...config.links],
-      activeForMins: config.activeForMins,
-      // Fresh ids and fresh ticks: each occurrence owns its own progress, so
-      // finishing last week's steps leaves this week's untouched.
-      subtasks: config.subtasks.map((step) => ({
-        ...step,
-        id: randomUUID(),
-        status: TaskStatus.TODO,
-      })),
+      ...windowOf(config),
+      subtasks: stepsFrom(config),
       date,
-      activeLogic: activeLogicForRepeatedTask(config),
       passedDate: null,
+      notifiedAt: null,
       configTaskId: config.id,
     };
 
@@ -136,6 +148,16 @@ export class TasksRepository
     return updated === null ? null : this.toDomain(updated);
   }
 
+  async markNotified(eventId: string, notifiedAt: Date): Promise<EventTask | null> {
+    const updated = await this.collection.findOneAndUpdate(
+      { _id: eventId, type: TaskType.EVENT },
+      { $set: { notifiedAt } },
+      { returnDocument: 'after' },
+    );
+
+    return updated === null ? null : this.toDomain(updated) as EventTask;
+  }
+
   async markEventPassed(eventId: string, passedAt: Date): Promise<EventTask | null> {
     const updated = await this.collection.findOneAndUpdate(
       { _id: eventId, type: TaskType.EVENT },
@@ -172,11 +194,11 @@ export class TasksRepository
           ...base,
           subtasks: toSubtasks(input.subtasks),
           date: new Date(input.date),
-          activeLogic: input.activeLogic ?? DEFAULT_EVENT_ACTIVE_LOGIC,
-          activeForMins: input.activeForMins ?? DEFAULT_ACTIVE_FOR_MINS,
-          // Server-owned. The poller stamps passedDate; the generator is the
-          // only thing that ever sets configTaskId.
+          ...windowWithDefaults(input),
+          // Server-owned. The poller stamps passedDate and notifiedAt; the
+          // generator is the only thing that ever sets configTaskId.
           passedDate: null,
+          notifiedAt: null,
           configTaskId: null,
         };
     }
@@ -202,11 +224,17 @@ export class TasksRepository
     // would reset them: a generated event would lose the link to its config,
     // and a passed one would look pending again.
     if (entity.type === TaskType.EVENT && replacement.type === TaskType.EVENT) {
+      // A reminder already sent stays sent — otherwise renaming a task would
+      // ping you about it a second time. Moving it to a different date is the
+      // one exception: that is a new moment, and it has not been announced.
+      const moved = replacement.date.getTime() !== entity.date.getTime();
+
       return {
         ...replacement,
         ...identity,
         configTaskId: entity.configTaskId,
-        passedDate: entity.passedDate,
+        passedDate: moved ? null : entity.passedDate,
+        notifiedAt: moved ? null : entity.notifiedAt,
       };
     }
 

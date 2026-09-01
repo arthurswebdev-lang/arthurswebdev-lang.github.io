@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 
 import { TaskStatus } from '../../src/enum/task-status.enum.js';
 import { TaskType } from '../../src/enum/task-type.enum.js';
-import { activeLogicForRepeatedTask } from '../../src/filters/tasks.filters.js';
 import type { ITasksRepository, TaskQuery } from '../../src/interfaces/tasks-repository.interface.js';
 import type { CreateTask, EventTask, Task, UpdateTask } from '../../src/types/tasks.types.js';
 import type { RepeatedTask } from '../../src/types/repeated-tasks.types.js';
@@ -70,15 +69,13 @@ export class InMemoryTasksRepository implements ITasksRepository {
       createdAt: date,
       category: config.category,
       links: [...config.links],
-      subtasks: config.subtasks.map((step) => ({
-        ...step,
-        id: randomUUID(),
-        status: TaskStatus.TODO,
-      })),
-      date,
-      activeLogic: activeLogicForRepeatedTask(config),
+      remindBeforeMins: config.remindBeforeMins,
+      activeBeforeMins: config.activeBeforeMins,
       activeForMins: config.activeForMins,
+      subtasks: config.subtasks.map((s) => ({ ...s, id: randomUUID(), status: TaskStatus.TODO })),
+      date,
       passedDate: null,
+      notifiedAt: null,
       configTaskId: config.id,
     };
 
@@ -130,6 +127,17 @@ export class InMemoryTasksRepository implements ITasksRepository {
     this.tasks[index] = updated;
 
     return Promise.resolve(updated);
+  }
+
+  markNotified(eventId: string, notifiedAt: Date): Promise<EventTask | null> {
+    const index = this.tasks.findIndex((task) => task.id === eventId);
+    const found = this.tasks[index];
+    if (found?.type !== TaskType.EVENT) return Promise.resolve(null);
+
+    const stamped: EventTask = { ...found, notifiedAt };
+    this.tasks[index] = stamped;
+
+    return Promise.resolve(stamped);
   }
 
   markEventPassed(eventId: string, passedAt: Date): Promise<EventTask | null> {

@@ -23,12 +23,38 @@ function isDeadToken(error: unknown): boolean {
     && DEAD_TOKEN_CODES.has(error.code);
 }
 
+const MINS_PER_HOUR = 60;
+const MINS_PER_DAY = 24 * MINS_PER_HOUR;
+
+const plural = (count: number, unit: string) =>
+  `${String(count)} ${unit}${count === 1 ? '' : 's'}`;
+
+/**
+ * How far ahead the alert is arriving, in the largest unit that divides evenly.
+ *
+ * The reminder no longer always lands on the moment itself, so it has to say
+ * which it is: "Due now" and "In 10 minutes" ask for very different things from
+ * whoever is reading the lock screen.
+ */
+function lead(remindBeforeMins: number): string {
+  if (remindBeforeMins === 0) return 'Due now';
+  if (remindBeforeMins % MINS_PER_DAY === 0) {
+    return `In ${plural(remindBeforeMins / MINS_PER_DAY, 'day')}`;
+  }
+  if (remindBeforeMins % MINS_PER_HOUR === 0) {
+    return `In ${plural(remindBeforeMins / MINS_PER_HOUR, 'hour')}`;
+  }
+
+  return `In ${plural(remindBeforeMins, 'minute')}`;
+}
+
 /** What the alert says under the task's name. */
 function describe(task: EventTask): string {
   const remaining = task.subtasks.filter((subtask) => subtask.status !== TaskStatus.DONE).length;
-  if (remaining === 0) return 'Due now';
+  const when = lead(task.remindBeforeMins);
+  if (remaining === 0) return when;
 
-  return remaining === 1 ? 'Due now — 1 step left' : `Due now — ${String(remaining)} steps left`;
+  return `${when} — ${plural(remaining, 'step')} left`;
 }
 
 /**

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { TaskCategory } from '../../src/enum/task-category.enum.js';
-import { DEFAULT_ACTIVE_FOR_MINS } from '../../src/schemes/common.schemes.js';
+import { windowWithDefaults } from '../../src/schemes/common.schemes.js';
 
 import type {
   IRepeatedTasksRepository,
@@ -16,7 +16,7 @@ function toEntity(input: CreateRepeatedTask, userId: string): RepeatedTask {
     createdAt: new Date(),
     category: input.category ?? TaskCategory.OTHER,
     links: input.links ?? [],
-    activeForMins: input.activeForMins ?? DEFAULT_ACTIVE_FOR_MINS,
+    ...windowWithDefaults(input),
     subtasks: (input.subtasks ?? []).map((step) => ({ ...step, id: randomUUID() })),
   };
 }

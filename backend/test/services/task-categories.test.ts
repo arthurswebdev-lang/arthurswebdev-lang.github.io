@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { ActiveLogic } from '../../src/enum/active-logic.enum.js';
 import { TaskCategory } from '../../src/enum/task-category.enum.js';
 import { TaskFilter } from '../../src/enum/task-filter.enum.js';
 import { TaskGeneratorService } from '../../src/services/task-generator.service.js';
@@ -67,7 +66,7 @@ describe('category and time filters combine', () => {
   it('combines with the time filter', async () => {
     const { service } = withTasks([
       ...stored,
-      { ...anEvent('gym session', 'Mon 2026-08-24 09:00', ActiveLogic.THIS_WEEK), category: TaskCategory.GYM },
+      { ...anEvent('gym session', 'Mon 2026-08-24 09:00'), category: TaskCategory.GYM },
     ]);
 
     assert.deepEqual(

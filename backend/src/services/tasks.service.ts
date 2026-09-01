@@ -52,7 +52,7 @@ export class TasksService implements ITasksService {
 
   /**
    * Filtering happens here rather than in the query: `actual` and `upcoming`
-   * depend on each event's own `activeLogic` window, which is a rule set worth
+   * depend on each event's own window, which is a rule set worth
    * reading (`src/filters/tasks.filters.ts`) rather than an aggregation
    * pipeline. `passed` alone could move into Mongo if the collection ever grows
    * enough to care.

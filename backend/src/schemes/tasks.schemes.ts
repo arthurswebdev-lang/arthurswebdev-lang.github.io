@@ -7,7 +7,7 @@ import { TaskType } from '../enum/task-type.enum.js';
 import type { CreateBasicTask, CreateEventTask } from '../types/tasks.types.js';
 import { ID, JoiObject } from '../middlewares/validation/util/validation.util.js';
 import {
-  byType, DEFAULT_ACTIVE_FOR_MINS, DEFAULT_EVENT_ACTIVE_LOGIC, fields, typeOf,
+  assertWindowOrder, byType, fields, typeOf, windowFields,
 } from './common.schemes.js';
 
 export const CreateBasicTaskSchema = JoiObject<CreateBasicTask>({
@@ -19,7 +19,7 @@ export const CreateBasicTaskSchema = JoiObject<CreateBasicTask>({
   subtasks: fields.subtasks.default([]),
 });
 
-export const CreateEventTaskSchema = JoiObject<CreateEventTask>({
+export const CreateEventTaskSchema = assertWindowOrder(JoiObject<CreateEventTask>({
   type: typeOf(TaskType.EVENT),
   name: fields.name.required(),
   category: fields.category.default(TaskCategory.OTHER),
@@ -27,10 +27,10 @@ export const CreateEventTaskSchema = JoiObject<CreateEventTask>({
   status: fields.status.default(TaskStatus.TODO),
   subtasks: fields.subtasks.default([]),
   date: fields.date.required(),
-  // `passedDate` and `configTaskId` are absent on purpose: the server owns both.
-  activeLogic: fields.activeLogic.default(DEFAULT_EVENT_ACTIVE_LOGIC),
-  activeForMins: fields.activeForMins.default(DEFAULT_ACTIVE_FOR_MINS),
-});
+  // `passedDate`, `notifiedAt` and `configTaskId` are absent on purpose: the
+  // server owns all three.
+  ...windowFields,
+}));
 
 /** Body schema for `POST /tasks`. Configs are a different resource entirely. */
 export const CreateTaskSchema = byType({

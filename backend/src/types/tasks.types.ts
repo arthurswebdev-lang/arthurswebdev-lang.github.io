@@ -1,4 +1,3 @@
-import type { ActiveLogic } from '../enum/active-logic.enum.js';
 import type { TaskCategory } from '../enum/task-category.enum.js';
 import type { TaskStatus } from '../enum/task-status.enum.js';
 import type { TaskType } from '../enum/task-type.enum.js';
@@ -11,6 +10,41 @@ export interface Subtask {
   status: TaskStatus.DONE | TaskStatus.TODO;
   /** One reference for this step — the page to read, the form to fill in. */
   link?: string;
+}
+
+/**
+ * The three durations that say *when* a dated task matters, all in minutes and
+ * all measured from the task's own date.
+ *
+ * For an interview on Friday at 15:00 with 10 / 60 / 180:
+ *
+ * ```
+ *        14:00            14:50   15:00                    18:00
+ *   ───────┬────────────────┬───────┬────────────────────────┬──────
+ *   upcoming│    actual     │ ping  │        actual          │ passed
+ *          └ activeBefore   └ remind└ date                   └ activeFor
+ * ```
+ *
+ * They replaced `ActiveLogic` — TODAY, THIS_WEEK and NEXT_10_DAYS, three
+ * calendar windows chosen from the task's *type* rather than from the task.
+ * A generated event inherits all three from its config, for the same reason it
+ * inherits category and links: it cannot be edited.
+ */
+export interface TaskWindow {
+  /**
+   * How long before `date` the reminder is sent. Zero means "on the moment".
+   * Never longer than `activeBeforeMins`, or the alert would arrive while the
+   * task is still hidden under upcoming.
+   */
+  remindBeforeMins: number;
+  /** How long before `date` it starts showing as actual rather than upcoming. */
+  activeBeforeMins: number;
+  /**
+   * How long after `date` it stays worth acting on. Keeps a reminder in the
+   * list for a while instead of filing it under "missed" the moment it is
+   * announced.
+   */
+  activeForMins: number;
 }
 
 /** Fields every task carries, whatever its type. Not a task on its own. */
@@ -36,19 +70,23 @@ export interface BasicTask extends BaseTask {
   subtasks: Subtask[];
 }
 
-export interface EventTask extends BaseTask {
+export interface EventTask extends BaseTask, TaskWindow {
   type: TaskType.EVENT;
   subtasks: Subtask[];
   date: Date;
-  activeLogic: ActiveLogic;
-  /**
-   * How long after `date` this stays worth acting on, in minutes. Keeps a
-   * reminder in the list for a while instead of filing it under "missed" the
-   * moment it is announced. A generated event inherits it from its config.
-   */
-  activeForMins: number;
   /** Set once the event's date is in the past; `null` while it is still ahead. */
   passedDate: Date | null;
+  /**
+   * When this event's reminder was actually sent; `null` until it is.
+   *
+   * Stored rather than remembered, because the reminder is now a single moment
+   * rather than "whenever the date goes by": the poller used to hold an
+   * in-memory window, so a restart meant a ping was skipped and never sent at
+   * all. A stored stamp also makes the poller idempotent — it asks whether this
+   * event has been announced, not whether it came due during this process's
+   * lifetime.
+   */
+  notifiedAt: Date | null;
   /** The repeated task that generated this event; `null` if a client made it. */
   configTaskId: string | null;
 }
@@ -102,17 +140,17 @@ type WithSubtaskDrafts<T extends BaseTask & { subtasks: Subtask[] }> =
  * starts null and is stamped by the poller; `configTaskId` is set only by the
  * generator that created the event from a repeated config.
  */
-type ServerOwnedEventFields = 'passedDate' | 'configTaskId';
+type ServerOwnedEventFields = 'passedDate' | 'configTaskId' | 'notifiedAt';
 
 export type CreateBasicTask = WithSubtaskDrafts<BasicTask>;
 
-/**
- * `activeLogic` and `activeForMins` are optional on create — see
- * `DEFAULT_EVENT_ACTIVE_LOGIC` and `DEFAULT_ACTIVE_FOR_MINS`.
- */
+/** The three windows are optional on create; see `DEFAULT_EVENT_WINDOW`. */
 export type CreateEventTask =
-  Omit<WithSubtaskDrafts<EventTask>, ServerOwnedEventFields | 'activeLogic' | 'activeForMins'>
-  & { activeLogic?: ActiveLogic; activeForMins?: number };
+  Omit<
+    WithSubtaskDrafts<EventTask>,
+    ServerOwnedEventFields | 'remindBeforeMins' | 'activeBeforeMins' | 'activeForMins'
+  >
+  & { remindBeforeMins?: number; activeBeforeMins?: number; activeForMins?: number };
 
 /** Payload for `POST /tasks`. */
 export type CreateTask = CreateBasicTask | CreateEventTask;

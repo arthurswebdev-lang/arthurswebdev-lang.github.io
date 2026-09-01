@@ -45,6 +45,12 @@ export interface ITasksRepository extends IBaseRepository<Task, CreateTask, Upda
   /** Removes every event a config produced. Returns how many went. */
   deleteEventsOfConfig(configTaskId: string): Promise<number>;
 
+  /**
+   * Records that this event's reminder has been sent. Written before the send,
+   * so a pass that overruns the interval cannot announce it twice.
+   */
+  markNotified(eventId: string, notifiedAt: Date): Promise<EventTask | null>;
+
   /** Sets just the status; returns null if the id is unknown. */
   updateStatus(id: string, status: TaskStatus): Promise<Task | null>;
 

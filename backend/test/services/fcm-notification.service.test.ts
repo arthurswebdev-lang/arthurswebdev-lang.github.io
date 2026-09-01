@@ -3,7 +3,6 @@ import { describe, it } from 'node:test';
 
 import type { Messaging } from 'firebase-admin/messaging';
 
-import { ActiveLogic } from '../../src/enum/active-logic.enum.js';
 import { TaskStatus } from '../../src/enum/task-status.enum.js';
 import type { IDevicesRepository } from '../../src/interfaces/devices-repository.interface.js';
 import { FcmNotificationService } from '../../src/services/fcm-notification.service.js';
@@ -82,7 +81,7 @@ function fakeMessaging(sent: SentMessage[], failures: Record<string, string> = {
   } as unknown as Messaging;
 }
 
-const event = anEvent('standup', '2026-08-22 10:00', ActiveLogic.TODAY);
+const event = anEvent('standup', '2026-08-22 10:00');
 
 interface Harness {
   service: FcmNotificationService;
@@ -138,7 +137,7 @@ describe('what the alert says', () => {
   it('counts the steps still to do', async () => {
     const { service, sent } = harness(['phone']);
 
-    await service.notify(anEvent('standup', '2026-08-22 10:00', ActiveLogic.TODAY, {
+    await service.notify(anEvent('standup', '2026-08-22 10:00', {
       subtasks: [
         { id: 'a', name: 'notes', status: TaskStatus.DONE },
         { id: 'b', name: 'agenda', status: TaskStatus.TODO },
@@ -154,6 +153,25 @@ describe('what the alert says', () => {
     await service.notify(event);
 
     assert.equal(sent[0]?.body, 'Due now');
+  });
+
+});
+
+describe('what the alert says about timing', () => {
+  it('says how far ahead it is when the reminder has a lead', async () => {
+    const { service, sent } = harness(['phone']);
+
+    await service.notify(anEvent('interview', '2026-09-04 15:00', { remindBeforeMins: 10 }));
+
+    assert.equal(sent[0]?.body, 'In 10 minutes');
+  });
+
+  it('uses the largest unit that divides evenly', async () => {
+    const { service, sent } = harness(['phone']);
+
+    await service.notify(anEvent('rent', '2026-09-04 15:00', { remindBeforeMins: 24 * 60 }));
+
+    assert.equal(sent[0]?.body, 'In 1 day');
   });
 });
 

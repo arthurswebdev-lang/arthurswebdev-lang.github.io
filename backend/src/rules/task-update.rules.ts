@@ -5,7 +5,7 @@ import { InputValidationError } from '../utils/http-errors/input-validation.erro
 /**
  * What a client is allowed to change, and where.
  *
- * A generated event is a projection of its config: name, date and active logic
+ * A generated event is a projection of its config: name, date, window and steps
  * all come from the config, and the next regeneration overwrites anything typed
  * over them. So it accepts no replacement at all — only its status moves, and
  * only through `PATCH /tasks/:id/status`. Everything else is edited on the
@@ -20,7 +20,7 @@ export function assertTaskReplaceAllowed(current: Task): void {
   if (!isEventTask(current) || !isGeneratedEvent(current)) return;
 
   throw new InputValidationError(
-    'A generated event cannot be replaced: its name, date and active logic come from its '
+    'A generated event cannot be replaced: its name, date, window and steps come from its '
     + `repeated task (${String(current.configTaskId)}), which regenerates them. `
     + 'Use PATCH /tasks/:id/status to change its status, or edit the repeated task.',
     ['generatedEvent'],

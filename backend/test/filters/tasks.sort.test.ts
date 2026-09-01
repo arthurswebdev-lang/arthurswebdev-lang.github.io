@@ -1,13 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { ActiveLogic } from '../../src/enum/active-logic.enum.js';
 import { TaskStatus } from '../../src/enum/task-status.enum.js';
 import { sortTasks } from '../../src/filters/tasks.sort.js';
 import type { Task } from '../../src/types/tasks.types.js';
 import { aBasicTask, anEvent } from '../support/tasks.js';
 
-const at = (name: string, time: string): Task => anEvent(name, `2026-08-19 ${time}`, ActiveLogic.TODAY);
+const at = (name: string, time: string): Task => anEvent(name, `2026-08-19 ${time}`);
 
 const done = (task: Task): Task => ({ ...task, status: TaskStatus.DONE });
 
