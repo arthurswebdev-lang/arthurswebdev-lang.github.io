@@ -92,6 +92,7 @@ export function aWeeklyConfig(
     category: TaskCategory.OTHER,
     links: [],
     activeForMins: DEFAULT_ACTIVE_FOR_MINS,
+    subtasks: [],
     weekdays,
     ...overrides,
   };
@@ -117,6 +118,7 @@ export function aDailyConfig(
     category: TaskCategory.OTHER,
     links: [],
     activeForMins: DEFAULT_ACTIVE_FOR_MINS,
+    subtasks: [],
     startsAt: timeOfDay(schedule.startsAt),
     endsAt: timeOfDay(schedule.endsAt),
     repeatEach: timeOfDay(schedule.repeatEach),
@@ -136,6 +138,7 @@ export function aMonthlyConfig(
     category: TaskCategory.OTHER,
     links: [],
     activeForMins: DEFAULT_ACTIVE_FOR_MINS,
+    subtasks: [],
     ...schedule,
   };
 }

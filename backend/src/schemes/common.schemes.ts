@@ -5,7 +5,7 @@ import { TaskCategory } from '../enum/task-category.enum.js';
 import { TaskStatus } from '../enum/task-status.enum.js';
 import type { TaskType } from '../enum/task-type.enum.js';
 import type { SubtaskDraft } from '../types/tasks.types.js';
-import type { TimeOfDay } from '../types/repeated-tasks.types.js';
+import type { RepeatedSubtaskDraft, TimeOfDay } from '../types/repeated-tasks.types.js';
 import { ID, JoiObject, varchar } from '../middlewares/validation/util/validation.util.js';
 
 /** Active logic given to an event the client created directly. */
@@ -33,6 +33,16 @@ export const SubtaskSchema = JoiObject<SubtaskDraft>({
 });
 
 /**
+ * The same step without a status: a config's checklist is a template, and a
+ * template has nothing ticked. Sending one is a 400 rather than a field quietly
+ * dropped, so nobody believes they have pre-completed next week's session.
+ */
+export const RepeatedSubtaskSchema = JoiObject<RepeatedSubtaskDraft>({
+  name: varchar(1, 255).required(),
+  link,
+});
+
+/**
  * Field definitions shared by every variant schema, for both tasks and configs.
  * They carry no `required()` or `default()` of their own, so each schema states
  * its own expectations.
@@ -44,6 +54,8 @@ export const fields = {
   links: Joi.array().items(link).max(20).unique(),
   status: Joi.string().valid(...Object.values(TaskStatus)),
   subtasks: Joi.array().items(SubtaskSchema),
+  /** A config's steps: the same list, minus the ticks. */
+  repeatedSubtasks: Joi.array().items(RepeatedSubtaskSchema),
   date: Joi.date().iso(),
   time: TimeOfDaySchema,
   /** 0 = Sunday ... 6 = Saturday, each day at most once. */

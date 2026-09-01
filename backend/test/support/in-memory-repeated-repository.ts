@@ -8,6 +8,19 @@ import type {
 } from '../../src/interfaces/repeated-tasks-repository.interface.js';
 import type { CreateRepeatedTask, RepeatedTask, UpdateRepeatedTask } from '../../src/types/repeated-tasks.types.js';
 
+function toEntity(input: CreateRepeatedTask, userId: string): RepeatedTask {
+  return {
+    ...input,
+    id: randomUUID(),
+    userId,
+    createdAt: new Date(),
+    category: input.category ?? TaskCategory.OTHER,
+    links: input.links ?? [],
+    activeForMins: input.activeForMins ?? DEFAULT_ACTIVE_FOR_MINS,
+    subtasks: (input.subtasks ?? []).map((step) => ({ ...step, id: randomUUID() })),
+  };
+}
+
 /** The configs store, backed by an array. */
 export class InMemoryRepeatedTasksRepository implements IRepeatedTasksRepository {
   constructor(private configs: RepeatedTask[] = []) {}
@@ -29,16 +42,7 @@ export class InMemoryRepeatedTasksRepository implements IRepeatedTasksRepository
   }
 
   create(input: CreateRepeatedTask, userId: string): Promise<RepeatedTask> {
-    const config: RepeatedTask = {
-      ...input,
-      id: randomUUID(),
-      userId,
-      createdAt: new Date(),
-      category: input.category ?? TaskCategory.OTHER,
-      links: input.links ?? [],
-      activeForMins: input.activeForMins ?? DEFAULT_ACTIVE_FOR_MINS,
-    };
-
+    const config = toEntity(input, userId);
     this.configs.push(config);
 
     return Promise.resolve(config);
@@ -49,7 +53,13 @@ export class InMemoryRepeatedTasksRepository implements IRepeatedTasksRepository
     const found = this.configs[index];
     if (found === undefined) return Promise.resolve(null);
 
-    const updated = { ...found, ...changes, id: found.id, createdAt: found.createdAt };
+    // Through `toEntity`, like the real repository: an update is a replacement,
+    // so its step drafts have to become steps rather than being spread in raw.
+    const updated = {
+      ...toEntity(changes, found.userId),
+      id: found.id,
+      createdAt: found.createdAt,
+    };
     this.configs[index] = updated;
 
     return Promise.resolve(updated);

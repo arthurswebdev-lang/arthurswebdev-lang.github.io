@@ -111,9 +111,18 @@ one blank line before a `return` that follows logic.
 - **Categories are fixed in code** (`TaskCategory`), not data — there are no endpoints to manage
   them. Anything created without one lands in `OTHER`, which keeps the field non-nullable and
   makes "uncategorised" filterable like any other value.
-- **A generated event inherits its config's category and links.** It has to: PUT refuses generated
-  events, so whatever the occurrence needs to be useful — the call link, the category it groups
-  under — can only come from the config.
+- **A generated event inherits its config's category, links, `activeForMins` and `subtasks`.** It
+  has to: PUT refuses generated events, so whatever the occurrence needs to be useful — the call
+  link, the category it groups under, the checklist to work through — can only come from the
+  config. A config's steps are `RepeatedSubtask`: a `Subtask` minus `status`, because a config is
+  a rule and nobody completes a rule. Each occurrence gets its own copy with fresh ids and
+  everything TODO, so ticking last week's leaves this week's alone.
+- **Weekly and monthly occurrences land at `GENERATED_EVENT_TIME`**, one constant in
+  `occurrences.generator.ts`: 02:00 UTC, written as `GENERATED_EVENT_HOUR_LOCAL -
+  YEREVAN_OFFSET_HOURS` because what was actually chosen is **06:00 in Yerevan**. Keep the local
+  hour at or above the offset — below it the UTC hour goes negative and the occurrence slides to
+  the previous day. Daily configs are unaffected: they use the times the user typed, which are
+  read as UTC, so a daily window of 09:00–23:00 really runs 13:00–03:00 local.
 - **Links are http(s) only** and capped (20 per task, 2048 chars). They get opened, so a
   `javascript:` or `file:` URL has no business being stored. Tasks carry `links: string[]`;
   a subtask carries at most one.

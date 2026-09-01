@@ -16,7 +16,7 @@ import {
   toMinutesOfDay,
 } from '../../src/generators/occurrences.generator.js';
 import { aDailyConfig, aMonthlyConfig, aWeeklyConfig } from '../support/tasks.js';
-import { utc } from '../support/time.js';
+import { inYerevan, utc } from '../support/time.js';
 
 /** "drink water", 09:00 to 23:00 every 2h — the config from the spec. */
 const water = aDailyConfig('water', { startsAt: '09:00', endsAt: '23:00', repeatEach: '02:00' });
@@ -93,27 +93,49 @@ describe('weekly — next occurrence', () => {
   });
 
   it('finds Friday from Tuesday', () => {
-    assert.deepEqual(nextWeeklyOccurrence(gym, utc('Tue 2026-08-18 09:00')), utc('Fri 2026-08-21 09:00'));
+    assert.deepEqual(nextWeeklyOccurrence(gym, utc('Tue 2026-08-18 09:00')), utc('Fri 2026-08-21 02:00'));
   });
 
   it('finds next Monday from Saturday', () => {
-    assert.deepEqual(nextWeeklyOccurrence(gym, utc('Sat 2026-08-22 10:00')), utc('Mon 2026-08-24 09:00'));
+    assert.deepEqual(nextWeeklyOccurrence(gym, utc('Sat 2026-08-22 10:00')), utc('Mon 2026-08-24 02:00'));
   });
 
   it('still answers today when today is a run day and the time is ahead', () => {
-    assert.deepEqual(nextWeeklyOccurrence(gym, utc('Mon 2026-08-24 08:00')), utc('Mon 2026-08-24 09:00'));
+    assert.deepEqual(nextWeeklyOccurrence(gym, utc('Mon 2026-08-24 01:00')), utc('Mon 2026-08-24 02:00'));
   });
 
   it('moves to the next run day once today\'s time has gone by', () => {
-    assert.deepEqual(nextWeeklyOccurrence(gym, utc('Mon 2026-08-24 10:00')), utc('Fri 2026-08-28 09:00'));
+    assert.deepEqual(nextWeeklyOccurrence(gym, utc('Mon 2026-08-24 10:00')), utc('Fri 2026-08-28 02:00'));
   });
 
-  it('generates at 09:00, not midnight (B1)', () => {
+  it('generates at the standard time, not midnight (B1)', () => {
     const next = nextWeeklyOccurrence(gym, utc('Sat 2026-08-22 10:00'));
 
     assert.ok(next !== null);
     assert.equal(next.getUTCHours(), GENERATED_EVENT_TIME.hour);
     assert.notEqual(next.getUTCHours(), 0);
+  });
+
+});
+
+describe('weekly — the hour it lands on, read locally', () => {
+  const gym = aWeeklyConfig('gym', [1, 5]);
+
+  it('lands at 06:00 in Yerevan, which is the point of the hour it is set to', () => {
+    const next = nextWeeklyOccurrence(gym, utc('Sat 2026-08-22 10:00'));
+
+    assert.ok(next !== null);
+    assert.equal(inYerevan(next), 'Mon 24 Aug, 06:00');
+  });
+
+  it('keeps the occurrence on the weekday asked for once read locally (B1)', () => {
+    // The UTC hour is small enough that a reader could reasonably worry the +4
+    // offset tips Monday's session into Sunday night. It does not, and this is
+    // the guard that would notice if the hour were ever set below the offset.
+    const next = nextWeeklyOccurrence(gym, utc('Sat 2026-08-22 10:00'));
+
+    assert.ok(next !== null);
+    assert.ok(inYerevan(next).startsWith('Mon'), `landed on ${inYerevan(next)}`);
   });
 });
 
@@ -126,21 +148,21 @@ describe('monthly — next occurrence', () => {
   });
 
   it('skips ahead to the next listed month', () => {
-    assert.deepEqual(nextMonthlyOccurrence(rent, utc('2026-08-19 12:00')), utc('2027-01-01 09:00'));
+    assert.deepEqual(nextMonthlyOccurrence(rent, utc('2026-08-19 12:00')), utc('2027-01-01 02:00'));
   });
 
   it('takes this month when its day is still ahead', () => {
-    assert.deepEqual(nextMonthlyOccurrence(rent, utc('2026-02-01 08:00')), utc('2026-02-01 09:00'));
+    assert.deepEqual(nextMonthlyOccurrence(rent, utc('2026-02-01 01:00')), utc('2026-02-01 02:00'));
   });
 
   it('moves on once this month\'s day has gone by', () => {
-    assert.deepEqual(nextMonthlyOccurrence(rent, utc('2026-02-01 10:00')), utc('2026-03-01 09:00'));
+    assert.deepEqual(nextMonthlyOccurrence(rent, utc('2026-02-01 10:00')), utc('2026-03-01 02:00'));
   });
 
   it('generates only on fromDay — toDay does not schedule anything (Q4)', () => {
     const wide = aMonthlyConfig('rent', { fromDay: 1, months: [2] });
 
-    assert.deepEqual(nextMonthlyOccurrence(wide, utc('2026-01-15')), utc('2026-02-01 09:00'));
+    assert.deepEqual(nextMonthlyOccurrence(wide, utc('2026-01-15')), utc('2026-02-01 02:00'));
   });
 });
 
@@ -152,13 +174,13 @@ describe('monthly — short months (B13)', () => {
   it('clamps day 31 to 28 in a non-leap February', () => {
     const late = aMonthlyConfig('rent', { fromDay: 31, months: [2] });
 
-    assert.deepEqual(nextMonthlyOccurrence(late, utc('2026-01-15')), utc('2026-02-28 09:00'));
+    assert.deepEqual(nextMonthlyOccurrence(late, utc('2026-01-15')), utc('2026-02-28 02:00'));
   });
 
   it('reaches 29 February in a leap year', () => {
     const late = aMonthlyConfig('rent', { fromDay: 31, months: [2] });
 
-    assert.deepEqual(nextMonthlyOccurrence(late, utc('2028-01-15')), utc('2028-02-29 09:00'));
+    assert.deepEqual(nextMonthlyOccurrence(late, utc('2028-01-15')), utc('2028-02-29 02:00'));
   });
 });
 
@@ -170,14 +192,14 @@ describe('nextOccurrence dispatches on config type', () => {
   it('routes a weekly config', () => {
     assert.deepEqual(
       nextOccurrence(aWeeklyConfig('gym', [1, 5]), utc('Sat 2026-08-22 10:00')),
-      utc('Mon 2026-08-24 09:00'),
+      utc('Mon 2026-08-24 02:00'),
     );
   });
 
   it('routes a monthly config', () => {
     assert.deepEqual(
       nextOccurrence(aMonthlyConfig('rent', { fromDay: 1, months: [9] }), utc('2026-08-19')),
-      utc('2026-09-01 09:00'),
+      utc('2026-09-01 02:00'),
     );
   });
 

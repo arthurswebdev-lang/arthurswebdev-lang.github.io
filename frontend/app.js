@@ -1314,6 +1314,9 @@ function showStep(name) {
     for (const field of document.querySelectorAll('[data-for]')) {
       field.hidden = !field.dataset.for.split(' ').includes(shownFor);
     }
+
+    // The steps field is shared, so its note has to be switched on separately.
+    document.getElementById('steps-hint').hidden = draft.kind !== 'REPEATED';
   }
 
   const editing = draft.editing !== null || draft.editingConfig !== null;
@@ -1436,6 +1439,7 @@ function openConfigEditor(config) {
   composerForm.elements['category'].value = config.category;
   fillActiveFor(config.activeForMins);
   for (const url of config.links ?? []) addLinkRow(url);
+  for (const step of config.subtasks ?? []) addSubtaskRow(step);
 
   if (config.type === 'DAILY') {
     composerForm.elements['startsAt'].value = clockFromUtc(config.startsAt);
@@ -1509,10 +1513,17 @@ function draftPayload(data) {
   const name = String(data.get('name')).trim();
   const category = String(data.get('category'));
   const links = linkValues();
-  const subtasks = subtaskValues()
-    .map(({ name: stepName, link, status }) => ({
-      name: stepName, status, ...(link ? { link } : {}),
-    }));
+  const steps = subtaskValues();
+  const subtasks = steps.map(({ name: stepName, link, status }) => ({
+    name: stepName, status, ...(link ? { link } : {}),
+  }));
+
+  // A config's steps are a template, so they carry no ticks: the server refuses
+  // a `status` there for the same reason it refuses one on the config itself,
+  // and nobody gets to pre-complete next week's session.
+  const templateSteps = steps.map(({ name: stepName, link }) => ({
+    name: stepName, ...(link ? { link } : {}),
+  }));
 
   const shared = { name, category, ...(links.length ? { links } : {}) };
 
@@ -1524,6 +1535,9 @@ function draftPayload(data) {
   // it anyway is a 400 that used to fail silently.
   const activeForMins = Number(data.get('activeFor')) * Number(data.get('activeForUnit'));
   const dated = { ...shared, ...(activeForMins > 0 ? { activeForMins } : {}) };
+
+  /** What every repeated config sends, whichever schedule it describes. */
+  const repeating = { ...dated, subtasks: templateSteps };
 
   // Kept across a replace, for the same reason as a step's. Not in `shared`:
   // a repeated config is a rule and has no status at all, so sending one would
@@ -1544,7 +1558,7 @@ function draftPayload(data) {
   if (draft.schedule === 'DAILY') {
     return {
       type: 'DAILY',
-      ...dated,
+      ...repeating,
       startsAt: toUtcParts(data.get('startsAt')),
       endsAt: toUtcParts(data.get('endsAt')),
       // A gap, not a clock time: two hours is two hours in any zone.
@@ -1555,14 +1569,14 @@ function draftPayload(data) {
   if (draft.schedule === 'REPEATED_WEEKLY') {
     return {
       type: 'REPEATED_WEEKLY',
-      ...dated,
+      ...repeating,
       weekdays: chosenValues(document.getElementById('weekday-toggles')),
     };
   }
 
   return {
     type: 'REPEATED_MONTHLY',
-    ...dated,
+    ...repeating,
     fromDay: Number(data.get('fromDay')),
     months: chosenValues(document.getElementById('month-toggles')),
   };

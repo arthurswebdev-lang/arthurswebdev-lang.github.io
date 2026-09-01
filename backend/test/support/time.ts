@@ -65,3 +65,22 @@ export function utc(spec: string): Date {
 export function describeUtc(date: Date): string {
   return `${weekdayOf(date)} ${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 }
+
+/**
+ * The same instant as Yerevan reads it: 'Mon 24 Aug, 06:00'.
+ *
+ * Storage is UTC, but a time chosen *for the person using this* is only right
+ * or wrong in their own clock — 02:00 UTC means nothing until you say it is six
+ * in the morning there. Asserting through `Intl` rather than a hardcoded +4
+ * keeps the test honest if Armenia ever changes its offset again.
+ */
+export function inYerevan(date: Date): string {
+  return date.toLocaleString('en-GB', {
+    timeZone: 'Asia/Yerevan',
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}

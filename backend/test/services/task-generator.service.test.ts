@@ -59,8 +59,63 @@ describe('generating for weekly and monthly configs', () => {
     const gymEvent = await generator.ensurePendingEvent(gym, utc('Sat 2026-08-22 10:00'));
     const rentEvent = await generator.ensurePendingEvent(rent, utc('2026-08-19'));
 
-    assert.deepEqual(gymEvent?.date, utc('Mon 2026-08-24 09:00'));
-    assert.deepEqual(rentEvent?.date, utc('2026-09-01 09:00'));
+    assert.deepEqual(gymEvent?.date, utc('Mon 2026-08-24 02:00'));
+    assert.deepEqual(rentEvent?.date, utc('2026-09-01 02:00'));
+  });
+});
+
+/** A weekly config carrying a checklist, the way a gym routine would. */
+const gymWithSteps = aWeeklyConfig('gym', [1, 5], {
+  subtasks: [
+    { id: 'step-squats', name: 'Squats 5x5' },
+    { id: 'step-bench', name: 'Bench 5x5', link: 'https://example.com/bench' },
+  ],
+});
+
+describe('a config\'s steps become the occurrence\'s steps', () => {
+  it('stamps the config checklist onto the event, untouched and undone', async () => {
+    const { generator } = withTasks([gymWithSteps]);
+
+    const event = await generator.ensurePendingEvent(gymWithSteps, utc('Sat 2026-08-22 10:00'));
+    assert.ok(event !== null);
+
+    assert.deepEqual(event.subtasks.map((step) => step.name), ['Squats 5x5', 'Bench 5x5']);
+    assert.deepEqual(event.subtasks.map((step) => step.status), [TaskStatus.TODO, TaskStatus.TODO]);
+    assert.equal(event.subtasks[1]?.link, 'https://example.com/bench');
+  });
+
+  it('leaves an event with no steps when its config has none', async () => {
+    const standup = aWeeklyConfig('standup', [1]);
+    const { generator } = withTasks([standup]);
+
+    const event = await generator.ensurePendingEvent(standup, utc('Sat 2026-08-22 10:00'));
+    assert.ok(event !== null);
+
+    assert.deepEqual(event.subtasks, []);
+  });
+});
+
+describe('each occurrence owns its own steps', () => {
+  it('gives the next occurrence fresh ids, so ticking one leaves it alone', async () => {
+    const { repository, generator } = withTasks([gymWithSteps]);
+
+    const first = await generator.ensurePendingEvent(gymWithSteps, utc('Sat 2026-08-22 10:00'));
+    assert.ok(first !== null);
+
+    // Finish it, and let the config produce the occurrence after it.
+    await repository.updateStatus(first.id, TaskStatus.DONE);
+    const second = await generator.generateNextAfter(first, utc('Mon 2026-08-24 07:00'));
+    assert.ok(second !== null);
+
+    const firstIds = first.subtasks.map((step) => step.id);
+    const secondIds = second.subtasks.map((step) => step.id);
+
+    assert.equal(secondIds.length, 2);
+    assert.ok(
+      secondIds.every((id) => !firstIds.includes(id)),
+      'the new occurrence reused a step id from the finished one',
+    );
+    assert.deepEqual(second.subtasks.map((step) => step.status), [TaskStatus.TODO, TaskStatus.TODO]);
   });
 });
 

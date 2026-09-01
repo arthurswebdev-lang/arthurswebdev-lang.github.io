@@ -71,7 +71,13 @@ export class TasksRepository
       category: config.category,
       links: [...config.links],
       activeForMins: config.activeForMins,
-      subtasks: [],
+      // Fresh ids and fresh ticks: each occurrence owns its own progress, so
+      // finishing last week's steps leaves this week's untouched.
+      subtasks: config.subtasks.map((step) => ({
+        ...step,
+        id: randomUUID(),
+        status: TaskStatus.TODO,
+      })),
       date,
       activeLogic: activeLogicForRepeatedTask(config),
       passedDate: null,

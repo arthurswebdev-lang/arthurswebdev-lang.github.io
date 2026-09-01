@@ -10,6 +10,7 @@ export const CreateDailyTaskSchema = JoiObject<CreateDailyTask>({
   category: fields.category.default(TaskCategory.OTHER),
   links: fields.links.default([]),
   activeForMins: fields.activeForMins.default(DEFAULT_ACTIVE_FOR_MINS),
+  subtasks: fields.repeatedSubtasks.default([]),
   startsAt: fields.time.required(),
   endsAt: fields.time.required(),
   repeatEach: fields.time.required(),
@@ -21,6 +22,7 @@ export const CreateWeeklyTaskSchema = JoiObject<CreateWeeklyTask>({
   category: fields.category.default(TaskCategory.OTHER),
   links: fields.links.default([]),
   activeForMins: fields.activeForMins.default(DEFAULT_ACTIVE_FOR_MINS),
+  subtasks: fields.repeatedSubtasks.default([]),
   weekdays: fields.weekdays.required(),
 });
 
@@ -30,6 +32,7 @@ export const CreateMonthlyTaskSchema = JoiObject<CreateMonthlyTask>({
   category: fields.category.default(TaskCategory.OTHER),
   links: fields.links.default([]),
   activeForMins: fields.activeForMins.default(DEFAULT_ACTIVE_FOR_MINS),
+  subtasks: fields.repeatedSubtasks.default([]),
   fromDay: fields.dayOfMonth.required(),
   months: fields.months.required(),
 });

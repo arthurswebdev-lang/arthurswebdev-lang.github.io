@@ -70,7 +70,11 @@ export class InMemoryTasksRepository implements ITasksRepository {
       createdAt: date,
       category: config.category,
       links: [...config.links],
-      subtasks: [],
+      subtasks: config.subtasks.map((step) => ({
+        ...step,
+        id: randomUUID(),
+        status: TaskStatus.TODO,
+      })),
       date,
       activeLogic: activeLogicForRepeatedTask(config),
       activeForMins: config.activeForMins,

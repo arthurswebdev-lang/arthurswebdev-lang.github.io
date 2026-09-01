@@ -17,12 +17,30 @@ const DAYS_PER_WEEK = 7;
 const MONTHS_PER_YEAR = 12;
 
 /**
- * Time of day given to events generated from weekly and monthly configs, which
- * carry no time of their own. Not midnight on purpose: a 00:00 event counts as
- * passed from the first instant of the day it belongs to, so it would never
- * read as actual on its own day.
+ * Armenia has been UTC+4 the year round since it abolished DST in 2012, and it
+ * is the only place this app is used. Everything stored is still UTC — this
+ * constant exists so that the one time of day chosen *for a person* can be
+ * written in the hours that person actually reads.
  */
-export const GENERATED_EVENT_TIME: TimeOfDay = { hour: 9, minute: 0 };
+const YEREVAN_OFFSET_HOURS = 4;
+
+/** The hour, in Yerevan, a generated occurrence lands on. Keep it >= the offset. */
+const GENERATED_EVENT_HOUR_LOCAL = 6;
+
+/**
+ * Time of day given to events generated from weekly and monthly configs, which
+ * carry no time of their own: 06:00 in Yerevan, so a morning routine is in the
+ * list while it is being done rather than turning up after it is over.
+ *
+ * Not midnight on purpose: a 00:00 event counts as passed from the first
+ * instant of the day it belongs to, so it would never read as actual on its own
+ * day. Not earlier than the offset either — that would push the UTC hour
+ * negative and land the occurrence on the day before.
+ */
+export const GENERATED_EVENT_TIME: TimeOfDay = {
+  hour: GENERATED_EVENT_HOUR_LOCAL - YEREVAN_OFFSET_HOURS,
+  minute: 0,
+};
 
 /** How many months ahead to look before giving up on a monthly config. */
 const MONTHLY_SEARCH_LIMIT = MONTHS_PER_YEAR + 1;

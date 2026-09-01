@@ -6,11 +6,17 @@ import { DEFAULT_ACTIVE_FOR_MINS } from '../schemes/common.schemes.js';
 import type { Db } from 'mongodb';
 
 import type { IRepeatedTasksRepository } from '../interfaces/repeated-tasks-repository.interface.js';
-import type { CreateRepeatedTask, RepeatedTask, UpdateRepeatedTask } from '../types/repeated-tasks.types.js';
+import type {
+  CreateRepeatedTask, RepeatedSubtask, RepeatedSubtaskDraft, RepeatedTask, UpdateRepeatedTask,
+} from '../types/repeated-tasks.types.js';
 import { InputValidationError } from '../utils/http-errors/input-validation.error.js';
 import { MongoRepository } from './mongo.repository.js';
 
 export const REPEATED_TASKS_COLLECTION = 'repeatedTasks';
+
+function toRepeatedSubtasks(drafts: RepeatedSubtaskDraft[] | undefined): RepeatedSubtask[] {
+  return (drafts ?? []).map((draft) => ({ ...draft, id: randomUUID() }));
+}
 
 /** The repeated-task configs, in their own collection. */
 export class RepeatedTasksRepository
@@ -49,6 +55,7 @@ export class RepeatedTasksRepository
       category: input.category ?? TaskCategory.OTHER,
       links: input.links ?? [],
       activeForMins: input.activeForMins ?? DEFAULT_ACTIVE_FOR_MINS,
+      subtasks: toRepeatedSubtasks(input.subtasks),
     };
   }
 

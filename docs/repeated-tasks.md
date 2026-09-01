@@ -281,11 +281,29 @@ The read side is done. These are what the write side needs.
 
 ## Answered
 
-- **B1 — generated events land at 09:00 UTC**, not midnight. Weekly and monthly configs still
-  carry no time of day (Q3); `GENERATED_EVENT_TIME` is one constant in the generator. This is the
-  cheap fix for the "passed all through its own day" problem — no new field, no special
+- **B1 — generated events land at a fixed time of day**, not midnight. Weekly and monthly configs
+  still carry no time of day (Q3); `GENERATED_EVENT_TIME` is one constant in the generator. This
+  is the cheap fix for the "passed all through its own day" problem — no new field, no special
   passed-rule. Promote it to a per-config field later if needed.
-- **B2 — no timezone handling.** Everything is UTC and the user is assumed to share it.
+
+  The constant is **02:00 UTC**, which is **06:00 in Yerevan** — early enough that a morning
+  routine is in the list while it is being done. It was 09:00 UTC (13:00 local) until
+  2026-09-01, which put a gym session in the list around lunchtime. The generator writes it as
+  `GENERATED_EVENT_HOUR_LOCAL - YEREVAN_OFFSET_HOURS` so the hour that was actually chosen stays
+  readable; keep the local hour at or above the offset, or the UTC hour goes negative and the
+  occurrence lands on the day before. Moving it needs
+  `backend/scripts/2026-09-01-config-subtasks.ts`, which clears pending weekly and monthly events
+  so the poller remakes them at the new hour — nothing rewrites an event once generated.
+- **B2 — no timezone handling.** Everything stored is UTC. The one exception is
+  `GENERATED_EVENT_TIME` above, which is a time chosen *for a person* and so is only meaningful
+  in their clock; Armenia has been UTC+4 the year round since it dropped DST in 2012.
+- **Steps on a config.** A config carries `subtasks`, and every occurrence it generates starts
+  with a copy — fresh ids, all TODO. They are `RepeatedSubtask`, a `Subtask` *without* `status`,
+  for the same reason a config has no status of its own: nobody completes a rule, and last
+  week's gym session being finished says nothing about this week's. Posting a step with a
+  `status` to `/repeated-tasks` is a 400. This exists because `PUT /tasks/:id` refuses a
+  generated event's subtasks (they would be overwritten by the next regeneration), so a
+  recurring checklist has nowhere else to live.
 - **B3 — generate immediately on early completion.** Marking the pending event DONE produces the
   next occurrence right away, so the update path triggers generation, not only the poller.
 - **B5 — editing a config wipes and regenerates.** On PUT, delete every event linked to that

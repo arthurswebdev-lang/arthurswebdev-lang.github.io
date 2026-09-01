@@ -588,6 +588,14 @@ body {
 
 .composer__note--error { color: var(--overdue-ink); font-weight: 700; }
 
+/* Sits under a legend to say what the field means, where the label alone
+   cannot: a repeat's steps look identical to a task's but behave differently. */
+.field__hint {
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+
 .state {
   margin-top: 2.5rem;
   padding: 2rem 1rem;
