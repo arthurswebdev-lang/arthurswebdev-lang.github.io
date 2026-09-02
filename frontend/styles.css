@@ -150,14 +150,24 @@ body {
   padding-inline: 0;
 }
 
-.filter--all .filter__icon { font-size: 1.25rem; line-height: 1; }
+.filter--all .filter__icon { font-size: 1.15rem; line-height: 1; }
 
 .filter {
   display: flex;
-  flex-direction: column;
+  /* Icon then word, on one line: the stacked version was twice as tall for the
+     same information, and the filters are a permanent fixture at the top of the
+     screen rather than something worth that much of it. */
+  flex-direction: row;
   align-items: center;
-  gap: 0.15rem;
-  padding: 0.6rem 0.4rem;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.4rem;
+  /* Load-bearing. A grid item defaults to min-width:auto, so a 1fr track cannot
+     shrink below its own content — and side by side the content is wider than a
+     third of a phone, which pushed the square button off the edge. Zero lets the
+     track win; measured at 342px, nothing clips. */
+  min-width: 0;
+  white-space: nowrap;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -175,7 +185,7 @@ body {
   outline-offset: 2px;
 }
 
-.filter__icon { font-size: 1.15rem; line-height: 1; }
+.filter__icon { font-size: 1.05rem; line-height: 1; }
 
 .filter__count {
   font-size: 0.72rem;
