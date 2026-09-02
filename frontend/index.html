@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&family=Quicksand:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="./styles.css?v=31">
+<link rel="stylesheet" href="./styles.css?v=32">
 <script>
   // Where the API lives. Point this at the fly.io app once deployed.
   globalThis.API_BASE = "https://artur-todo-list-api.fly.dev";
@@ -49,17 +49,17 @@
     <div class="filters" role="group" aria-label="Filter tasks by when they happen">
       <button type="button" class="filter" data-state="passed" aria-pressed="false">
         <span class="filter__icon" aria-hidden="true">🕓</span>
-        <span>Passed</span>
+        <span class="filter__label">Passed</span>
         <span class="filter__count" data-count="passed"></span>
       </button>
       <button type="button" class="filter" data-state="actual" aria-pressed="true">
         <span class="filter__icon" aria-hidden="true">🎯</span>
-        <span>Actual</span>
+        <span class="filter__label">Actual</span>
         <span class="filter__count" data-count="actual"></span>
       </button>
       <button type="button" class="filter" data-state="upcoming" aria-pressed="false">
         <span class="filter__icon" aria-hidden="true">🌱</span>
-        <span>Upcoming</span>
+        <span class="filter__label">Upcoming</span>
         <span class="filter__count" data-count="upcoming"></span>
       </button>
       <!-- Not a position in time like the other three, so it does not get a word

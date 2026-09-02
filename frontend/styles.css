@@ -132,12 +132,18 @@ body {
 
 /* --- filters ------------------------------------------------------------ */
 .filters {
+  /* Grid and not flex, deliberately: under flex the square's aspect-ratio and
+     the stretched line size each other in a circle, and on a wide screen that
+     resolved to a 128px block instead of a 37px button. */
   display: grid;
-  /* Three flexible pills and one square. The last column is sized by its own
-     content rather than a share of the row, which is what leaves the square
-     free to take its width from its height. */
-  grid-template-columns: repeat(3, 1fr) auto;
-  gap: 0.5rem;
+  /* Each pill sized to its own word, then the spare room shared out equally.
+     Equal 1fr columns gave "Passed" and "Actual" slack they did not need while
+     "Upcoming" — the longest — had none, and once the icon sat beside the word
+     rather than above it that pushed the icon out through the left edge.
+     `min-content` on the last column keeps the square out of the sharing, so it
+     still takes its width from its height. */
+  grid-template-columns: repeat(3, auto) min-content;
+  gap: 0.35rem;
   padding-bottom: 0.9rem;
   border-bottom: 1px solid var(--line);
 }
@@ -150,6 +156,27 @@ body {
   padding-inline: 0;
 }
 
+/*
+ * An empty count is not a thing on the page, so it must not claim a gap.
+ *
+ * Every button carries a count span that nothing fills in yet. Stacked that was
+ * invisible; side by side, flex still put a gap *before* it, so each pill wore
+ * a phantom 0.4rem on its right — which shifted the All glyph off centre and
+ * stole the room the icon needed.
+ */
+.filter__count:empty { display: none; }
+
+/*
+ * The one part allowed to give way. If the words genuinely do not fit, the word
+ * shortens rather than the icon being shoved out of the button, which is what
+ * made this look broken rather than merely tight.
+ */
+.filter__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .filter--all .filter__icon { font-size: 1.15rem; line-height: 1; }
 
 .filter {
@@ -160,12 +187,12 @@ body {
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  padding: 0.5rem 0.4rem;
-  /* Load-bearing. A grid item defaults to min-width:auto, so a 1fr track cannot
-     shrink below its own content — and side by side the content is wider than a
-     third of a phone, which pushed the square button off the edge. Zero lets the
-     track win; measured at 342px, nothing clips. */
+  gap: 0.3rem;
+  padding: 0.5rem 0.35rem;
+  /* Load-bearing. A grid item defaults to min-width:auto, so a track cannot
+     shrink below its own content and the bar overflows instead — which pushed
+     the square button off the right edge. Zero lets the track win, and the
+     label below is what gives way when the words genuinely do not fit. */
   min-width: 0;
   white-space: nowrap;
   border: 1px solid var(--line);
