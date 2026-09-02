@@ -98,3 +98,19 @@ export type CreateRepeatedTask = CreateDailyTask | CreateWeeklyTask | CreateMont
 
 /** PUT replaces, so an update is the same full representation as a create. */
 export type UpdateRepeatedTask = CreateRepeatedTask;
+
+/**
+ * PATCH changes only what it names, so a patch never has to restate what it is
+ * not touching. `type` is allowed but cannot change anything — a client holding
+ * the whole config can send it straight back, and a type that disagrees with
+ * the stored one is refused.
+ *
+ * Deliberately the union of every variant's fields rather than a variant of its
+ * own: the middleware cannot know which kind it is looking at until the stored
+ * config is read. The service merges the patch onto that config and validates
+ * the result against the full schema, so a field belonging to another variant
+ * is refused there rather than being quietly stored.
+ */
+export type PatchRepeatedTask = Partial<
+  Omit<CreateDailyTask, 'type'> & Omit<CreateWeeklyTask, 'type'> & Omit<CreateMonthlyTask, 'type'>
+> & { type?: TaskType };

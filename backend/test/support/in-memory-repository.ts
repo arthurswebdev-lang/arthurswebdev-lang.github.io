@@ -129,6 +129,26 @@ export class InMemoryTasksRepository implements ITasksRepository {
     return Promise.resolve(updated);
   }
 
+  applyConfigToEvent(eventId: string, config: RepeatedTask): Promise<EventTask | null> {
+    const index = this.tasks.findIndex((task) => task.id === eventId);
+    const found = this.tasks[index];
+    if (found?.type !== TaskType.EVENT) return Promise.resolve(null);
+
+    const rewritten: EventTask = {
+      ...found,
+      name: config.name,
+      category: config.category,
+      links: [...config.links],
+      remindBeforeMins: config.remindBeforeMins,
+      activeBeforeMins: config.activeBeforeMins,
+      activeForMins: config.activeForMins,
+      subtasks: config.subtasks.map((s) => ({ ...s, id: randomUUID(), status: TaskStatus.TODO })),
+    };
+    this.tasks[index] = rewritten;
+
+    return Promise.resolve(rewritten);
+  }
+
   markNotified(eventId: string, notifiedAt: Date): Promise<EventTask | null> {
     const index = this.tasks.findIndex((task) => task.id === eventId);
     const found = this.tasks[index];

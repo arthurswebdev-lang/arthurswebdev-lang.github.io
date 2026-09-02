@@ -1,4 +1,5 @@
 import { TaskFilter } from '../enum/task-filter.enum.js';
+import { TaskStatus } from '../enum/task-status.enum.js';
 import { TaskType } from '../enum/task-type.enum.js';
 import type { EventTask, Task } from '../types/tasks.types.js';
 
@@ -104,6 +105,20 @@ export function isActualEvent(event: EventTask, now: Date): boolean {
 /** Still ahead, and too far out to be worth showing as actual yet. */
 export function isUpcomingEvent(event: EventTask, now: Date): boolean {
   return now < activeFrom(event);
+}
+
+/**
+ * Nothing has happened to this occurrence yet — not finished, not a single step
+ * ticked. It holds no record of anything, so it can be rewritten or thrown away
+ * without losing what someone did.
+ *
+ * This is the line between an occurrence that is still just a plan and one that
+ * has become history, and it is what stops editing a repeat from erasing the
+ * sessions you already worked through.
+ */
+export function isUnstartedEvent(event: EventTask): boolean {
+  return event.status === TaskStatus.TODO
+    && event.subtasks.every((step) => step.status !== TaskStatus.DONE);
 }
 
 /** Was this event produced by a repeated config, rather than by a client? */

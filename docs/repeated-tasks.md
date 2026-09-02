@@ -334,7 +334,15 @@ The read side is done. These are what the write side needs.
   recurring checklist has nowhere else to live.
 - **B3 — generate immediately on early completion.** Marking the pending event DONE produces the
   next occurrence right away, so the update path triggers generation, not only the poller.
-- **B5 — editing a config wipes and regenerates.** On PUT, delete every event linked to that
+- **B5 (revised) — editing a config regenerates only when the schedule moves.** Originally: on
+  PUT, delete every event linked to the config and generate fresh. That was right for a schedule
+  change and wrong for everything else — fixing a typo in a repeat's name erased every finished
+  occurrence it had ever produced, which for a gym routine is the only record the session
+  happened. Now `scheduleOf` reduces a config to just the fields that decide *when* it fires, and
+  an edit that leaves those alone rewrites the waiting occurrences in place instead. Either way
+  only *unstarted, unspent* occurrences are touched: anything done, or with a step ticked, is
+  history and stays. `PATCH /repeated-tasks/:id` exists for the common case of changing one
+  thing. Original text: on PUT, delete every event linked to that
   config and generate fresh from the new rule. On DELETE, remove the config and its events
   outright — no soft delete. One shared builder writes the name/subtasks, so that logic is not
   duplicated between "create" and "regenerate".

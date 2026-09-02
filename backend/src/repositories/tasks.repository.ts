@@ -148,6 +148,31 @@ export class TasksRepository
     return updated === null ? null : this.toDomain(updated);
   }
 
+  /**
+   * Rewrites one occurrence from the config that owns it — everything a
+   * generated event inherits, and nothing it owns. The date stays (the schedule
+   * did not move, or this would not be the path taken), and so do `status`,
+   * `passedDate` and `notifiedAt`: those record what happened to this
+   * occurrence, not what the rule says.
+   */
+  async applyConfigToEvent(eventId: string, config: RepeatedTask): Promise<EventTask | null> {
+    const updated = await this.collection.findOneAndUpdate(
+      { _id: eventId, type: TaskType.EVENT },
+      {
+        $set: {
+          name: config.name,
+          category: config.category,
+          links: [...config.links],
+          ...windowOf(config),
+          subtasks: stepsFrom(config),
+        },
+      },
+      { returnDocument: 'after' },
+    );
+
+    return updated === null ? null : this.toDomain(updated) as EventTask;
+  }
+
   async markNotified(eventId: string, notifiedAt: Date): Promise<EventTask | null> {
     const updated = await this.collection.findOneAndUpdate(
       { _id: eventId, type: TaskType.EVENT },

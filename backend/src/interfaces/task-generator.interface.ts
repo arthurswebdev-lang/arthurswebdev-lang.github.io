@@ -12,6 +12,13 @@ export interface ITaskGeneratorService {
   syncPendingEvents(now: Date): Promise<EventTask[]>;
 
   /** Wipes a config's events and generates a fresh pending one (B5). */
+  /**
+   * Pushes the config's inherited fields onto the occurrences it has waiting,
+   * for a change that leaves the schedule alone. Started and spent ones are
+   * left as they are.
+   */
+  refreshEventsOfConfig(config: RepeatedTask, now: Date): Promise<EventTask[]>;
+
   regenerateForConfig(config: RepeatedTask, now: Date): Promise<EventTask | null>;
 
   /** Generates the follow-up occurrence after an event is finished early (B3). */

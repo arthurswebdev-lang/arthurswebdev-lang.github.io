@@ -3,7 +3,9 @@ import type { NextFunction, Request, Response } from 'express';
 import type { IRepeatedTasksService } from '../interfaces/repeated-tasks-service.interface.js';
 import type { BodyRequest, ParamsRequest } from '../types/request.type.js';
 import type { TaskIdParams } from '../types/tasks.types.js';
-import type { CreateRepeatedTask, RepeatedTask, UpdateRepeatedTask } from '../types/repeated-tasks.types.js';
+import type {
+  CreateRepeatedTask, PatchRepeatedTask, RepeatedTask, UpdateRepeatedTask,
+} from '../types/repeated-tasks.types.js';
 import { currentUserId } from '../middlewares/auth.middleware.js';
 import * as SuccessHandlerUtil from '../utils/success-handler.util.js';
 
@@ -61,6 +63,23 @@ export class RepeatedTasksController {
   ): Promise<void> {
     try {
       const config: RepeatedTask = await this.repeatedTasksService.updateById(
+        request.params.id,
+        currentUserId(response),
+        request.body,
+      );
+      SuccessHandlerUtil.handleUpdate(response, next, config);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async patchById(
+    request: BodyRequest<PatchRepeatedTask, TaskIdParams>,
+    response: Response<RepeatedTask>,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const config: RepeatedTask = await this.repeatedTasksService.patchById(
         request.params.id,
         currentUserId(response),
         request.body,

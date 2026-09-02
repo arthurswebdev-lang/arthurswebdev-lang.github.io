@@ -351,7 +351,7 @@ describe('a window longer than the repeat interval', () => {
 });
 
 describe('regenerating after a config is edited (B5)', () => {
-  it('clears every existing event and creates one fresh', async () => {
+  it('clears the untouched occurrences and creates one fresh', async () => {
     const { repository, generator } = withTasks([water]);
     await generator.ensurePendingEvent(water, utc('2026-08-19 08:00'));
     await generator.ensurePendingEvent(water, utc('2026-08-19 09:30'));
@@ -359,10 +359,76 @@ describe('regenerating after a config is edited (B5)', () => {
 
     const regenerated = await generator.regenerateForConfig(water, utc('2026-08-19 11:45'));
 
-    assert.equal(eventsIn(repository).length, 1);
+    // Both had gone by, so both were spent, so both stayed. Only the new one
+    // is added — nothing that already happened is thrown away.
     assert.deepEqual(regenerated?.date, utc('2026-08-19 13:00'));
+    assert.equal(eventsIn(repository).length, 3);
+  });
+});
+
+describe('regenerating keeps what already happened', () => {
+  it('keeps a finished occurrence rather than resurrecting it as a fresh one', async () => {
+    const { repository, generator } = withTasks([water]);
+    const done = await generator.ensurePendingEvent(water, utc('2026-08-19 11:45'));
+    assert.ok(done !== null);
+    await repository.updateStatus(done.id, TaskStatus.DONE);
+
+    await generator.regenerateForConfig(water, utc('2026-08-19 11:50'));
+
+    const finished = eventsIn(repository).find((event) => event.id === done.id);
+    assert.equal(finished?.status, TaskStatus.DONE);
   });
 
+  it('keeps an occurrence with a step already ticked', async () => {
+    const withSteps = aDailyConfig('water', { startsAt: '09:00', endsAt: '23:00', repeatEach: '02:00' });
+    withSteps.subtasks = [{ id: 'a', name: 'glass one' }, { id: 'b', name: 'glass two' }];
+    const { repository, generator } = withTasks([withSteps]);
+
+    const started = await generator.ensurePendingEvent(withSteps, utc('2026-08-19 11:45'));
+    assert.ok(started !== null);
+    const step = started.subtasks[0];
+    assert.ok(step !== undefined);
+    await repository.updateSubtaskStatus(started.id, step.id, TaskStatus.DONE);
+
+    await generator.regenerateForConfig(withSteps, utc('2026-08-19 11:50'));
+
+    assert.ok(eventsIn(repository).some((event) => event.id === started.id));
+  });
+});
+
+describe('an edit that leaves the schedule alone rewrites in place', () => {
+  it('pushes the new name and steps onto the waiting occurrence, id intact', async () => {
+    const { repository, generator } = withTasks([water]);
+    const pending = await generator.ensurePendingEvent(water, utc('2026-08-19 11:45'));
+    assert.ok(pending !== null);
+
+    const renamed = {
+      ...water,
+      name: 'drink more water',
+      subtasks: [{ id: 'a', name: 'a full glass' }],
+    };
+    await generator.refreshEventsOfConfig(renamed, utc('2026-08-19 11:50'));
+
+    const after = eventsIn(repository).find((event) => event.id === pending.id);
+    assert.ok(after !== undefined);
+    assert.equal(after.name, 'drink more water');
+    assert.deepEqual(after.subtasks.map((step) => step.name), ['a full glass']);
+    assert.deepEqual(after.date, pending.date);
+  });
+});
+
+describe('a rewrite in place spares what was finished', () => {
+  it('leaves a finished occurrence carrying what it was finished as', async () => {
+    const { repository, generator } = withTasks([water]);
+    const done = await generator.ensurePendingEvent(water, utc('2026-08-19 11:45'));
+    assert.ok(done !== null);
+    await repository.updateStatus(done.id, TaskStatus.DONE);
+
+    await generator.refreshEventsOfConfig({ ...water, name: 'renamed' }, utc('2026-08-19 11:50'));
+
+    const after = eventsIn(repository).find((event) => event.id === done.id);
+    assert.equal(after?.name, 'water');
+  });
 });
 
 describe('regenerating follows the edited schedule', () => {

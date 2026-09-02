@@ -5,6 +5,7 @@ import {
   validateCreate,
   validateDeleteById,
   validateGetById,
+  validatePatch,
   validateUpdate,
 } from '../middlewares/validation/repeated-tasks.validation.middleware.js';
 
@@ -31,6 +32,9 @@ export class RepeatedTasksRoutes {
     this.router.post(base, validateCreate, controller.create.bind(controller));
     this.router.get(`${base}/:id`, validateGetById, controller.getById.bind(controller));
     this.router.put(`${base}/:id`, validateUpdate, controller.updateById.bind(controller));
+    // PATCH for "change this one thing", PUT for "here is the whole config".
+    // Both reconcile events the same way; only the body differs.
+    this.router.patch(`${base}/:id`, validatePatch, controller.patchById.bind(controller));
     this.router.delete(`${base}/:id`, validateDeleteById, controller.deleteById.bind(controller));
 
     return this.router;

@@ -10,12 +10,12 @@
 --------------------------------------------------------------------------- */
 import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
-  fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, replaceRepeatedTask,
+  fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, updateRepeatedTask,
   replaceTask, saveCredentials, sendTestNotification, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=27';
+} from './api.js?v=30';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=27';
+} from './notifications.js?v=30';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -381,6 +381,7 @@ function emptyState() {
     passed: ['🕓', 'Nothing has gone by yet.'],
     actual: ['🎯', 'Nothing needs doing right now.'],
     upcoming: ['🌱', 'Nothing further out.'],
+    all: ['≡', 'Nothing here yet.'],
   };
   const [icon, text] = messages[activeFilter];
 
@@ -723,7 +724,11 @@ const cleanupButton = document.getElementById('cleanup');
  */
 const sweepable = () => {
   if (activeFilter === 'passed') return tasks;
-  if (activeFilter === 'actual') return tasks.filter((task) => task.status === 'DONE');
+  // `all` holds everything, spent and pending together, so the only safe reading
+  // of "tidy up" is the same as under `actual`: the ones that are finished.
+  if (activeFilter === 'actual' || activeFilter === 'all') {
+    return tasks.filter((task) => task.status === 'DONE');
+  }
 
   return [];
 };
@@ -1620,7 +1625,7 @@ composerForm.addEventListener('submit', () => {
   // guessing what it produced.
   const { editing, editingConfig } = draft;
   let send = () => createTask(credentials.token, payload);
-  if (editingConfig !== null) send = () => replaceRepeatedTask(credentials.token, editingConfig.id, payload);
+  if (editingConfig !== null) send = () => updateRepeatedTask(credentials.token, editingConfig.id, payload);
   else if (editing !== null) send = () => replaceTask(credentials.token, editing.id, payload);
   else if (draft.kind === 'REPEATED') send = () => createRepeatedTask(credentials.token, payload);
 

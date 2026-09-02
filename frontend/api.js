@@ -81,7 +81,9 @@ async function get(path, token) {
  */
 export function fetchTasks(token, { filter, category } = {}) {
   const query = new URLSearchParams();
-  if (filter) query.set("filter", filter);
+  // "all" is not a value the API knows: it is the request with no filter at all,
+  // the same way "all" means every category.
+  if (filter && filter !== "all") query.set("filter", filter);
   if (category && category !== "all") query.set("category", category);
 
   const suffix = query.toString();
@@ -150,8 +152,16 @@ export const deleteRepeatedTask = (token, id) => send("DELETE", `/repeated-tasks
 
 export const fetchRepeatedTask = (token, id) => get(`/repeated-tasks/${id}`, token);
 
-export const replaceRepeatedTask = (token, id, payload) =>
-  send("PUT", `/repeated-tasks/${id}`, token, payload);
+/**
+ * PATCH rather than PUT, even though the composer sends every field it knows.
+ *
+ * The server only regenerates a repeat's occurrences when the *schedule* moves;
+ * anything else is written onto the ones already waiting. PATCH keeps that
+ * honest as the form grows: a field the composer stops sending stays as it was,
+ * where PUT would quietly reset it to its default.
+ */
+export const updateRepeatedTask = (token, id, payload) =>
+  send("PATCH", `/repeated-tasks/${id}`, token, payload);
 
 export const setTaskStatus = (token, id, status) =>
   send("PATCH", `/tasks/${id}/status`, token, { status });

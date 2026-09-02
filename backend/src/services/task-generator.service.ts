@@ -1,5 +1,6 @@
 import {
-  eventsOfConfig, hasDatePassed, isEventTask, pendingEventOfConfig,
+  eventsOfConfig, hasDatePassed, isEventTask, isPassedEvent, isUnstartedEvent,
+  pendingEventOfConfig,
 } from '../filters/tasks.filters.js';
 import { TaskStatus } from '../enum/task-status.enum.js';
 import { nextOccurrence } from '../generators/occurrences.generator.js';
@@ -66,10 +67,67 @@ export class TaskGeneratorService implements ITaskGeneratorService {
     return generated.filter((event): event is EventTask => event !== null);
   }
 
+  /**
+   * The schedule moved, so the occurrences it produced no longer follow from it
+   * — but only the ones nobody has touched.
+   *
+   * This used to delete *every* event the config had ever made, which meant
+   * editing a repeat to fix a typo erased months of finished sessions. A
+   * generated event holds nothing a client typed, so throwing away an untouched
+   * future one costs nothing; a finished one is the only record that the
+   * occurrence happened at all, and changing the rule today does not un-happen
+   * it. Anything started or already spent is kept exactly where it is.
+   */
   async regenerateForConfig(config: RepeatedTask, now: Date): Promise<EventTask | null> {
-    await this.tasksRepository.deleteEventsOfConfig(config.id);
+    const tasks = await this.tasksRepository.listBy({ userId: config.userId });
+    const events = eventsOfConfig(tasks, config.id);
+    const disposable = events.filter(
+      (event) => isUnstartedEvent(event) && !isPassedEvent(event, now),
+    );
 
-    return this.generateNextFrom(config, now);
+    await this.tasksRepository.deleteManyByIds(
+      disposable.map((event) => event.id),
+      config.userId,
+    );
+
+    // A started occurrence that is still ahead stays pending, and generating
+    // beside it would put two of the same thing in the list.
+    //
+    // A *finished* one does not count, the same way it does not in
+    // `generateNextAfter`: it is a record of something done, not something
+    // waiting. Without that clause, finishing an occurrence early and then
+    // changing the schedule left the config with nothing pending at all.
+    const disposed = new Set(disposable.map((event) => event.id));
+    const stillPending = events.some(
+      (event) => !disposed.has(event.id)
+        && event.status !== TaskStatus.DONE
+        && !hasDatePassed(event.date, now),
+    );
+
+    return stillPending ? null : this.generateNextFrom(config, now);
+  }
+
+  /**
+   * The schedule did not move, so every occurrence is still on the right date —
+   * they just need what the config now says. Name, category, links, window and
+   * steps are all inherited, so all of them are rewritten; the date, the status
+   * and the reminder stamp belong to the occurrence and are left alone.
+   *
+   * Only untouched, unspent occurrences are rewritten. Replacing the steps of a
+   * session someone is halfway through would wipe the ticks, and a finished one
+   * is a record of what was actually done, not of what the rule says today.
+   */
+  async refreshEventsOfConfig(config: RepeatedTask, now: Date): Promise<EventTask[]> {
+    const tasks = await this.tasksRepository.listBy({ userId: config.userId });
+    const refreshable = eventsOfConfig(tasks, config.id).filter(
+      (event) => isUnstartedEvent(event) && !isPassedEvent(event, now),
+    );
+
+    const updated = await Promise.all(
+      refreshable.map((event) => this.tasksRepository.applyConfigToEvent(event.id, config)),
+    );
+
+    return updated.filter((event): event is EventTask => event !== null);
   }
 
   async generateNextAfter(event: EventTask, now: Date): Promise<EventTask | null> {

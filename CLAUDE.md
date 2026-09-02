@@ -104,6 +104,23 @@ one blank line before a `return` that follows logic.
   events (`configTaskId: null`) are unaffected — there is no config to edit instead. A config's
   own `status` is likewise fixed: it is a rule, not a to-do. Both rules live in
   `src/rules/task-update.rules.ts`, one function each.
+- **Editing a repeat regenerates its occurrences only when the *schedule* moves.**
+  `scheduleOf` in `src/rules/repeated-task-schedule.rules.ts` reduces a config to the fields that
+  decide *when* it fires — weekdays, or fromDay+months, or the daily window — and an edit is
+  compared against that. Change the name, links, category, steps or window and the dates are all
+  still right, so the waiting occurrences are **rewritten in place**
+  (`refreshEventsOfConfig`) rather than deleted. Note the window fields are *not* part of the
+  schedule: they change how long an occurrence matters, never when it falls.
+- **Nothing that has been started is ever rewritten or thrown away.** `isUnstartedEvent` — status
+  TODO and no step ticked — is the line between an occurrence that is still a plan and one that
+  is a record. Both paths only touch unstarted, unspent occurrences, which is why editing a
+  repeat no longer erases the sessions you already did. `DELETE /repeated-tasks/:id` still
+  removes everything: there the config itself is gone.
+- **`PATCH /repeated-tasks/:id` changes only the fields it names**, merging onto the stored config
+  and re-validating the result with the full create schema — so a patch cannot assemble a config
+  a create would have refused (`weekdays` on a daily config, a reminder before the task is
+  visible). `type` is accepted but cannot change. PUT still replaces; both reconcile events the
+  same way.
 - **PUT replaces, it does not merge.** `UpdateTaskSchema` is `CreateTaskSchema`: a PUT body is
   the full task representation, and a field the client omits falls back to its default rather
   than keeping its stored value. Only `id` and `createdAt` survive an update. `type` must match

@@ -133,11 +133,24 @@ body {
 /* --- filters ------------------------------------------------------------ */
 .filters {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* Three flexible pills and one square. The last column is sized by its own
+     content rather than a share of the row, which is what leaves the square
+     free to take its width from its height. */
+  grid-template-columns: repeat(3, 1fr) auto;
   gap: 0.5rem;
   padding-bottom: 0.9rem;
   border-bottom: 1px solid var(--line);
 }
+
+/* Square: the grid stretches it to the row's height, and the ratio turns that
+   height into its width, so it stays square whatever the other pills do. */
+.filter--all {
+  aspect-ratio: 1;
+  height: 100%;
+  padding-inline: 0;
+}
+
+.filter--all .filter__icon { font-size: 1.25rem; line-height: 1; }
 
 .filter {
   display: flex;
