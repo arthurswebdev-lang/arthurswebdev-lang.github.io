@@ -997,9 +997,19 @@ async function signOut() {
 const repeatsDialog = document.getElementById('repeats');
 const repeatsList = document.getElementById('repeats-list');
 
+/** "" for a config that runs every day — there is nothing to say about it. */
+function daysSuffix(weekdays) {
+  if (!weekdays || weekdays.length === 7) return '';
+
+  const named = WEEKDAYS.filter(({ value }) => weekdays.includes(value)).map(({ label }) => label);
+
+  return ` · ${named.join(' ')}`;
+}
+
 const SCHEDULE_LABEL = {
   DAILY: (config) => `every ${String(config.repeatEach.hour)}h${config.repeatEach.minute
-    ? String(config.repeatEach.minute) : ''}, ${String(config.startsAt.hour)}:00–${String(config.endsAt.hour)}:00`,
+    ? String(config.repeatEach.minute) : ''}, ${String(config.startsAt.hour)}:00–${String(config.endsAt.hour)}:00`
+    + daysSuffix(config.weekdays),
   REPEATED_WEEKLY: (config) => `weekdays ${config.weekdays.join(', ')}`,
   REPEATED_MONTHLY: (config) => `day ${String(config.fromDay)} of months ${config.months.join(', ')}`,
 };
@@ -1143,6 +1153,14 @@ const WEEKDAYS = [
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   .map((label, index) => ({ value: index + 1, label }));
+
+const EVERY_DAY = WEEKDAYS.map(({ value }) => value);
+
+/* Which days a brand new config starts with. Daily means every day — the field
+   is there to take days away, so starting it empty would make the commonest
+   case the one you have to fill in. A weekly config has no such default: its
+   days are the whole schedule, so it starts on Monday and expects a choice. */
+const DEFAULT_WEEKDAYS = { DAILY: EVERY_DAY, REPEATED_WEEKLY: [1] };
 
 const composer = document.getElementById('composer');
 const composerForm = document.getElementById('composer-form');
@@ -1352,6 +1370,13 @@ document.querySelectorAll('[data-kind]').forEach((button) => {
 document.querySelectorAll('[data-schedule]').forEach((button) => {
   button.addEventListener('click', () => {
     draft.schedule = button.dataset.schedule;
+    // Now, and not when the wizard opened: which days to start with is a
+    // question about the schedule, and the schedule was not chosen yet.
+    toggleGroup(
+      document.getElementById('weekday-toggles'),
+      WEEKDAYS,
+      DEFAULT_WEEKDAYS[draft.schedule] ?? [],
+    );
     showStep('details');
   });
 });
@@ -1375,7 +1400,7 @@ document.getElementById('add').addEventListener('click', () => {
   fillCategories();
   linkRows.replaceChildren();
   subtaskRows.replaceChildren();
-  toggleGroup(document.getElementById('weekday-toggles'), WEEKDAYS, [1]);
+  toggleGroup(document.getElementById('weekday-toggles'), WEEKDAYS, []);
   toggleGroup(document.getElementById('month-toggles'), MONTHS, [new Date().getMonth() + 1]);
   showStep('kind');
   composer.showModal();
@@ -1588,6 +1613,7 @@ function draftPayload(data) {
       endsAt: toUtcParts(data.get('endsAt')),
       // A gap, not a clock time: two hours is two hours in any zone.
       repeatEach: timeParts(data.get('repeatEach')),
+      weekdays: chosenValues(document.getElementById('weekday-toggles')),
     };
   }
 
@@ -1619,6 +1645,14 @@ composerForm.addEventListener('submit', () => {
 
       return;
     }
+  }
+
+  // Said here rather than left to the 400, because "must contain at least 1
+  // items" is not what someone who just unticked the last day needs to read.
+  if (payload.weekdays?.length === 0) {
+    wizardSteps.textContent = 'Pick at least one day — with none, this would never come round.';
+
+    return;
   }
 
   // A repeat is a config: the server makes the event, so reload rather than

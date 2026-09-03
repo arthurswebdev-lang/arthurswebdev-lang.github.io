@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
 import { TaskCategory } from '../../src/enum/task-category.enum.js';
-import { windowWithDefaults } from '../../src/schemes/common.schemes.js';
+import { TaskType } from '../../src/enum/task-type.enum.js';
+import { ALL_WEEKDAYS, windowWithDefaults } from '../../src/schemes/common.schemes.js';
 
 import type {
   IRepeatedTasksRepository,
@@ -9,8 +10,7 @@ import type {
 import type { CreateRepeatedTask, RepeatedTask, UpdateRepeatedTask } from '../../src/types/repeated-tasks.types.js';
 
 function toEntity(input: CreateRepeatedTask, userId: string): RepeatedTask {
-  return {
-    ...input,
+  const base = {
     id: randomUUID(),
     userId,
     createdAt: new Date(),
@@ -19,6 +19,12 @@ function toEntity(input: CreateRepeatedTask, userId: string): RepeatedTask {
     ...windowWithDefaults(input),
     subtasks: (input.subtasks ?? []).map((step) => ({ ...step, id: randomUUID() })),
   };
+
+  if (input.type === TaskType.REPEATED_DAILY) {
+    return { ...input, ...base, weekdays: input.weekdays ?? ALL_WEEKDAYS };
+  }
+
+  return { ...input, ...base };
 }
 
 /** The configs store, backed by an array. */

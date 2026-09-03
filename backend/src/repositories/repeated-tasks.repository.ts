@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
 import { TaskCategory } from '../enum/task-category.enum.js';
-import { windowWithDefaults } from '../schemes/common.schemes.js';
+import { TaskType } from '../enum/task-type.enum.js';
+import { ALL_WEEKDAYS, windowWithDefaults } from '../schemes/common.schemes.js';
 
 import type { Db } from 'mongodb';
 
@@ -47,8 +48,7 @@ export class RepeatedTasksRepository
   }
 
   protected toEntity(input: CreateRepeatedTask, userId: string): RepeatedTask {
-    return {
-      ...input,
+    const base = {
       id: randomUUID(),
       userId,
       createdAt: new Date(),
@@ -57,6 +57,15 @@ export class RepeatedTasksRepository
       ...windowWithDefaults(input),
       subtasks: toRepeatedSubtasks(input.subtasks),
     };
+
+    // Daily is the one schedule whose days are optional, because leaving them
+    // out means all of them. Filled here as well as in the schema so a config
+    // stored before the field existed gains it on its first write.
+    if (input.type === TaskType.REPEATED_DAILY) {
+      return { ...input, ...base, weekdays: input.weekdays ?? ALL_WEEKDAYS };
+    }
+
+    return { ...input, ...base };
   }
 
   /** PUT replaces the config outright; only id and createdAt survive. */

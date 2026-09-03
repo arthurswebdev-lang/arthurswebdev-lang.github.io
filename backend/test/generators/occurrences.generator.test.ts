@@ -84,6 +84,62 @@ describe('daily — configs that cannot generate (B10, B12)', () => {
   });
 });
 
+describe('daily — only on the days it runs on', () => {
+  // "Daily" defaults to all seven days; deselecting some is how a routine
+  // becomes Monday-to-Friday without giving up the several-times-a-day grid.
+  const onWeekdays = aDailyConfig('water', {
+    startsAt: '09:00', endsAt: '23:00', repeatEach: '02:00', weekdays: [1, 2, 3, 4, 5],
+  });
+
+  it('follows the grid on a day it runs on', () => {
+    assert.deepEqual(
+      nextDailyOccurrence(onWeekdays, utc('Wed 2026-08-19 11:45')),
+      utc('Wed 2026-08-19 13:00'),
+    );
+  });
+
+  it('skips Saturday and Sunday entirely', () => {
+    assert.deepEqual(
+      nextDailyOccurrence(onWeekdays, utc('Fri 2026-08-21 23:01')),
+      utc('Mon 2026-08-24 09:00'),
+    );
+  });
+
+  it('answers Monday when asked in the middle of a Sunday', () => {
+    assert.deepEqual(
+      nextDailyOccurrence(onWeekdays, utc('Sun 2026-08-23 12:00')),
+      utc('Mon 2026-08-24 09:00'),
+    );
+  });
+
+});
+
+describe('daily — the edges of a weekday-only config', () => {
+  it('finds the one day it runs on, a week out', () => {
+    const sundaysOnly = aDailyConfig('water', {
+      startsAt: '09:00', endsAt: '23:00', repeatEach: '02:00', weekdays: [0],
+    });
+
+    assert.deepEqual(
+      nextDailyOccurrence(sundaysOnly, utc('Mon 2026-08-24 09:00')),
+      utc('Sun 2026-08-30 09:00'),
+    );
+  });
+
+  it('defaults to every day, so an unchanged config still rolls to tomorrow', () => {
+    assert.deepEqual(nextDailyOccurrence(water, utc('Sat 2026-08-22 23:01')), utc('Sun 2026-08-23 09:00'));
+  });
+
+  it('refuses a config with no days rather than searching for ever', () => {
+    const never = aDailyConfig('water', {
+      startsAt: '09:00', endsAt: '23:00', repeatEach: '02:00', weekdays: [],
+    });
+
+    assert.equal(isDailyConfigUsable(never), false);
+    assert.equal(nextDailyOccurrence(never, utc('2026-08-19 11:45')), null);
+  });
+});
+
 describe('weekly — next occurrence', () => {
   const gym = aWeeklyConfig('gym', [1, 5]);
 

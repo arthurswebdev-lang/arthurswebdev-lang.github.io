@@ -30,9 +30,13 @@ export function scheduleOf(config: RepeatedTask): string {
 
   switch (config.type) {
     case TaskType.REPEATED_DAILY:
+      // The weekdays belong here too: dropping a Saturday from a daily config
+      // means the occurrence waiting on Saturday is no longer one the rule
+      // produces, which is a move however the times are left alone.
       return `daily:${String(toMinutesOfDay(config.startsAt))}`
         + `-${String(toMinutesOfDay(config.endsAt))}`
-        + `/${String(toMinutesOfDay(config.repeatEach))}`;
+        + `/${String(toMinutesOfDay(config.repeatEach))}`
+        + `@${[...config.weekdays].sort(ascending).join(',')}`;
     case TaskType.REPEATED_WEEKLY:
       return `weekly:${[...config.weekdays].sort(ascending).join(',')}`;
     case TaskType.REPEATED_MONTHLY:

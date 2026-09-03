@@ -7,7 +7,7 @@ import type {
 } from '../types/repeated-tasks.types.js';
 import { JoiObject } from '../middlewares/validation/util/validation.util.js';
 import {
-  assertWindowOrder, byType, fields, typeOf, windowFields,
+  ALL_WEEKDAYS, assertWindowOrder, byType, fields, typeOf, windowFields,
 } from './common.schemes.js';
 
 export const CreateDailyTaskSchema = assertWindowOrder(JoiObject<CreateDailyTask>({
@@ -20,6 +20,9 @@ export const CreateDailyTaskSchema = assertWindowOrder(JoiObject<CreateDailyTask
   startsAt: fields.time.required(),
   endsAt: fields.time.required(),
   repeatEach: fields.time.required(),
+  // Defaulted, not required: every existing daily config was written before
+  // this field existed and means every day.
+  weekdays: fields.weekdays.default(ALL_WEEKDAYS),
 }));
 
 export const CreateWeeklyTaskSchema = assertWindowOrder(JoiObject<CreateWeeklyTask>({
@@ -60,7 +63,7 @@ export const UpdateRepeatedTaskSchema = CreateRepeatedTaskSchema;
  * Every variant's schedule fields are allowed here because the middleware
  * cannot know which kind of config it is patching — that needs the stored row.
  * The service merges the patch onto it and runs the full schema over the
- * result, which is where `weekdays` on a daily config is refused.
+ * result, which is where `fromDay` on a weekly config is refused.
  *
  * `type` is accepted but cannot change anything: a client holding the whole
  * config should be able to PATCH it back without stripping a field first, and

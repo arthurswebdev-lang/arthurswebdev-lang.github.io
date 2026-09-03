@@ -106,21 +106,35 @@ one blank line before a `return` that follows logic.
   `src/rules/task-update.rules.ts`, one function each.
 - **Editing a repeat regenerates its occurrences only when the *schedule* moves.**
   `scheduleOf` in `src/rules/repeated-task-schedule.rules.ts` reduces a config to the fields that
-  decide *when* it fires — weekdays, or fromDay+months, or the daily window — and an edit is
-  compared against that. Change the name, links, category, steps or window and the dates are all
-  still right, so the waiting occurrences are **rewritten in place**
+  decide *when* it fires — weekdays, or fromDay+months, or the daily window **and its weekdays** —
+  and an edit is compared against that. Change the name, links, category, steps or window and the
+  dates are all still right, so the occurrences are **rewritten in place**
   (`refreshEventsOfConfig`) rather than deleted. Note the window fields are *not* part of the
   schedule: they change how long an occurrence matters, never when it falls.
-- **Nothing that has been started is ever rewritten or thrown away.** `isUnstartedEvent` — status
-  TODO and no step ticked — is the line between an occurrence that is still a plan and one that
-  is a record. Both paths only touch unstarted, unspent occurrences, which is why editing a
-  repeat no longer erases the sessions you already did. `DELETE /repeated-tasks/:id` still
-  removes everything: there the config itself is gone.
+- **Two different lines, for two different things.** Throwing an occurrence *away*
+  (`regenerateForConfig`) needs `isUnstartedEvent` — status TODO and no step ticked — because a
+  deletion cannot be taken back. Rewriting one in place (`refreshEventsOfConfig`) needs only
+  `isRewritableEvent`: not DONE, window not shut. **A session you have already started is
+  rewritten**, and it has to be — correcting a repeat from 30kg to 35kg is about the session you
+  are in the middle of, and skipping it left the list saying 30kg while the edit sheet said 35kg.
+  The ticks survive: `stepsFor` in `tasks.repository.ts` pairs the config's steps against the ones
+  the occurrence already has **by name**, so a step still present keeps its id and its status and
+  only a renamed or new one starts TODO. What neither path touches is an occurrence that is over —
+  that is the record of what actually happened. `DELETE /repeated-tasks/:id` still removes
+  everything: there the config itself is gone.
 - **`PATCH /repeated-tasks/:id` changes only the fields it names**, merging onto the stored config
   and re-validating the result with the full create schema — so a patch cannot assemble a config
-  a create would have refused (`weekdays` on a daily config, a reminder before the task is
+  a create would have refused (`fromDay` on a weekly config, a reminder before the task is
   visible). `type` is accepted but cannot change. PUT still replaces; both reconcile events the
   same way.
+- **A daily config carries `weekdays` too**, defaulting to all seven (`ALL_WEEKDAYS`). "Daily"
+  still means every day until days are deselected; the field exists so a several-times-a-day
+  routine can run Monday to Friday. It is the same field a weekly config has and means the same
+  thing, so `runsOnWeekday` serves both — the difference is only that a weekly config *requires*
+  days (with none it would fire never) while a daily one falls back to all of them.
+  `nextDailyOccurrence` therefore walks a day at a time rather than jumping to tomorrow.
+  Migrated by `backend/scripts/2026-09-03-daily-weekdays.ts`, which must run **before** the code
+  that reads the field is deployed.
 - **PUT replaces, it does not merge.** `UpdateTaskSchema` is `CreateTaskSchema`: a PUT body is
   the full task representation, and a field the client omits falls back to its default rather
   than keeping its stored value. Only `id` and `createdAt` survive an update. `type` must match

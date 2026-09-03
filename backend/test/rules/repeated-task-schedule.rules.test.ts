@@ -27,6 +27,28 @@ describe('what counts as the same schedule', () => {
   });
 });
 
+describe('a daily config that skips days', () => {
+  const weekdaysOnly = aDailyConfig('water', {
+    startsAt: '09:00', endsAt: '23:00', repeatEach: '02:00', weekdays: [1, 2, 3, 4, 5],
+  });
+
+  it('sees dropping the weekend as a move, though no time changed', () => {
+    assert.equal(scheduleMoved(water, weekdaysOnly), true);
+  });
+
+  it('ignores the order the days were tapped in', () => {
+    const reordered = aDailyConfig('water', {
+      startsAt: '09:00', endsAt: '23:00', repeatEach: '02:00', weekdays: [5, 4, 3, 2, 1],
+    });
+
+    assert.equal(scheduleMoved(weekdaysOnly, reordered), false);
+  });
+
+  it('reads as the days it runs on', () => {
+    assert.equal(scheduleOf(weekdaysOnly), 'daily:540-1380/120@1,2,3,4,5');
+  });
+});
+
 describe('a moved schedule', () => {
   it('sees a different day of the month as a move', () => {
     assert.equal(scheduleMoved(rent, aMonthlyConfig('rent', { fromDay: 6, months: [9, 10] })), true);
@@ -89,6 +111,6 @@ describe('the schedule string itself', () => {
   it('reads as the schedule it describes', () => {
     assert.equal(scheduleOf(gym), 'weekly:1,5');
     assert.equal(scheduleOf(rent), 'monthly:5@9,10');
-    assert.equal(scheduleOf(water), 'daily:540-1380/120');
+    assert.equal(scheduleOf(water), 'daily:540-1380/120@0,1,2,3,4,5,6');
   });
 });

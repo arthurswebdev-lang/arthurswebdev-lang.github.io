@@ -294,7 +294,10 @@
         </label>
       </div>
 
-      <fieldset class="field" data-for="REPEATED_WEEKLY" hidden>
+      <!-- Shared by both schedules that have days. A daily config arrives with
+           all seven on, so "daily" still means every day until some are turned
+           off; a weekly one starts on Monday alone. -->
+      <fieldset class="field" data-for="DAILY REPEATED_WEEKLY" hidden>
         <legend class="field__label">Days</legend>
         <div class="toggles" id="weekday-toggles"></div>
       </fieldset>
@@ -325,6 +328,6 @@
 <script src="./firebase-config.js?v=30"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
-<script type="module" src="./app.js?v=30"></script>
+<script type="module" src="./app.js?v=31"></script>
 </body>
 </html>

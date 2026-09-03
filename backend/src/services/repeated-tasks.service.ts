@@ -48,6 +48,7 @@ function asDraft(config: RepeatedTask): UpdateRepeatedTask {
         startsAt: config.startsAt,
         endsAt: config.endsAt,
         repeatEach: config.repeatEach,
+        weekdays: [...config.weekdays],
       };
     case TaskType.REPEATED_WEEKLY:
       return { ...shared, type: config.type, weekdays: [...config.weekdays] };
@@ -110,8 +111,8 @@ export class RepeatedTasksService implements IRepeatedTasksService {
   /**
    * PATCH: the fields named, and only those. The stored config supplies the
    * rest, and the merged result goes through the same schema a PUT would, so a
-   * patch cannot assemble a config a create would have refused — `weekdays` on
-   * a daily config, or a reminder that arrives before the task is visible.
+   * patch cannot assemble a config a create would have refused — `fromDay` on
+   * a weekly config, or a reminder that arrives before the task is visible.
    */
   async patchById(id: string, userId: string, changes: PatchRepeatedTask): Promise<RepeatedTask> {
     const before = await this.ownedOrMissing(id, userId);

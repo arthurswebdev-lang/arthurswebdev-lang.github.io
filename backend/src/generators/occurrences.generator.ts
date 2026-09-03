@@ -81,12 +81,25 @@ export function clampDayToMonth(year: number, monthIndex: number, day: number): 
 // ── Is a config even usable? ───────────────────────────────────────────────
 
 /**
- * A daily config only generates if its window runs forwards and its step moves.
- * A zero `repeatEach` would otherwise loop for ever.
+ * A daily config only generates if its window runs forwards, its step moves and
+ * it runs on at least one day. A zero `repeatEach` would otherwise loop for
+ * ever, and an empty `weekdays` would search a week and find nothing.
  */
 export function isDailyConfigUsable(config: DailyTask): boolean {
   return toMinutesOfDay(config.repeatEach) > 0
-    && toMinutesOfDay(config.startsAt) <= toMinutesOfDay(config.endsAt);
+    && toMinutesOfDay(config.startsAt) <= toMinutesOfDay(config.endsAt)
+    && config.weekdays.length > 0;
+}
+
+/**
+ * Does this config run on the weekday `date` falls on?
+ *
+ * Shared by both kinds that carry `weekdays`. The weekday is read in UTC, the
+ * same as every other date decision here — see the note on `GENERATED_EVENT_TIME`
+ * for why that is the right reading for the one timezone this app is used in.
+ */
+export function runsOnWeekday(config: DailyTask | WeeklyTask, date: Date): boolean {
+  return config.weekdays.includes(date.getUTCDay());
 }
 
 // ── Daily ──────────────────────────────────────────────────────────────────
@@ -115,25 +128,28 @@ export function dailyGridFor(day: Date, config: DailyTask): Date[] {
 
 /**
  * Next pour after `after`. At 11:45 with a 2h grid from 09:00 that is 13:00;
- * at 23:01 today's grid is spent, so it rolls to tomorrow's 09:00.
+ * at 23:01 today's grid is spent, so it rolls to the next day the config runs
+ * on — tomorrow for an everyday config, Monday for a weekdays-only one.
+ *
+ * Walks a day at a time rather than jumping straight to tomorrow, because
+ * `weekdays` may skip several: eight days are enough to come back round to any
+ * chosen weekday, today included.
  */
 export function nextDailyOccurrence(config: DailyTask, after: Date): Date | null {
   if (!isDailyConfigUsable(config)) return null;
 
-  const todaysPoint = dailyGridFor(after, config).find((point) => point > after);
-  if (todaysPoint !== undefined) return todaysPoint;
+  for (let offset = 0; offset <= DAYS_PER_WEEK; offset += 1) {
+    const day = new Date(startOfUtcDay(after).getTime() + offset * MS_PER_DAY);
+    if (!runsOnWeekday(config, day)) continue;
 
-  const tomorrow = new Date(startOfUtcDay(after).getTime() + MS_PER_DAY);
+    const point = dailyGridFor(day, config).find((candidate) => candidate > after);
+    if (point !== undefined) return point;
+  }
 
-  return atTimeOfDay(tomorrow, config.startsAt);
+  return null;
 }
 
 // ── Weekly ─────────────────────────────────────────────────────────────────
-
-/** Does this config run on the weekday `date` falls on? */
-export function runsOnWeekday(config: WeeklyTask, date: Date): boolean {
-  return config.weekdays.includes(date.getUTCDay());
-}
 
 /**
  * Next session after `after`, at `GENERATED_EVENT_TIME`. Checks today first, so

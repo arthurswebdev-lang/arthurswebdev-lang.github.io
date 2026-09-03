@@ -56,6 +56,15 @@ export interface DailyTask extends BaseRepeatedTask {
   endsAt: TimeOfDay;
   /** Gap between two runs within the window, as hours + minutes. */
   repeatEach: TimeOfDay;
+  /**
+   * Days of the week the window opens on: 0 = Sunday ... 6 = Saturday.
+   *
+   * The same field a weekly config carries, and it means the same thing — a
+   * daily config is a weekly one that fires several times on each of its days.
+   * It defaults to all seven, so "daily" keeps meaning every day until days are
+   * deselected; Monday to Friday is what it is actually for.
+   */
+  weekdays: number[];
 }
 
 export interface WeeklyTask extends BaseRepeatedTask {
@@ -89,7 +98,13 @@ export type RepeatedDraft<T extends BaseRepeatedTask> =
     subtasks?: RepeatedSubtaskDraft[];
   };
 
-export type CreateDailyTask = RepeatedDraft<DailyTask>;
+/**
+ * `weekdays` is optional here alone: a weekly config with no days would fire
+ * never, so it is required there, while a daily one falls back to all seven.
+ */
+export type CreateDailyTask = Omit<RepeatedDraft<DailyTask>, 'weekdays'> & {
+  weekdays?: number[];
+};
 export type CreateWeeklyTask = RepeatedDraft<WeeklyTask>;
 export type CreateMonthlyTask = RepeatedDraft<MonthlyTask>;
 

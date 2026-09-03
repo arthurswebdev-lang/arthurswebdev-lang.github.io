@@ -21,6 +21,16 @@ export const DEFAULT_REMIND_BEFORE_MINS = 0;
 export const DEFAULT_ACTIVE_BEFORE_MINS = 24 * 60;
 export const DEFAULT_ACTIVE_FOR_MINS = 10;
 
+/**
+ * The days a daily config runs on when it does not name any.
+ *
+ * "Daily" means every day until you say otherwise, so the field arrives
+ * pre-filled rather than empty: a config that named no days would generate
+ * nothing at all, which is not what anyone choosing "daily" meant. Deselecting
+ * days is how a weekday-only routine is expressed.
+ */
+export const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+
 /** Fills in whichever of the three the client left out. */
 export function windowWithDefaults(input: Partial<TaskWindow>): TaskWindow {
   return {

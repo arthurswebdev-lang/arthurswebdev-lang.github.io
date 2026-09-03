@@ -2,7 +2,7 @@ import { TaskCategory } from '../../src/enum/task-category.enum.js';
 import { TaskStatus } from '../../src/enum/task-status.enum.js';
 import { TaskType } from '../../src/enum/task-type.enum.js';
 import {
-  DEFAULT_ACTIVE_BEFORE_MINS, DEFAULT_ACTIVE_FOR_MINS, DEFAULT_REMIND_BEFORE_MINS,
+  ALL_WEEKDAYS, DEFAULT_ACTIVE_BEFORE_MINS, DEFAULT_ACTIVE_FOR_MINS, DEFAULT_REMIND_BEFORE_MINS,
 } from '../../src/schemes/common.schemes.js';
 import type { BasicTask, EventTask } from '../../src/types/tasks.types.js';
 import type { DailyTask, MonthlyTask, TimeOfDay, WeeklyTask } from '../../src/types/repeated-tasks.types.js';
@@ -118,9 +118,10 @@ export function timeOfDay(clock: string): TimeOfDay {
   return { hour: hour ?? 0, minute: minute ?? 0 };
 }
 
+/** Runs every day unless the scenario names the days it cares about. */
 export function aDailyConfig(
   name: string,
-  schedule: { startsAt: string; endsAt: string; repeatEach: string },
+  schedule: { startsAt: string; endsAt: string; repeatEach: string; weekdays?: number[] },
 ): DailyTask {
   return {
     id: `config-${name}`,
@@ -137,6 +138,7 @@ export function aDailyConfig(
     startsAt: timeOfDay(schedule.startsAt),
     endsAt: timeOfDay(schedule.endsAt),
     repeatEach: timeOfDay(schedule.repeatEach),
+    weekdays: schedule.weekdays ?? ALL_WEEKDAYS,
   };
 }
 
