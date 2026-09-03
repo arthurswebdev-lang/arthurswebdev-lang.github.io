@@ -1,6 +1,6 @@
 import {
-  eventsOfConfig, hasDatePassed, isEventTask, isPassedEvent, isUnstartedEvent,
-  pendingEventOfConfig,
+  eventsOfConfig, hasDatePassed, isEventTask, isPassedEvent, isRewritableEvent,
+  isUnstartedEvent, pendingEventOfConfig,
 } from '../filters/tasks.filters.js';
 import { TaskStatus } from '../enum/task-status.enum.js';
 import { nextOccurrence } from '../generators/occurrences.generator.js';
@@ -113,18 +113,24 @@ export class TaskGeneratorService implements ITaskGeneratorService {
    * steps are all inherited, so all of them are rewritten; the date, the status
    * and the reminder stamp belong to the occurrence and are left alone.
    *
-   * Only untouched, unspent occurrences are rewritten. Replacing the steps of a
-   * session someone is halfway through would wipe the ticks, and a finished one
-   * is a record of what was actually done, not of what the rule says today.
+   * Every occurrence still ahead of you is rewritten, **including one you have
+   * already started**. That is the point of the whole path: correcting a repeat
+   * from 30kg to 35kg has to show up on the session you are in the middle of,
+   * and it used to be skipped the moment a single set was ticked, so the list
+   * went on saying 30kg while the edit sheet said 35kg. The ticks survive it —
+   * `applyConfigToEvent` merges the steps rather than replacing them.
+   *
+   * What is *not* rewritten is an occurrence that is over: finished, or with its
+   * window shut. Those are the record of what actually happened, and today's
+   * correction does not reach back into last week's session.
    */
   async refreshEventsOfConfig(config: RepeatedTask, now: Date): Promise<EventTask[]> {
     const tasks = await this.tasksRepository.listBy({ userId: config.userId });
-    const refreshable = eventsOfConfig(tasks, config.id).filter(
-      (event) => isUnstartedEvent(event) && !isPassedEvent(event, now),
-    );
+    const refreshable = eventsOfConfig(tasks, config.id)
+      .filter((event) => isRewritableEvent(event, now));
 
     const updated = await Promise.all(
-      refreshable.map((event) => this.tasksRepository.applyConfigToEvent(event.id, config)),
+      refreshable.map((event) => this.tasksRepository.applyConfigToEvent(event, config)),
     );
 
     return updated.filter((event): event is EventTask => event !== null);

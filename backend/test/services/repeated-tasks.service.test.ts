@@ -114,6 +114,88 @@ describe('patching a repeat that does move its schedule', () => {
   });
 });
 
+/**
+ * A config whose one waiting occurrence has had its first step ticked.
+ *
+ * The bug this exists for: a repeat renamed from 30kg to 35kg went on reading
+ * 30kg in the list while the edit sheet showed 35kg. The occurrence was skipped
+ * because one set had been ticked on it — but a session you are halfway through
+ * is exactly the one the correction is about.
+ */
+async function startedSession() {
+  const { tasks, service } = serviceWith();
+  const config = await service.create(gymBody, TEST_USER_ID);
+  const started = eventsIn(tasks)[0];
+  assert.ok(started !== undefined);
+  const firstStep = started.subtasks[0];
+  assert.ok(firstStep !== undefined);
+  await tasks.updateSubtaskStatus(started.id, firstStep.id, TaskStatus.DONE);
+
+  return { tasks, service, config, started };
+}
+
+describe('an edit reaches a session already under way', () => {
+  it('pushes the new name onto it', async () => {
+    const { tasks, service, config } = await startedSession();
+
+    await service.patchById(config.id, TEST_USER_ID, { name: 'Leg press – 35kg' });
+
+    assert.equal(eventsIn(tasks)[0]?.name, 'Leg press – 35kg');
+  });
+
+  it('keeps the tick that was already there', async () => {
+    const { tasks, service, config } = await startedSession();
+
+    await service.patchById(config.id, TEST_USER_ID, { name: 'Leg press – 35kg' });
+
+    assert.equal(eventsIn(tasks)[0]?.subtasks[0]?.status, TaskStatus.DONE);
+  });
+
+});
+
+describe('an edit to a started session keeps its ticks', () => {
+  it('keeps the tick when a step is added alongside it', async () => {
+    const { tasks, service, config } = await startedSession();
+
+    await service.patchById(config.id, TEST_USER_ID, {
+      subtasks: [{ name: 'Warm-up ×12' }, { name: 'Set 1 ×12' }, { name: 'Set 2 ×12' }],
+    });
+
+    const steps = eventsIn(tasks)[0]?.subtasks ?? [];
+    assert.equal(steps.length, 3);
+    assert.deepEqual(
+      steps.map((step) => step.status),
+      [TaskStatus.DONE, TaskStatus.TODO, TaskStatus.TODO],
+    );
+  });
+
+  it('starts a renamed step fresh, because it is a different step', async () => {
+    const { tasks, service, config } = await startedSession();
+
+    await service.patchById(config.id, TEST_USER_ID, {
+      subtasks: [{ name: 'Warm-up ×15' }, { name: 'Set 1 ×12' }],
+    });
+
+    assert.equal(eventsIn(tasks)[0]?.subtasks[0]?.status, TaskStatus.TODO);
+  });
+
+});
+
+describe('an edit to a started session leaves the occurrence itself alone', () => {
+  it('keeps its id and its date', async () => {
+    const { tasks, service, config, started } = await startedSession();
+
+    await service.patchById(config.id, TEST_USER_ID, { name: 'Leg press – 35kg' });
+
+    const after = eventsIn(tasks);
+    assert.equal(after.length, 1);
+    const only = after[0];
+    assert.ok(only !== undefined);
+    assert.equal(only.id, started.id);
+    assert.deepEqual(only.date, started.date);
+  });
+});
+
 describe('a patch never destroys what was done', () => {
   it('keeps a finished occurrence when the schedule moves', async () => {
     const { tasks, service } = serviceWith();

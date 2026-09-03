@@ -121,6 +121,22 @@ export function isUnstartedEvent(event: EventTask): boolean {
     && event.subtasks.every((step) => step.status !== TaskStatus.DONE);
 }
 
+/**
+ * Can this occurrence still be brought in line with its config?
+ *
+ * Weaker than `isUnstartedEvent` on purpose, and the two are used for different
+ * things. Throwing an occurrence *away* needs it to hold no record of anything.
+ * Rewriting one in place only needs it to still be ahead of you: correcting a
+ * repeat from 30kg to 35kg has to reach the session you are halfway through,
+ * because that session is exactly the one you are about to do at 35kg. What it
+ * must not reach is a session that is over — finished, or with its window shut
+ * — because that is a record of what actually happened at 30kg, and today's
+ * correction does not change what you lifted last week.
+ */
+export function isRewritableEvent(event: EventTask, now: Date): boolean {
+  return event.status !== TaskStatus.DONE && !isPassedEvent(event, now);
+}
+
 /** Was this event produced by a repeated config, rather than by a client? */
 export function isGeneratedEvent(event: EventTask): boolean {
   return event.configTaskId !== null;

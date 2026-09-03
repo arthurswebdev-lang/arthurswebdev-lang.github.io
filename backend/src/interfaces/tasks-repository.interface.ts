@@ -44,9 +44,10 @@ export interface ITasksRepository extends IBaseRepository<Task, CreateTask, Upda
 
   /**
    * Rewrites one occurrence from its config: the inherited fields only, leaving
-   * the date and everything recording what happened to it.
+   * the date and everything recording what happened to it. Steps keep the ticks
+   * they already have wherever the config still names them.
    */
-  applyConfigToEvent(eventId: string, config: RepeatedTask): Promise<EventTask | null>;
+  applyConfigToEvent(event: EventTask, config: RepeatedTask): Promise<EventTask | null>;
 
   /** Removes every event a config produced. Returns how many went. */
   deleteEventsOfConfig(configTaskId: string): Promise<number>;

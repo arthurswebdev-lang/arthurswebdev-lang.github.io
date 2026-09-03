@@ -3,8 +3,23 @@ import { randomUUID } from 'node:crypto';
 import { TaskStatus } from '../../src/enum/task-status.enum.js';
 import { TaskType } from '../../src/enum/task-type.enum.js';
 import type { ITasksRepository, TaskQuery } from '../../src/interfaces/tasks-repository.interface.js';
-import type { CreateTask, EventTask, Task, UpdateTask } from '../../src/types/tasks.types.js';
+import type { CreateTask, EventTask, Subtask, Task, UpdateTask } from '../../src/types/tasks.types.js';
 import type { RepeatedTask } from '../../src/types/repeated-tasks.types.js';
+
+/** Mirrors `stepsFor` in the Mongo repository: a rewrite keeps the ticks. */
+function stepsFor(config: RepeatedTask, existing: Subtask[]): Subtask[] {
+  const spare = [...existing];
+
+  return config.subtasks.map((step) => {
+    const index = spare.findIndex((done) => done.name === step.name);
+    const matched = index === -1 ? undefined : spare[index];
+    if (matched === undefined) return { ...step, id: randomUUID(), status: TaskStatus.TODO };
+
+    spare.splice(index, 1);
+
+    return { ...step, id: matched.id, status: matched.status };
+  });
+}
 
 /**
  * The tasks repository backed by an array instead of a file, so generation can
@@ -72,7 +87,7 @@ export class InMemoryTasksRepository implements ITasksRepository {
       remindBeforeMins: config.remindBeforeMins,
       activeBeforeMins: config.activeBeforeMins,
       activeForMins: config.activeForMins,
-      subtasks: config.subtasks.map((s) => ({ ...s, id: randomUUID(), status: TaskStatus.TODO })),
+      subtasks: stepsFor(config, []),
       date,
       passedDate: null,
       notifiedAt: null,
@@ -129,8 +144,8 @@ export class InMemoryTasksRepository implements ITasksRepository {
     return Promise.resolve(updated);
   }
 
-  applyConfigToEvent(eventId: string, config: RepeatedTask): Promise<EventTask | null> {
-    const index = this.tasks.findIndex((task) => task.id === eventId);
+  applyConfigToEvent(event: EventTask, config: RepeatedTask): Promise<EventTask | null> {
+    const index = this.tasks.findIndex((task) => task.id === event.id);
     const found = this.tasks[index];
     if (found?.type !== TaskType.EVENT) return Promise.resolve(null);
 
@@ -142,7 +157,7 @@ export class InMemoryTasksRepository implements ITasksRepository {
       remindBeforeMins: config.remindBeforeMins,
       activeBeforeMins: config.activeBeforeMins,
       activeForMins: config.activeForMins,
-      subtasks: config.subtasks.map((s) => ({ ...s, id: randomUUID(), status: TaskStatus.TODO })),
+      subtasks: stepsFor(config, found.subtasks),
     };
     this.tasks[index] = rewritten;
 

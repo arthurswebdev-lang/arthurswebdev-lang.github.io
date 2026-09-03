@@ -31,11 +31,30 @@ function windowOf(config: RepeatedTask): TaskWindow {
 }
 
 /**
- * The config's checklist, copied for one occurrence. Fresh ids and fresh ticks,
- * so finishing last week's steps leaves this week's untouched.
+ * The config's checklist, copied for one occurrence.
+ *
+ * `existing` is what that occurrence already has: empty when it is being
+ * created, and its current steps when a config edit is being written onto one
+ * already in the list. A step still there under the same name keeps its id and
+ * its tick — an edit has to reach the session you are halfway through, but
+ * unticking the two sets you have already done is not what "update the steps"
+ * meant. Everything else is a new step, and starts TODO.
+ *
+ * Steps are paired by name, each existing one claimed at most once, so a
+ * checklist with the same name three times still lines up one to one.
  */
-function stepsFrom(config: RepeatedTask): Subtask[] {
-  return config.subtasks.map((step) => ({ ...step, id: randomUUID(), status: TaskStatus.TODO }));
+function stepsFor(config: RepeatedTask, existing: Subtask[]): Subtask[] {
+  const spare = [...existing];
+
+  return config.subtasks.map((step) => {
+    const index = spare.findIndex((done) => done.name === step.name);
+    const matched = index === -1 ? undefined : spare[index];
+    if (matched === undefined) return { ...step, id: randomUUID(), status: TaskStatus.TODO };
+
+    spare.splice(index, 1);
+
+    return { ...step, id: matched.id, status: matched.status };
+  });
 }
 
 export class TasksRepository
@@ -89,7 +108,7 @@ export class TasksRepository
       category: config.category,
       links: [...config.links],
       ...windowOf(config),
-      subtasks: stepsFrom(config),
+      subtasks: stepsFor(config, []),
       date,
       passedDate: null,
       notifiedAt: null,
@@ -154,17 +173,20 @@ export class TasksRepository
    * did not move, or this would not be the path taken), and so do `status`,
    * `passedDate` and `notifiedAt`: those record what happened to this
    * occurrence, not what the rule says.
+   *
+   * Takes the whole event rather than its id, because the steps are merged
+   * against the ones it already has and the caller has just read it.
    */
-  async applyConfigToEvent(eventId: string, config: RepeatedTask): Promise<EventTask | null> {
+  async applyConfigToEvent(event: EventTask, config: RepeatedTask): Promise<EventTask | null> {
     const updated = await this.collection.findOneAndUpdate(
-      { _id: eventId, type: TaskType.EVENT },
+      { _id: event.id, type: TaskType.EVENT },
       {
         $set: {
           name: config.name,
           category: config.category,
           links: [...config.links],
           ...windowOf(config),
-          subtasks: stepsFrom(config),
+          subtasks: stepsFor(config, event.subtasks),
         },
       },
       { returnDocument: 'after' },
