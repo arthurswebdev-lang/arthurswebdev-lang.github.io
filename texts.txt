@@ -181,9 +181,13 @@ NOTES:
 
   DAILY, WEEKLY and MONTHLY:
     "TIMES"
-      rows of [ 09:00 ] with "✕", and "+ Time"
+      one row of [ 09:00 ]
 
-  DAILY only — a second way to fill that list in:
+      weekly and monthly stop there: one repeat, one moment, so there is no
+      "+ Time" and the single row keeps its ✕ hidden.
+
+  DAILY only — more than one time a day, and a second way to fill them in:
+      "+ Time" adds a row; the ✕ appears once there are two or more
       [ Set times ] [ Every N hours ]
 
       "Every N hours" mode:

@@ -160,7 +160,11 @@ one blank line before a `return` that follows logic.
   before sending. The mode toggle is **daily only** (`data-for="DAILY"` on `#times-modes`): filling
   a day in is what a daily repeat is, while a weekly or monthly one names the moment it happens.
   `showStep` forces list mode whenever the schedule is not daily, or switching away from daily
-  would leave the window controls on screen and `chosenClocks` would still read from them. Only the list is stored, so an edit always reopens on the list rather than the
+  would leave the window controls on screen and `chosenClocks` would still read from them.
+  **`+ Time` is daily-only for the same reason** — a weekly or monthly repeat names one moment,
+  so its list is exactly one row. The ✕ on a time row hides whenever one row is left
+  (`rows--locked`), because a config with no times can never come round and on those two
+  schedules there would be no way to add one back. Only the list is stored, so an edit always reopens on the list rather than the
   window — the recipe is deliberately not remembered, which is the price of one code path and of
   being able to nudge a single time afterwards. The expansion lives in `expandWindow` in
   `frontend/app.js`, and the migration keeps a copy of the same arithmetic because the function

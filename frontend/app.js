@@ -1425,10 +1425,22 @@ const timesList = document.getElementById('times-list');
 const timesWindow = document.getElementById('times-window');
 const timesHint = document.getElementById('times-hint');
 
+/**
+ * Hides the ✕ once a single time is left.
+ *
+ * A schedule with no times at all can never come round, and on weekly and
+ * monthly there is no "+ Time" to put one back with — so the last row is not
+ * removable rather than removable-and-then-an-error.
+ */
+function syncTimeRowControls() {
+  timeRows.classList.toggle('rows--locked', timeRows.querySelectorAll('.row').length <= 1);
+}
+
 const addTimeRow = (clock = '09:00') => {
   const input = inputCell('09:00', 'time');
   input.value = clock;
-  addRow(timeRows, [input]);
+  addRow(timeRows, [input], syncTimeRowControls);
+  syncTimeRowControls();
 
   return input;
 };
@@ -1690,6 +1702,9 @@ function openConfigEditor(config) {
   timeRows.replaceChildren();
   showTimesMode('list');
   for (const time of config.timesOfDay ?? []) addTimeRow(clockFromUtc(time));
+  // Belt and braces: a config that somehow stored no times would leave the
+  // list empty, and the ✕ state is derived from how many rows there are.
+  syncTimeRowControls();
 
   if (config.type === 'REPEATED_MONTHLY') {
     composerForm.elements['fromDay'].value = String(config.fromDay);

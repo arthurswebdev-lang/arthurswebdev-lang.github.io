@@ -899,6 +899,10 @@ body {
 /* Times are short, so their rows do not need the full width a link does. */
 #time-rows .row { max-width: 12rem; }
 
+/* The last remaining row keeps its value: with nothing left there is no
+   schedule at all, and on weekly and monthly no way to add one back. */
+.rows--locked .row__remove { display: none; }
+
 select.field__input { appearance: none; background-image: none; }
 
 /* --- repeatable rows (links, steps) --------------------------------------- */
