@@ -106,9 +106,10 @@ one blank line before a `return` that follows logic.
   `src/rules/task-update.rules.ts`, one function each.
 - **Editing a repeat regenerates its occurrences only when the *schedule* moves.**
   `scheduleOf` in `src/rules/repeated-task-schedule.rules.ts` reduces a config to the fields that
-  decide *when* it fires — weekdays, or fromDay+months, or the daily window **and its weekdays** —
-  and an edit is compared against that. Change the name, links, photo, category, steps or window
-  and the dates are all still right, so the occurrences are **rewritten in place**
+  decide *when* it fires — **`timesOfDay` always**, plus weekdays or fromDay+months — and an
+  edit is compared against that. Times and lists are sorted into the key, so reordering either is not a
+  move. Change the name, links, photo, category, steps or window and the dates are all still
+  right, so the occurrences are **rewritten in place**
   (`refreshEventsOfConfig`) rather than deleted. Note the window fields are *not* part of the
   schedule: they change how long an occurrence matters, never when it falls.
 - **Two different lines, for two different things.** Throwing an occurrence *away*
@@ -127,14 +128,31 @@ one blank line before a `return` that follows logic.
   a create would have refused (`fromDay` on a weekly config, a reminder before the task is
   visible). `type` is accepted but cannot change. PUT still replaces; both reconcile events the
   same way.
-- **A daily config carries `weekdays` too**, defaulting to all seven (`ALL_WEEKDAYS`). "Daily"
-  still means every day until days are deselected; the field exists so a several-times-a-day
-  routine can run Monday to Friday. It is the same field a weekly config has and means the same
-  thing, so `runsOnWeekday` serves both — the difference is only that a weekly config *requires*
-  days (with none it would fire never) while a daily one falls back to all of them.
-  `nextDailyOccurrence` therefore walks a day at a time rather than jumping to tomorrow.
-  Migrated by `backend/scripts/2026-09-03-daily-weekdays.ts`, which must run **before** the code
-  that reads the field is deployed.
+- **Every schedule is "which days, and at what times on them".** `timesOfDay: TimeOfDay[]` sits on
+  `BaseRepeatedTask`, so daily, weekly and monthly all carry it, and `nextOccurrence` is a single
+  day-walk: skip a day the schedule does not run on, otherwise take the first of that day's times
+  still ahead. A schedule contributes only `runsOnDay`. This replaced three separate searches and
+  a hardcoded hour — weekly and monthly configs used to fire at one constant time nobody could
+  change, and only a daily one could fire more than once a day. Migrated by
+  `backend/scripts/2026-09-07-times-of-day.ts`, which must run **before** the code that reads the
+  field is deployed: a config without it reaches `sortedTimes` as `undefined` and the poller's
+  pass throws.
+- **A daily config had `startsAt`/`endsAt`/`repeatEach`; it no longer does.** "Every 2h from 09:00
+  to 23:00" is now an *input mode* in the composer that expands into the eight concrete times
+  before sending. Only the list is stored, so an edit always reopens on the list rather than the
+  window — the recipe is deliberately not remembered, which is the price of one code path and of
+  being able to nudge a single time afterwards. The expansion lives in `expandWindow` in
+  `frontend/app.js`, and the migration keeps a copy of the same arithmetic because the function
+  it mirrors (`dailyGridFor`) is gone.
+- **Daily and weekly are now the same shape**, differing only in what an empty `weekdays` means: a
+  daily config falls back to `ALL_WEEKDAYS`, a weekly one is refused. They are kept apart because
+  "daily" and "weekly" are what the person choosing them means, not because the generator needs
+  to tell them apart — `draftPayload` sends `type: draft.schedule` for both. Migrated for
+  `weekdays` by `backend/scripts/2026-09-03-daily-weekdays.ts`.
+- **The midnight-crossing limitation is gone with the window.** A daily window had to satisfy
+  `startsAt <= endsAt` in UTC, so a 21:00–01:00 routine could not be stored and the composer
+  refused it. Discrete times have no such constraint — 21:00 and 01:00 are just two entries. The
+  composer's *window mode* still cannot express a wrap, and says so rather than failing.
 - **PUT replaces, it does not merge.** `UpdateTaskSchema` is `CreateTaskSchema`: a PUT body is
   the full task representation, and a field the client omits falls back to its default rather
   than keeping its stored value. Only `id` and `createdAt` survive an update. `type` must match
@@ -149,12 +167,13 @@ one blank line before a `return` that follows logic.
   minus `status`, because a config is a rule and nobody completes a rule. Each occurrence gets
   its own copy with fresh ids and everything TODO, so ticking last week's leaves this week's
   alone.
-- **Weekly and monthly occurrences land at `GENERATED_EVENT_TIME`**, one constant in
-  `occurrences.generator.ts`: 02:00 UTC, written as `GENERATED_EVENT_HOUR_LOCAL -
-  YEREVAN_OFFSET_HOURS` because what was actually chosen is **06:00 in Yerevan**. Keep the local
-  hour at or above the offset — below it the UTC hour goes negative and the occurrence slides to
-  the previous day. Daily configs are unaffected: they use the times the user typed, which are
-  read as UTC, so a daily window of 09:00–23:00 really runs 13:00–03:00 local.
+- **A config that names no time gets `DEFAULT_TIME_OF_DAY`**, in `common.schemes.ts`: 02:00 UTC,
+  written as `DEFAULT_HOUR_LOCAL - YEREVAN_OFFSET_HOURS` because what was actually chosen is
+  **06:00 in Yerevan**. Keep the local hour at or above the offset — below it the UTC hour goes
+  negative and the occurrence slides to the previous day. This used to be `GENERATED_EVENT_TIME`
+  in the generator and applied to every weekly and monthly config; it is now only a default, and
+  any config can name its own times. The composer converts times local↔UTC at its boundary
+  (`toUtcParts` / `clockFromUtc`), so what you type is what you get.
 - **Links are http(s) only** and capped (20 per task, 2048 chars). They get opened, so a
   `javascript:` or `file:` URL has no business being stored. Tasks carry `links: string[]`;
   a subtask carries at most one.

@@ -24,9 +24,7 @@ const BODIES: Record<string, object> = {
   DAILY: {
     type: 'DAILY',
     name: 'Stretch',
-    startsAt: { hour: 9, minute: 0 },
-    endsAt: { hour: 21, minute: 0 },
-    repeatEach: { hour: 4, minute: 0 },
+    timesOfDay: [{ hour: 9, minute: 0 }, { hour: 13, minute: 0 }],
   },
   REPEATED_WEEKLY: { type: 'REPEATED_WEEKLY', name: 'Squats', weekdays: [1, 4] },
   REPEATED_MONTHLY: { type: 'REPEATED_MONTHLY', name: 'Weigh-in', fromDay: 1, months: [1, 2] },

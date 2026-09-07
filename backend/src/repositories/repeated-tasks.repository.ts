@@ -2,13 +2,14 @@ import { randomUUID } from 'node:crypto';
 
 import { TaskCategory } from '../enum/task-category.enum.js';
 import { TaskType } from '../enum/task-type.enum.js';
-import { ALL_WEEKDAYS, windowWithDefaults } from '../schemes/common.schemes.js';
+import { ALL_WEEKDAYS, DEFAULT_TIME_OF_DAY, windowWithDefaults } from '../schemes/common.schemes.js';
 
 import type { Db } from 'mongodb';
 
 import type { IRepeatedTasksRepository } from '../interfaces/repeated-tasks-repository.interface.js';
 import type {
-  CreateRepeatedTask, RepeatedSubtask, RepeatedSubtaskDraft, RepeatedTask, UpdateRepeatedTask,
+  CreateRepeatedTask, RepeatedSubtask, RepeatedSubtaskDraft, RepeatedTask, TimeOfDay,
+  UpdateRepeatedTask,
 } from '../types/repeated-tasks.types.js';
 import { InputValidationError } from '../utils/http-errors/input-validation.error.js';
 import { MongoRepository } from './mongo.repository.js';
@@ -17,6 +18,19 @@ export const REPEATED_TASKS_COLLECTION = 'repeatedTasks';
 
 function toRepeatedSubtasks(drafts: RepeatedSubtaskDraft[] | undefined): RepeatedSubtask[] {
   return (drafts ?? []).map((draft) => ({ ...draft, id: randomUUID() }));
+}
+
+/**
+ * The times a config fires at, stored in the order they happen.
+ *
+ * Sorted here rather than left as typed, so generation walks a day forwards and
+ * two configs that name the same times in a different order compare equal in
+ * `scheduleOf` — otherwise reordering the list alone would read as a moved
+ * schedule and throw away the waiting occurrence.
+ */
+function toTimesOfDay(times: TimeOfDay[] | undefined): TimeOfDay[] {
+  return [...times ?? [DEFAULT_TIME_OF_DAY]]
+    .sort((a, b) => (a.hour - b.hour) || (a.minute - b.minute));
 }
 
 /** The repeated-task configs, in their own collection. */
@@ -56,6 +70,7 @@ export class RepeatedTasksRepository
       links: input.links ?? [],
       ...windowWithDefaults(input),
       subtasks: toRepeatedSubtasks(input.subtasks),
+      timesOfDay: toTimesOfDay(input.timesOfDay),
     };
 
     // Daily is the one schedule whose days are optional, because leaving them

@@ -31,6 +31,35 @@ export const DEFAULT_ACTIVE_FOR_MINS = 10;
  */
 export const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 
+/**
+ * Armenia has been UTC+4 the year round since it abolished DST in 2012, and it
+ * is the only place this app is used. Everything stored is UTC — this constant
+ * exists so the one time chosen *for a person* can be written in the hours that
+ * person actually reads.
+ */
+const YEREVAN_OFFSET_HOURS = 4;
+
+/** The hour, in Yerevan, a config fires at when it names no time. */
+const DEFAULT_HOUR_LOCAL = 6;
+
+/**
+ * The single time a config gets when it names none: 06:00 in Yerevan, so a
+ * morning routine is in the list while it is being done rather than turning up
+ * after it is over.
+ *
+ * Not midnight on purpose: a 00:00 event counts as passed from the first
+ * instant of its own day, so it would never read as actual. Not earlier than
+ * the offset either — that pushes the UTC hour negative and lands the
+ * occurrence on the day before.
+ */
+export const DEFAULT_TIME_OF_DAY: TimeOfDay = {
+  hour: DEFAULT_HOUR_LOCAL - YEREVAN_OFFSET_HOURS,
+  minute: 0,
+};
+
+/** More than one every half hour is not a routine, it is a stuck loop. */
+const MAX_TIMES_PER_DAY = 48;
+
 /** Fills in whichever of the three the client left out. */
 export function windowWithDefaults(input: Partial<TaskWindow>): TaskWindow {
   return {
@@ -92,6 +121,12 @@ export const fields = {
   time: TimeOfDaySchema,
   /** 0 = Sunday ... 6 = Saturday, each day at most once. */
   weekdays: Joi.array().items(Joi.number().integer().min(0).max(6)).unique().min(1),
+  /**
+   * When within a day a config fires. Deduplicated, because the same time twice
+   * would generate the same occurrence twice; the repository sorts them.
+   */
+  timesOfDay: Joi.array().items(TimeOfDaySchema).min(1).max(MAX_TIMES_PER_DAY)
+    .unique(),
   /**
    * The three windows, all in minutes from the task's own date. Zero is
    * meaningful for the two "before" fields — remind me exactly on time, show me

@@ -77,6 +77,9 @@ const DEFAULT_REMIND_BEFORE_MINS = 0;
 const DEFAULT_ACTIVE_BEFORE_MINS = 24 * 60;
 const DEFAULT_ACTIVE_FOR_MINS = 10;
 
+/** 02:00 UTC — 06:00 in Yerevan, the hour a config gets when it names no time. */
+const DEFAULT_TIME_OF_DAY = { hour: 2, minute: 0 };
+
 const shifted = (task, mins) => new Date(new Date(task.date).getTime() + mins * 60000);
 
 /** When a task stops being worth acting on: its moment plus its own window. */
@@ -1049,12 +1052,24 @@ function daysSuffix(weekdays) {
   return ` · ${named.join(' ')}`;
 }
 
+/** The times a config fires at, in your own hours: "09:00, 13:00, 17:00". */
+function timesSummary(config) {
+  const clocks = (config.timesOfDay ?? []).map(clockFromUtc);
+  if (clocks.length === 0) return 'no times';
+  if (clocks.length <= 4) return clocks.join(', ');
+
+  // A twelve-entry list swamps the row it sits in; the ends say enough.
+  return `${clocks.length} a day, ${clocks[0]}–${clocks[clocks.length - 1]}`;
+}
+
+const MONTH_LABEL = (months) =>
+  months.map((value) => MONTHS.find((month) => month.value === value)?.label ?? value).join(' ');
+
 const SCHEDULE_LABEL = {
-  DAILY: (config) => `every ${String(config.repeatEach.hour)}h${config.repeatEach.minute
-    ? String(config.repeatEach.minute) : ''}, ${String(config.startsAt.hour)}:00–${String(config.endsAt.hour)}:00`
-    + daysSuffix(config.weekdays),
-  REPEATED_WEEKLY: (config) => `weekdays ${config.weekdays.join(', ')}`,
-  REPEATED_MONTHLY: (config) => `day ${String(config.fromDay)} of months ${config.months.join(', ')}`,
+  DAILY: (config) => timesSummary(config) + daysSuffix(config.weekdays),
+  REPEATED_WEEKLY: (config) => `${timesSummary(config)}${daysSuffix(config.weekdays) || ' · every day'}`,
+  REPEATED_MONTHLY: (config) =>
+    `day ${String(config.fromDay)} of ${MONTH_LABEL(config.months)}, ${timesSummary(config)}`,
 };
 
 function repeatRow(config) {
@@ -1336,6 +1351,91 @@ function addSubtaskRow({ name = '', link = '', status = 'TODO' } = {}) {
   return step;
 }
 
+/* ---------------------------------------------------------------------------
+   Times.
+
+   Every schedule fires at a set of times now, and there are two ways to say
+   which: name them one by one, or describe a window and let it expand. Only the
+   expanded list is ever sent, so "every 2h" is an input method rather than
+   something the server remembers — which is why an edit always reopens on the
+   list, whichever way the times were first entered.
+--------------------------------------------------------------------------- */
+
+const timeRows = document.getElementById('time-rows');
+const timesModes = document.getElementById('times-modes');
+const timesList = document.getElementById('times-list');
+const timesWindow = document.getElementById('times-window');
+const timesHint = document.getElementById('times-hint');
+
+const addTimeRow = (clock = '09:00') => {
+  const input = inputCell('09:00', 'time');
+  input.value = clock;
+  addRow(timeRows, [input]);
+
+  return input;
+};
+
+/** Which of the two entry modes is showing. */
+function showTimesMode(mode) {
+  for (const button of timesModes.querySelectorAll('[data-mode]')) {
+    button.setAttribute('aria-pressed', String(button.dataset.mode === mode));
+  }
+
+  timesList.hidden = mode !== 'list';
+  timesWindow.hidden = mode !== 'window';
+  timesHint.textContent = mode === 'window'
+    ? 'Saved as the times this works out to, so you can adjust them one by one afterwards.'
+    : '';
+}
+
+timesModes.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-mode]');
+  if (button === null) return;
+
+  showTimesMode(button.dataset.mode);
+});
+
+document.getElementById('add-time').addEventListener('click', () => { addTimeRow().focus(); });
+
+/** '09:30' as minutes past midnight, local. */
+const clockToMinutes = (clock) => {
+  const [hour, minute] = String(clock).split(':').map(Number);
+
+  return (hour || 0) * 60 + (minute || 0);
+};
+
+const minutesToClock = (minutes) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+
+/**
+ * A window turned into the times it produces: from `startsAt`, stepping by
+ * `repeatEach`, up to and including `endsAt`.
+ *
+ * A step that does not divide the window evenly simply stops early — 09:00 to
+ * 23:00 every 4h gives 09, 13, 17, 21 and never reaches 23:00, which is what
+ * the server used to do with the same three numbers.
+ */
+function expandWindow(from, until, every) {
+  const step = clockToMinutes(every);
+  const last = clockToMinutes(until);
+  const start = clockToMinutes(from);
+  if (step <= 0 || start > last) return [];
+
+  const times = [];
+  for (let minute = start; minute <= last; minute += step) times.push(minutesToClock(minute));
+
+  return times;
+}
+
+/** The chosen times as local clock strings, whichever mode is showing. */
+function chosenClocks(data) {
+  if (timesWindow.hidden) {
+    return [...timeRows.querySelectorAll('input')].map((input) => input.value).filter(Boolean);
+  }
+
+  return expandWindow(data.get('startsAt'), data.get('endsAt'), data.get('repeatEach'));
+}
+
 /** Every non-empty task link, in the order they were entered. */
 const linkValues = () => [...linkRows.querySelectorAll('input')]
   .map((input) => input.value.trim())
@@ -1443,6 +1543,9 @@ document.getElementById('add').addEventListener('click', () => {
   fillCategories();
   linkRows.replaceChildren();
   subtaskRows.replaceChildren();
+  timeRows.replaceChildren();
+  showTimesMode('list');
+  addTimeRow(clockFromUtc(DEFAULT_TIME_OF_DAY));
   toggleGroup(document.getElementById('weekday-toggles'), WEEKDAYS, []);
   toggleGroup(document.getElementById('month-toggles'), MONTHS, [new Date().getMonth() + 1]);
   showStep('kind');
@@ -1518,11 +1621,11 @@ function openConfigEditor(config) {
   for (const url of config.links ?? []) addLinkRow(url);
   for (const step of config.subtasks ?? []) addSubtaskRow(step);
 
-  if (config.type === 'DAILY') {
-    composerForm.elements['startsAt'].value = clockFromUtc(config.startsAt);
-    composerForm.elements['endsAt'].value = clockFromUtc(config.endsAt);
-    composerForm.elements['repeatEach'].value = clockOf(config.repeatEach);
-  }
+  // Always the list, whichever way the times were first entered: only the times
+  // themselves are stored, so there is no window to reopen on.
+  timeRows.replaceChildren();
+  showTimesMode('list');
+  for (const time of config.timesOfDay ?? []) addTimeRow(clockFromUtc(time));
 
   if (config.type === 'REPEATED_MONTHLY') {
     composerForm.elements['fromDay'].value = String(config.fromDay);
@@ -1569,9 +1672,6 @@ function clockFromUtc({ hour, minute }) {
 
   return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
 }
-
-/** A plain length, shown as typed. */
-const clockOf = ({ hour, minute }) => `${pad(hour)}:${pad(minute)}`;
 
 /** What would be sent to the API, shaped exactly as the endpoints expect. */
 /**
@@ -1659,31 +1759,26 @@ function draftPayload(data) {
     };
   }
 
-  if (draft.schedule === 'DAILY') {
+  // Typed in your own time, stored in UTC — the same boundary the daily window
+  // used to be converted at, now applied to every schedule.
+  const timesOfDay = chosenClocks(data).map(toUtcParts);
+  const scheduled = { ...repeating, timesOfDay };
+
+  if (draft.schedule === 'REPEATED_MONTHLY') {
     return {
-      type: 'DAILY',
-      ...repeating,
-      startsAt: toUtcParts(data.get('startsAt')),
-      endsAt: toUtcParts(data.get('endsAt')),
-      // A gap, not a clock time: two hours is two hours in any zone.
-      repeatEach: timeParts(data.get('repeatEach')),
-      weekdays: chosenValues(document.getElementById('weekday-toggles')),
+      type: 'REPEATED_MONTHLY',
+      ...scheduled,
+      fromDay: Number(data.get('fromDay')),
+      months: chosenValues(document.getElementById('month-toggles')),
     };
   }
 
-  if (draft.schedule === 'REPEATED_WEEKLY') {
-    return {
-      type: 'REPEATED_WEEKLY',
-      ...repeating,
-      weekdays: chosenValues(document.getElementById('weekday-toggles')),
-    };
-  }
-
+  // Daily and weekly are the same payload; they differ only in whether leaving
+  // the days empty is allowed, which the server decides.
   return {
-    type: 'REPEATED_MONTHLY',
-    ...repeating,
-    fromDay: Number(data.get('fromDay')),
-    months: chosenValues(document.getElementById('month-toggles')),
+    type: draft.schedule,
+    ...scheduled,
+    weekdays: chosenValues(document.getElementById('weekday-toggles')),
   };
 }
 
@@ -1691,20 +1786,20 @@ composerForm.addEventListener('submit', () => {
   const payload = draftPayload(new FormData(composerForm));
   if (payload.name === '') return;
 
-  if (payload.type === 'DAILY') {
-    const asMinutes = ({ hour, minute }) => hour * 60 + minute;
-    if (asMinutes(payload.startsAt) > asMinutes(payload.endsAt)) {
-      wizardSteps.textContent = 'That window crosses midnight UTC, which the server cannot store yet.'
-        + ' Try a range that stays inside one UTC day.';
-
-      return;
-    }
-  }
-
   // Said here rather than left to the 400, because "must contain at least 1
   // items" is not what someone who just unticked the last day needs to read.
   if (payload.weekdays?.length === 0) {
     wizardSteps.textContent = 'Pick at least one day — with none, this would never come round.';
+
+    return;
+  }
+
+  // Empty either because every row was cleared, or because a window was
+  // described that produces nothing — "until" before "from", or a zero step.
+  if (payload.timesOfDay?.length === 0) {
+    wizardSteps.textContent = timesWindow.hidden
+      ? 'Add at least one time — with none, this would never come round.'
+      : 'That window produces no times. Check that "until" is after "from" and "every" is not zero.';
 
     return;
   }

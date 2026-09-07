@@ -42,6 +42,7 @@ const sharedDraft = (config: RepeatedTask) => ({
   activeBeforeMins: config.activeBeforeMins,
   activeForMins: config.activeForMins,
   subtasks: stepDrafts(config),
+  timesOfDay: config.timesOfDay.map((time) => ({ ...time })),
 });
 
 function asDraft(config: RepeatedTask): UpdateRepeatedTask {
@@ -49,14 +50,7 @@ function asDraft(config: RepeatedTask): UpdateRepeatedTask {
 
   switch (config.type) {
     case TaskType.REPEATED_DAILY:
-      return {
-        ...shared,
-        type: config.type,
-        startsAt: config.startsAt,
-        endsAt: config.endsAt,
-        repeatEach: config.repeatEach,
-        weekdays: [...config.weekdays],
-      };
+      return { ...shared, type: config.type, weekdays: [...config.weekdays] };
     case TaskType.REPEATED_WEEKLY:
       return { ...shared, type: config.type, weekdays: [...config.weekdays] };
     case TaskType.REPEATED_MONTHLY:

@@ -33,7 +33,9 @@
 import type { Db, Document } from 'mongodb';
 
 import { config } from '../src/config.js';
-import { GENERATED_EVENT_TIME } from '../src/generators/occurrences.generator.js';
+// Was `GENERATED_EVENT_TIME` in the generator when this migration ran; the
+// constant moved to the schemes with its value unchanged.
+import { DEFAULT_TIME_OF_DAY as GENERATED_EVENT_TIME } from '../src/schemes/common.schemes.js';
 import { MongoStorage } from '../src/storage/mongo.storage.js';
 
 /** The configs whose occurrences carry no time of their own, so moved. */

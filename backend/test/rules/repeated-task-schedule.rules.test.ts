@@ -3,10 +3,12 @@ import { describe, it } from 'node:test';
 
 import { TaskCategory } from '../../src/enum/task-category.enum.js';
 import { scheduleMoved, scheduleOf } from '../../src/rules/repeated-task-schedule.rules.js';
-import { aDailyConfig, aMonthlyConfig, aWeeklyConfig, timeOfDay } from '../support/tasks.js';
+import {
+  aDailyConfig, aMonthlyConfig, aWeeklyConfig, hourlyBetween, timeOfDay,
+} from '../support/tasks.js';
 
 const gym = aWeeklyConfig('gym', [1, 5]);
-const water = aDailyConfig('water', { startsAt: '09:00', endsAt: '23:00', repeatEach: '02:00' });
+const water = aDailyConfig('water', { timesOfDay: hourlyBetween('09:00', '23:00', '02:00') });
 const rent = aMonthlyConfig('rent', { fromDay: 5, months: [9, 10] });
 
 describe('what counts as the same schedule', () => {
@@ -29,7 +31,7 @@ describe('what counts as the same schedule', () => {
 
 describe('a daily config that skips days', () => {
   const weekdaysOnly = aDailyConfig('water', {
-    startsAt: '09:00', endsAt: '23:00', repeatEach: '02:00', weekdays: [1, 2, 3, 4, 5],
+    timesOfDay: hourlyBetween('09:00', '23:00', '02:00'), weekdays: [1, 2, 3, 4, 5],
   });
 
   it('sees dropping the weekend as a move, though no time changed', () => {
@@ -38,14 +40,17 @@ describe('a daily config that skips days', () => {
 
   it('ignores the order the days were tapped in', () => {
     const reordered = aDailyConfig('water', {
-      startsAt: '09:00', endsAt: '23:00', repeatEach: '02:00', weekdays: [5, 4, 3, 2, 1],
+      timesOfDay: hourlyBetween('09:00', '23:00', '02:00'), weekdays: [5, 4, 3, 2, 1],
     });
 
     assert.equal(scheduleMoved(weekdaysOnly, reordered), false);
   });
 
-  it('reads as the days it runs on', () => {
-    assert.equal(scheduleOf(weekdaysOnly), 'daily:540-1380/120@1,2,3,4,5');
+  it('reads as the days it runs on and the times it fires at', () => {
+    assert.equal(
+      scheduleOf(weekdaysOnly),
+      'daily:1,2,3,4,5@540,660,780,900,1020,1140,1260,1380',
+    );
   });
 });
 
@@ -54,22 +59,39 @@ describe('a moved schedule', () => {
     assert.equal(scheduleMoved(rent, aMonthlyConfig('rent', { fromDay: 6, months: [9, 10] })), true);
   });
 
-  it('sees a changed daily window as a move', () => {
-    const later = aDailyConfig('water', { startsAt: '10:00', endsAt: '23:00', repeatEach: '02:00' });
+  it('sees a shifted set of times as a move', () => {
+    const later = aDailyConfig('water', { timesOfDay: hourlyBetween('10:00', '23:00', '02:00') });
 
     assert.equal(scheduleMoved(water, later), true);
   });
 
-  it('sees a changed interval as a move', () => {
-    const denser = aDailyConfig('water', { startsAt: '09:00', endsAt: '23:00', repeatEach: '00:30' });
+  it('sees a denser set of times as a move', () => {
+    const denser = aDailyConfig('water', { timesOfDay: hourlyBetween('09:00', '23:00', '00:30') });
 
     assert.equal(scheduleMoved(water, denser), true);
   });
 
-  it('compares times by the minute, not by object identity', () => {
-    const rebuilt = { ...water, startsAt: timeOfDay('09:00') };
+  it('sees one added time as a move', () => {
+    const extra = aDailyConfig('water', {
+      timesOfDay: [...water.timesOfDay, timeOfDay('08:00')],
+    });
+
+    assert.equal(scheduleMoved(water, extra), true);
+  });
+
+});
+
+describe('how two sets of times are compared', () => {
+  it('compares them by the minute, not by object identity', () => {
+    const rebuilt = { ...water, timesOfDay: water.timesOfDay.map((t) => ({ ...t })) };
 
     assert.equal(scheduleMoved(water, rebuilt), false);
+  });
+
+  it('ignores the order they were entered in', () => {
+    const reversed = { ...water, timesOfDay: [...water.timesOfDay].reverse() };
+
+    assert.equal(scheduleMoved(water, reversed), false);
   });
 });
 
@@ -109,8 +131,13 @@ describe('the schedule string itself', () => {
   });
 
   it('reads as the schedule it describes', () => {
-    assert.equal(scheduleOf(gym), 'weekly:1,5');
-    assert.equal(scheduleOf(rent), 'monthly:5@9,10');
-    assert.equal(scheduleOf(water), 'daily:540-1380/120@0,1,2,3,4,5,6');
+    // The times are part of every key now, so a weekly config carries its own.
+    assert.equal(scheduleOf(gym), 'weekly:1,5@120');
+    // `@` now separates the times, so the months moved behind a slash.
+    assert.equal(scheduleOf(rent), 'monthly:5/9,10@120');
+    assert.equal(
+      scheduleOf(water),
+      'daily:0,1,2,3,4,5,6@540,660,780,900,1020,1140,1260,1380',
+    );
   });
 });

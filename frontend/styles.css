@@ -881,6 +881,13 @@ body {
 
 .toggle:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
 
+/* The two ways of naming times. A segmented control rather than a radio pair:
+   these pick a way of typing, not a value, so they read better as one thing. */
+.toggles--modes { margin-bottom: 0.6rem; }
+
+/* Times are short, so their rows do not need the full width a link does. */
+#time-rows .row { max-width: 12rem; }
+
 select.field__input { appearance: none; background-image: none; }
 
 /* --- repeatable rows (links, steps) --------------------------------------- */

@@ -9,11 +9,11 @@ import type { RepeatedTask } from '../../src/types/repeated-tasks.types.js';
 import { InMemoryRepeatedTasksRepository } from '../support/in-memory-repeated-repository.js';
 import { InMemoryTasksRepository } from '../support/in-memory-repository.js';
 import {
-  aDailyConfig, aMonthlyConfig, aWeeklyConfig,
+  aDailyConfig, aMonthlyConfig, aWeeklyConfig, hourlyBetween,
 } from '../support/tasks.js';
 import { utc } from '../support/time.js';
 
-const water = aDailyConfig('water', { startsAt: '09:00', endsAt: '23:00', repeatEach: '02:00' });
+const water = aDailyConfig('water', { timesOfDay: hourlyBetween('09:00', '23:00', '02:00') });
 
 /** Configs go in the configs store; everything else in the tasks store. */
 function withTasks(configs: RepeatedTask[], tasks: Task[] = []) {
@@ -335,7 +335,7 @@ describe('a sibling that was also finished', () => {
  */
 describe('a window longer than the repeat interval', () => {
   it('still generates every occurrence on the grid', async () => {
-    const slow = aDailyConfig('water', { startsAt: '09:00', endsAt: '23:00', repeatEach: '02:00' });
+    const slow = aDailyConfig('water', { timesOfDay: hourlyBetween('09:00', '23:00', '02:00') });
     const wide = { ...slow, activeForMins: 3 * 60 };
     const { repository, generator } = withTasks([wide]);
 
@@ -380,7 +380,7 @@ describe('regenerating keeps what already happened', () => {
   });
 
   it('keeps an occurrence with a step already ticked', async () => {
-    const withSteps = aDailyConfig('water', { startsAt: '09:00', endsAt: '23:00', repeatEach: '02:00' });
+    const withSteps = aDailyConfig('water', { timesOfDay: hourlyBetween('09:00', '23:00', '02:00') });
     withSteps.subtasks = [{ id: 'a', name: 'glass one' }, { id: 'b', name: 'glass two' }];
     const { repository, generator } = withTasks([withSteps]);
 
@@ -436,7 +436,7 @@ describe('regenerating follows the edited schedule', () => {
     const { repository, generator } = withTasks([water]);
     await generator.ensurePendingEvent(water, utc('2026-08-19 11:45'));
 
-    const rescheduled = aDailyConfig('water', { startsAt: '09:00', endsAt: '23:00', repeatEach: '00:30' });
+    const rescheduled = aDailyConfig('water', { timesOfDay: hourlyBetween('09:00', '23:00', '00:30') });
     const regenerated = await generator.regenerateForConfig(
       { ...rescheduled, id: water.id },
       utc('2026-08-19 11:45'),
@@ -459,8 +459,8 @@ describe('regenerating follows the edited schedule', () => {
 });
 
 describe('configs that can never fire', () => {
-  it('generates nothing for a zero repeatEach', async () => {
-    const broken = aDailyConfig('water', { startsAt: '09:00', endsAt: '23:00', repeatEach: '00:00' });
+  it('generates nothing for a config with no times at all', async () => {
+    const broken = aDailyConfig('water', { timesOfDay: [] });
     const { repository, generator } = withTasks([broken]);
 
     assert.equal(await generator.ensurePendingEvent(broken, utc('2026-08-19 11:45')), null);

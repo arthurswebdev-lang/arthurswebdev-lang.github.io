@@ -50,20 +50,33 @@ export interface BaseRepeatedTask extends TaskWindow {
    * recurring routine's steps have nowhere else to come from.
    */
   subtasks: RepeatedSubtask[];
+  /**
+   * The times of day this config fires at, on each day it runs.
+   *
+   * The one field that says *when within a day*, and every schedule has it: a
+   * config is "which days, and at what times on them". Several times a day used
+   * to be a daily config's private trick, expressed as a window plus a step —
+   * now it is just a longer list, and a weekly config can do it too.
+   *
+   * Stored sorted and without duplicates, so generation walks them in order and
+   * two spellings of the same schedule compare equal.
+   */
+  timesOfDay: TimeOfDay[];
 }
 
+/**
+ * Daily and weekly are now the same shape, and differ only in what happens when
+ * you name no days: a daily config falls back to all seven, a weekly one is
+ * refused. That is the whole distinction, and it is kept because "daily" and
+ * "weekly" are what the person choosing them means, not because the generator
+ * needs to tell them apart.
+ */
 export interface DailyTask extends BaseRepeatedTask {
   type: TaskType.REPEATED_DAILY;
-  startsAt: TimeOfDay;
-  endsAt: TimeOfDay;
-  /** Gap between two runs within the window, as hours + minutes. */
-  repeatEach: TimeOfDay;
   /**
-   * Days of the week the window opens on: 0 = Sunday ... 6 = Saturday.
+   * Days of the week it runs on: 0 = Sunday ... 6 = Saturday.
    *
-   * The same field a weekly config carries, and it means the same thing — a
-   * daily config is a weekly one that fires several times on each of its days.
-   * It defaults to all seven, so "daily" keeps meaning every day until days are
+   * Defaults to all seven, so "daily" keeps meaning every day until days are
    * deselected; Monday to Friday is what it is actually for.
    */
   weekdays: number[];
@@ -71,7 +84,7 @@ export interface DailyTask extends BaseRepeatedTask {
 
 export interface WeeklyTask extends BaseRepeatedTask {
   type: TaskType.REPEATED_WEEKLY;
-  /** Days of the week the task repeats on: 0 = Sunday ... 6 = Saturday. */
+  /** Days of the week it repeats on: 0 = Sunday ... 6 = Saturday. At least one. */
   weekdays: number[];
 }
 
@@ -89,7 +102,7 @@ export type RepeatedTask = DailyTask | WeeklyTask | MonthlyTask;
 export type RepeatedDraft<T extends BaseRepeatedTask> =
   Omit<
     T,
-    'id' | 'userId' | 'createdAt' | 'category' | 'links' | 'subtasks'
+    'id' | 'userId' | 'createdAt' | 'category' | 'links' | 'subtasks' | 'timesOfDay'
     | 'remindBeforeMins' | 'activeBeforeMins' | 'activeForMins'
   > & {
     category?: TaskCategory;
@@ -98,6 +111,8 @@ export type RepeatedDraft<T extends BaseRepeatedTask> =
     activeBeforeMins?: number;
     activeForMins?: number;
     subtasks?: RepeatedSubtaskDraft[];
+    /** Left out means one occurrence a day, at `DEFAULT_TIME_OF_DAY`. */
+    timesOfDay?: TimeOfDay[];
   };
 
 /**

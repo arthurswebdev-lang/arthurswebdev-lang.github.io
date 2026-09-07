@@ -19,7 +19,9 @@
  */
 import { config } from '../src/config.js';
 import { DEFAULT_ACTIVE_FOR_MINS } from '../src/schemes/common.schemes.js';
-import { GENERATED_EVENT_TIME } from '../src/generators/occurrences.generator.js';
+// Was `GENERATED_EVENT_TIME` in the generator when this migration ran; the
+// constant moved to the schemes with its value unchanged.
+import { DEFAULT_TIME_OF_DAY as GENERATED_EVENT_TIME } from '../src/schemes/common.schemes.js';
 import type { Db } from 'mongodb';
 
 import { MongoStorage } from '../src/storage/mongo.storage.js';

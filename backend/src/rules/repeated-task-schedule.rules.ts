@@ -27,21 +27,22 @@ import type { RepeatedTask } from '../types/repeated-tasks.types.js';
  */
 export function scheduleOf(config: RepeatedTask): string {
   const ascending = (a: number, b: number) => a - b;
+  // Every config fires at a set of times, and moving one moves an occurrence,
+  // so the times are half of every key. Sorted, because the order they were
+  // typed in is not part of the schedule.
+  const at = `@${[...config.timesOfDay].map(toMinutesOfDay).sort(ascending).join(',')}`;
 
   switch (config.type) {
     case TaskType.REPEATED_DAILY:
       // The weekdays belong here too: dropping a Saturday from a daily config
       // means the occurrence waiting on Saturday is no longer one the rule
       // produces, which is a move however the times are left alone.
-      return `daily:${String(toMinutesOfDay(config.startsAt))}`
-        + `-${String(toMinutesOfDay(config.endsAt))}`
-        + `/${String(toMinutesOfDay(config.repeatEach))}`
-        + `@${[...config.weekdays].sort(ascending).join(',')}`;
+      return `daily:${[...config.weekdays].sort(ascending).join(',')}${at}`;
     case TaskType.REPEATED_WEEKLY:
-      return `weekly:${[...config.weekdays].sort(ascending).join(',')}`;
+      return `weekly:${[...config.weekdays].sort(ascending).join(',')}${at}`;
     case TaskType.REPEATED_MONTHLY:
       return `monthly:${String(config.fromDay)}`
-        + `@${[...config.months].sort(ascending).join(',')}`;
+        + `/${[...config.months].sort(ascending).join(',')}${at}`;
   }
 }
 

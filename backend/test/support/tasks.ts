@@ -3,6 +3,7 @@ import { TaskStatus } from '../../src/enum/task-status.enum.js';
 import { TaskType } from '../../src/enum/task-type.enum.js';
 import {
   ALL_WEEKDAYS, DEFAULT_ACTIVE_BEFORE_MINS, DEFAULT_ACTIVE_FOR_MINS, DEFAULT_REMIND_BEFORE_MINS,
+  DEFAULT_TIME_OF_DAY,
 } from '../../src/schemes/common.schemes.js';
 import type { BasicTask, EventTask } from '../../src/types/tasks.types.js';
 import type { DailyTask, MonthlyTask, TimeOfDay, WeeklyTask } from '../../src/types/repeated-tasks.types.js';
@@ -106,6 +107,7 @@ export function aWeeklyConfig(
     activeBeforeMins: DEFAULT_ACTIVE_BEFORE_MINS,
     activeForMins: DEFAULT_ACTIVE_FOR_MINS,
     subtasks: [],
+    timesOfDay: [DEFAULT_TIME_OF_DAY],
     weekdays,
     ...overrides,
   };
@@ -118,10 +120,33 @@ export function timeOfDay(clock: string): TimeOfDay {
   return { hour: hour ?? 0, minute: minute ?? 0 };
 }
 
+/**
+ * Every point between two clock times, stepping by a gap — what the form's
+ * "every N hours" mode produces before it is sent.
+ *
+ * `hourlyBetween('09:00', '15:00', '02:00')` gives 09:00, 11:00, 13:00, 15:00.
+ */
+export function hourlyBetween(from: string, until: string, every: string): TimeOfDay[] {
+  const asMinutes = (clock: string) => {
+    const at = timeOfDay(clock);
+
+    return at.hour * 60 + at.minute;
+  };
+  const step = asMinutes(every);
+  const last = asMinutes(until);
+  const times: TimeOfDay[] = [];
+
+  for (let minute = asMinutes(from); minute <= last; minute += step) {
+    times.push({ hour: Math.floor(minute / 60), minute: minute % 60 });
+  }
+
+  return times;
+}
+
 /** Runs every day unless the scenario names the days it cares about. */
 export function aDailyConfig(
   name: string,
-  schedule: { startsAt: string; endsAt: string; repeatEach: string; weekdays?: number[] },
+  schedule: { timesOfDay: TimeOfDay[]; weekdays?: number[] },
 ): DailyTask {
   return {
     id: `config-${name}`,
@@ -135,16 +160,14 @@ export function aDailyConfig(
     activeBeforeMins: DEFAULT_ACTIVE_BEFORE_MINS,
     activeForMins: DEFAULT_ACTIVE_FOR_MINS,
     subtasks: [],
-    startsAt: timeOfDay(schedule.startsAt),
-    endsAt: timeOfDay(schedule.endsAt),
-    repeatEach: timeOfDay(schedule.repeatEach),
+    timesOfDay: schedule.timesOfDay,
     weekdays: schedule.weekdays ?? ALL_WEEKDAYS,
   };
 }
 
 export function aMonthlyConfig(
   name: string,
-  schedule: { fromDay: number; months: number[] },
+  schedule: { fromDay: number; months: number[]; timesOfDay?: TimeOfDay[] },
 ): MonthlyTask {
   return {
     id: `config-${name}`,
@@ -158,6 +181,7 @@ export function aMonthlyConfig(
     activeBeforeMins: DEFAULT_ACTIVE_BEFORE_MINS,
     activeForMins: DEFAULT_ACTIVE_FOR_MINS,
     subtasks: [],
+    timesOfDay: [DEFAULT_TIME_OF_DAY],
     ...schedule,
   };
 }

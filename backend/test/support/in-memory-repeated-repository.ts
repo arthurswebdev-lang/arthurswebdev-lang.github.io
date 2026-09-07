@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto';
 
 import { TaskCategory } from '../../src/enum/task-category.enum.js';
 import { TaskType } from '../../src/enum/task-type.enum.js';
-import { ALL_WEEKDAYS, windowWithDefaults } from '../../src/schemes/common.schemes.js';
+import {
+  ALL_WEEKDAYS, DEFAULT_TIME_OF_DAY, windowWithDefaults,
+} from '../../src/schemes/common.schemes.js';
 
 import type {
   IRepeatedTasksRepository,
@@ -18,6 +20,10 @@ function toEntity(input: CreateRepeatedTask, userId: string): RepeatedTask {
     links: input.links ?? [],
     ...windowWithDefaults(input),
     subtasks: (input.subtasks ?? []).map((step) => ({ ...step, id: randomUUID() })),
+    // Sorted, like the Mongo repository: `scheduleOf` must not read a reordered
+    // list as a moved schedule.
+    timesOfDay: [...input.timesOfDay ?? [DEFAULT_TIME_OF_DAY]]
+      .sort((a, b) => (a.hour - b.hour) || (a.minute - b.minute)),
   };
 
   if (input.type === TaskType.REPEATED_DAILY) {

@@ -7,7 +7,7 @@ import type {
 } from '../types/repeated-tasks.types.js';
 import { JoiObject } from '../middlewares/validation/util/validation.util.js';
 import {
-  ALL_WEEKDAYS, assertWindowOrder, byType, fields, typeOf, windowFields,
+  ALL_WEEKDAYS, assertWindowOrder, byType, DEFAULT_TIME_OF_DAY, fields, typeOf, windowFields,
 } from './common.schemes.js';
 
 export const CreateDailyTaskSchema = assertWindowOrder(JoiObject<CreateDailyTask>({
@@ -20,9 +20,7 @@ export const CreateDailyTaskSchema = assertWindowOrder(JoiObject<CreateDailyTask
   photoUrl: fields.photoUrl,
   ...windowFields,
   subtasks: fields.repeatedSubtasks.default([]),
-  startsAt: fields.time.required(),
-  endsAt: fields.time.required(),
-  repeatEach: fields.time.required(),
+  timesOfDay: fields.timesOfDay.default([DEFAULT_TIME_OF_DAY]),
   // Defaulted, not required: every existing daily config was written before
   // this field existed and means every day.
   weekdays: fields.weekdays.default(ALL_WEEKDAYS),
@@ -38,6 +36,7 @@ export const CreateWeeklyTaskSchema = assertWindowOrder(JoiObject<CreateWeeklyTa
   photoUrl: fields.photoUrl,
   ...windowFields,
   subtasks: fields.repeatedSubtasks.default([]),
+  timesOfDay: fields.timesOfDay.default([DEFAULT_TIME_OF_DAY]),
   weekdays: fields.weekdays.required(),
 }));
 
@@ -51,6 +50,7 @@ export const CreateMonthlyTaskSchema = assertWindowOrder(JoiObject<CreateMonthly
   photoUrl: fields.photoUrl,
   ...windowFields,
   subtasks: fields.repeatedSubtasks.default([]),
+  timesOfDay: fields.timesOfDay.default([DEFAULT_TIME_OF_DAY]),
   fromDay: fields.dayOfMonth.required(),
   months: fields.months.required(),
 }));
@@ -88,9 +88,7 @@ export const PatchRepeatedTaskSchema = JoiObject<PatchRepeatedTask>({
   remindBeforeMins: fields.remindBeforeMins,
   activeBeforeMins: fields.activeBeforeMins,
   activeForMins: fields.activeForMins,
-  startsAt: fields.time,
-  endsAt: fields.time,
-  repeatEach: fields.time,
+  timesOfDay: fields.timesOfDay,
   weekdays: fields.weekdays,
   fromDay: fields.dayOfMonth,
   months: fields.months,

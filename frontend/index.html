@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&family=Quicksand:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="./styles.css?v=33">
+<link rel="stylesheet" href="./styles.css?v=34">
 <script>
   // Where the API lives. Point this at the fly.io app once deployed.
   globalThis.API_BASE = "https://artur-todo-list-api.fly.dev";
@@ -229,7 +229,7 @@
       <div data-for="EVENT DAILY REPEATED_WEEKLY REPEATED_MONTHLY" hidden>
         <div class="field field-row--pair">
           <label class="field">
-            <span class="field__label">Remind me</span>
+            <span class="field__label">Notify before</span>
             <input class="field__input" name="remindBefore" type="number" min="0" value="0">
           </label>
           <label class="field">
@@ -247,7 +247,7 @@
 
           <div class="field field-row--pair">
             <label class="field">
-              <span class="field__label">Show from</span>
+              <span class="field__label">Move to actuals before</span>
               <input class="field__input" name="activeBefore" type="number" min="0" value="1">
             </label>
             <label class="field">
@@ -262,11 +262,11 @@
 
           <div class="field field-row--pair">
             <label class="field">
-              <span class="field__label">Active for</span>
+              <span class="field__label">Stay active after</span>
               <input class="field__input" name="activeFor" type="number" min="1" value="10">
             </label>
             <label class="field">
-              <span class="field__label">After</span>
+              <span class="field__label">The date, by</span>
               <select class="field__input" name="activeForUnit">
                 <option value="1" selected>minutes</option>
                 <option value="60">hours</option>
@@ -276,13 +276,14 @@
           </div>
 
           <p class="field__hint">
-            A reminder cannot come before the task appears, so "remind me" is capped at "show from".
+            All three are counted from the task's own date. A notification cannot arrive before the
+            task appears, so "notify before" is capped at "move to actuals before".
           </p>
         </details>
       </div>
 
       <label class="field" data-for="EVENT" hidden>
-        <span class="field__label">When</span>
+        <span class="field__label">Date</span>
         <input class="field__input" name="date" type="datetime-local">
       </label>
 
@@ -296,20 +297,40 @@
         <button type="button" class="btn btn--small" id="add-subtask">+ Step</button>
       </fieldset>
 
-      <div class="field-row field-row--times" data-for="DAILY" hidden>
-        <label class="field">
-          <span class="field__label">From</span>
-          <input class="field__input" name="startsAt" type="time" value="09:00">
-        </label>
-        <label class="field">
-          <span class="field__label">Until</span>
-          <input class="field__input" name="endsAt" type="time" value="23:00">
-        </label>
-        <label class="field">
-          <span class="field__label">Every</span>
-          <input class="field__input" name="repeatEach" type="time" value="02:00">
-        </label>
-      </div>
+      <!-- Every schedule fires at a set of times now, so there is one control
+           for all three. Two ways in: name the times, or describe a window and
+           let it expand into them. Only the times are stored either way, so an
+           edit always reopens on the list. -->
+      <fieldset class="field" data-for="DAILY REPEATED_WEEKLY REPEATED_MONTHLY" hidden>
+        <legend class="field__label">Times</legend>
+
+        <div class="toggles toggles--modes" id="times-modes">
+          <button type="button" class="toggle" data-mode="list" aria-pressed="true">Set times</button>
+          <button type="button" class="toggle" data-mode="window" aria-pressed="false">Every N hours</button>
+        </div>
+
+        <div id="times-list">
+          <div class="rows" id="time-rows"></div>
+          <button type="button" class="btn btn--small" id="add-time">+ Time</button>
+        </div>
+
+        <div class="field-row field-row--times" id="times-window" hidden>
+          <label class="field">
+            <span class="field__label">From</span>
+            <input class="field__input" name="startsAt" type="time" value="09:00">
+          </label>
+          <label class="field">
+            <span class="field__label">Until</span>
+            <input class="field__input" name="endsAt" type="time" value="23:00">
+          </label>
+          <label class="field">
+            <span class="field__label">Every</span>
+            <input class="field__input" name="repeatEach" type="time" value="02:00">
+          </label>
+        </div>
+
+        <p class="field__hint" id="times-hint"></p>
+      </fieldset>
 
       <!-- Shared by both schedules that have days. A daily config arrives with
            all seven on, so "daily" still means every day until some are turned
@@ -345,6 +366,6 @@
 <script src="./firebase-config.js?v=30"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
-<script type="module" src="./app.js?v=32"></script>
+<script type="module" src="./app.js?v=33"></script>
 </body>
 </html>
