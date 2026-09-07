@@ -411,7 +411,13 @@ body {
    `position: relative` so the ✕ had something to anchor to — which dropped the
    whole dialog back into normal document flow. On a short page it happened to
    land on screen; on a phone with a long list it sat below the fold and all you
-   saw was the backdrop. The anchor now lives on `.lightbox__frame` instead.
+   saw was the backdrop.
+
+   There is nothing anchored to it any more either: the picture has no close
+   button. A tap anywhere shuts it, so a ✕ was a second way to do the one thing
+   the whole surface already does — and putting it on the corner of an image of
+   unknown shape meant it either overhung the screen edge or sat somewhere
+   arbitrary. Esc still closes it, which the dialog element gives for free.
 */
 .lightbox {
   position: fixed;
@@ -442,21 +448,12 @@ body {
 
 .lightbox::backdrop { background: rgb(26 26 26 / 82%); }
 
-/* Shrink-wraps the image, so the ✕ sits on the picture rather than on the
-   empty space beside it. */
-.lightbox__frame {
-  position: relative;
-  display: flex;
-  align-items: center;
-  max-width: min(44rem, 100%);
-  max-height: 100%;
-}
-
+/* The picture is the whole of the dialog's contents. Both axes capped and both
+   dimensions auto, so it scales down to fit whichever way round it is and never
+   grows past its own size. */
 .lightbox__img {
   display: block;
-  /* Both axes capped and both dimensions auto: the picture scales down to fit
-     whichever way round it is, and never grows past its own size. */
-  max-width: 100%;
+  max-width: min(44rem, 100%);
   max-height: 100%;
   width: auto;
   height: auto;
@@ -464,28 +461,6 @@ body {
   background: var(--surface-sunk);
   object-fit: contain;
 }
-
-/* On the picture, not beyond it: anything hanging outside the frame can be
-   clipped by the dialog, and a corner is where a thumb expects it. */
-.lightbox__close {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  display: grid;
-  place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--ink);
-  font-size: 0.95rem;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.lightbox__close:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
 
 .task__actions { display: flex; gap: 0.25rem; }
 
