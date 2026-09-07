@@ -253,7 +253,12 @@ NOTES:
   Each row has a "⏸" (or "▶" once paused) beside its "🗑".
     Pausing keeps the repeat and stops it generating; the row greys out and
     reads "paused — …". Tapping again resumes it. No confirmation either way,
-    because neither direction loses anything.
+    because neither direction loses anything, and the list is not redrawn —
+    only that one row changes.
+
+  "Could not pause <name>" / "Could not resume <name>"
+        when: the pause request fails. The list reloads from the server, so
+              the row goes back to whatever is actually stored.
 
   Each row reads:   <category icon> <name> — [paused — ]<schedule>
     daily:    "09:00, 11:00, 13:00 · Mo Tu We Th Fr"

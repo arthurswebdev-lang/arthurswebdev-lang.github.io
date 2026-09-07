@@ -1081,46 +1081,62 @@ const SCHEDULE_LABEL = {
  * the repeat had waiting, so the list goes quiet — which is why the row reloads
  * the task list as well as itself.
  */
-function pauseToggle(config) {
-  const paused = config.enabled === false;
-
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'row__remove repeat__pause';
-  button.textContent = paused ? '▶' : '⏸';
-  button.title = paused ? 'Resume this repeat' : 'Pause this repeat';
-  button.setAttribute('aria-label',
-    `${paused ? 'Resume' : 'Pause'} the ${config.name} repeat`);
-
-  button.addEventListener('click', () => {
-    button.disabled = true;
-    void setRepeatEnabled(credentials.token, config.id, paused).then(
-      () => {
-        announcer.textContent = `${config.name} repeat ${paused ? 'resumed' : 'paused'}`;
-
-        return Promise.all([openRepeats(), load()]);
-      },
-      () => {
-        button.disabled = false;
-        report(`Could not ${paused ? 'resume' : 'pause'} ${config.name}`);
-      },
-    );
-  });
-
-  return button;
-}
-
 function repeatRow(config) {
   const row = document.createElement('div');
-  row.className = config.enabled === false ? 'row repeat repeat--paused' : 'row repeat';
 
   const text = document.createElement('span');
   text.className = 'repeat__text';
   const describe = SCHEDULE_LABEL[config.type];
-  // Said on the row rather than left to the greyed-out styling alone: "paused"
-  // is a state you need to be able to read, not infer from a colour.
-  const state = config.enabled === false ? 'paused — ' : '';
-  text.textContent = `${categoryOf(config.category).icon} ${config.name} — ${state}${describe(config)}`;
+
+  const pause = document.createElement('button');
+  pause.type = 'button';
+  pause.className = 'row__remove repeat__pause';
+
+  /**
+   * Everything on this row that depends on whether the repeat is running.
+   *
+   * Kept in one function and called again on the spot, rather than rebuilding
+   * the dialog: pausing changes one row, and redrawing the whole list for it
+   * loses your scroll position and makes a two-state toggle feel like a page
+   * load. "paused" is said in words as well as in the greying, because a state
+   * you can only infer from a colour is not really shown.
+   */
+  const showState = () => {
+    const paused = config.enabled === false;
+
+    row.className = paused ? 'row repeat repeat--paused' : 'row repeat';
+    text.textContent = `${categoryOf(config.category).icon} ${config.name} — `
+      + `${paused ? 'paused — ' : ''}${describe(config)}`;
+    pause.textContent = paused ? '▶' : '⏸';
+    pause.title = paused ? 'Resume this repeat' : 'Pause this repeat';
+    pause.setAttribute('aria-label', `${paused ? 'Resume' : 'Pause'} the ${config.name} repeat`);
+  };
+
+  pause.addEventListener('click', () => {
+    const next = config.enabled === false;
+    pause.disabled = true;
+
+    void setRepeatEnabled(credentials.token, config.id, next).then(
+      () => {
+        config.enabled = next;
+        showState();
+        pause.disabled = false;
+        announcer.textContent = `${config.name} repeat ${next ? 'resumed' : 'paused'}`;
+
+        // The task list behind this dialog gained or lost an occurrence, so it
+        // is reloaded — but quietly, and without touching this list.
+        return load();
+      },
+      () => {
+        pause.disabled = false;
+        report(`Could not ${next ? 'resume' : 'pause'} ${config.name}`);
+
+        // The row is now claiming something the server did not agree to, so
+        // this is the one case that goes back and asks.
+        return openRepeats();
+      },
+    );
+  });
 
   const remove = document.createElement('button');
   remove.type = 'button';
@@ -1153,7 +1169,8 @@ function repeatRow(config) {
   });
   text.classList.add('repeat__text--tappable');
 
-  row.append(text, pauseToggle(config), remove);
+  showState();
+  row.append(text, pause, remove);
 
   return row;
 }
