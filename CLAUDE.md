@@ -157,7 +157,10 @@ one blank line before a `return` that follows logic.
   pass throws.
 - **A daily config had `startsAt`/`endsAt`/`repeatEach`; it no longer does.** "Every 2h from 09:00
   to 23:00" is now an *input mode* in the composer that expands into the eight concrete times
-  before sending. Only the list is stored, so an edit always reopens on the list rather than the
+  before sending. The mode toggle is **daily only** (`data-for="DAILY"` on `#times-modes`): filling
+  a day in is what a daily repeat is, while a weekly or monthly one names the moment it happens.
+  `showStep` forces list mode whenever the schedule is not daily, or switching away from daily
+  would leave the window controls on screen and `chosenClocks` would still read from them. Only the list is stored, so an edit always reopens on the list rather than the
   window — the recipe is deliberately not remembered, which is the price of one code path and of
   being able to nudge a single time afterwards. The expansion lives in `expandWindow` in
   `frontend/app.js`, and the migration keeps a copy of the same arithmetic because the function

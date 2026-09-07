@@ -834,16 +834,15 @@ body {
    three columns outright and lets them go as narrow as the screen asks; the
    inputs give up their side padding to pay for it. */
 /* An amount and the unit it is counted in: the number needs far less room
-   than the word beside it. */
+   than the word beside it. The label for the pair sits above, across the whole
+   sheet, so the two controls here are bare — no nested `.field` wrappers. */
 .field-row--pair {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
   gap: 0.5rem;
 }
 
-.field-row--pair .field { min-width: 0; margin-bottom: 0; }
-
-.field-row--pair .field__input { width: 100%; min-width: 0; }
+.field-row--pair > .field__input { width: 100%; min-width: 0; }
 
 .field-row--times {
   grid-template-columns: repeat(3, minmax(0, 1fr));

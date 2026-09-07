@@ -1543,6 +1543,12 @@ function showStep(name) {
 
     // The steps field is shared, so its note has to be switched on separately.
     document.getElementById('steps-hint').hidden = draft.kind !== 'REPEATED';
+
+    // The mode toggle is hidden for everything but daily by the loop above, so
+    // the window mode has to be put away with it — otherwise switching to
+    // weekly while it was showing would leave those three controls on screen
+    // and `chosenClocks` would still read the times out of them.
+    if (shownFor !== 'DAILY') showTimesMode('list');
   }
 
   const editing = draft.editing !== null || draft.editingConfig !== null;

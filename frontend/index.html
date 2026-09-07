@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&family=Quicksand:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="./styles.css?v=37">
+<link rel="stylesheet" href="./styles.css?v=38">
 <script>
   // Where the API lives. Point this at the fly.io app once deployed.
   globalThis.API_BASE = "https://artur-todo-list-api.fly.dev";
@@ -225,53 +225,55 @@
       <!-- The three durations that say when a dated task matters, all measured
            from its own moment. Only "Remind me" is on show: the other two have
            sensible defaults and most tasks never need them touched. -->
+      <!-- Each one is a label across the full width, then the amount and the
+           unit side by side under it. The unit carries no label of its own: it
+           only ever says minutes/hours/days, the word above it would repeat
+           whatever the amount's label ended with, and every row read "Before
+           Before". A full-width label also keeps the longest of them on one
+           line, which half a phone screen could not do. -->
       <div data-for="EVENT DAILY REPEATED_WEEKLY REPEATED_MONTHLY" hidden>
-        <div class="field field-row--pair">
-          <label class="field">
-            <span class="field__label">Notify before</span>
-            <input class="field__input" name="remindBefore" type="number" min="0" value="0">
-          </label>
-          <label class="field">
-            <span class="field__label">Before</span>
-            <select class="field__input" name="remindBeforeUnit">
+        <div class="field">
+          <label class="field__label" for="remind-before">Notify before</label>
+          <div class="field-row--pair">
+            <input class="field__input" id="remind-before" name="remindBefore"
+                   type="number" min="0" value="0">
+            <select class="field__input" name="remindBeforeUnit" aria-label="Notify before, unit">
               <option value="1" selected>minutes</option>
               <option value="60">hours</option>
               <option value="1440">days</option>
             </select>
-          </label>
+          </div>
         </div>
 
         <details class="disclosure">
           <summary class="disclosure__summary">When it shows in the list</summary>
 
-          <div class="field field-row--pair">
-            <label class="field">
-              <span class="field__label">Move to actuals before</span>
-              <input class="field__input" name="activeBefore" type="number" min="0" value="1">
-            </label>
-            <label class="field">
-              <span class="field__label">Before</span>
-              <select class="field__input" name="activeBeforeUnit">
+          <div class="field">
+            <label class="field__label" for="active-before">Move to actuals before</label>
+            <div class="field-row--pair">
+              <input class="field__input" id="active-before" name="activeBefore"
+                     type="number" min="0" value="1">
+              <select class="field__input" name="activeBeforeUnit"
+                      aria-label="Move to actuals before, unit">
                 <option value="1">minutes</option>
                 <option value="60">hours</option>
                 <option value="1440" selected>days</option>
               </select>
-            </label>
+            </div>
           </div>
 
-          <div class="field field-row--pair">
-            <label class="field">
-              <span class="field__label">Stay active after</span>
-              <input class="field__input" name="activeFor" type="number" min="1" value="10">
-            </label>
-            <label class="field">
-              <span class="field__label">The date, by</span>
-              <select class="field__input" name="activeForUnit">
+          <div class="field">
+            <label class="field__label" for="active-for">Stay active after</label>
+            <div class="field-row--pair">
+              <input class="field__input" id="active-for" name="activeFor"
+                     type="number" min="1" value="10">
+              <select class="field__input" name="activeForUnit"
+                      aria-label="Stay active after, unit">
                 <option value="1" selected>minutes</option>
                 <option value="60">hours</option>
                 <option value="1440">days</option>
               </select>
-            </label>
+            </div>
           </div>
 
           <p class="field__hint">
@@ -303,7 +305,11 @@
       <fieldset class="field" data-for="DAILY REPEATED_WEEKLY REPEATED_MONTHLY" hidden>
         <legend class="field__label">Times</legend>
 
-        <div class="toggles toggles--modes" id="times-modes">
+        <!-- Daily only. "Every N hours" describes a day being filled in, which
+             is what a daily repeat is; on a weekly or monthly one you are
+             naming the moment it happens, so the list is the only sensible
+             way in. -->
+        <div class="toggles toggles--modes" id="times-modes" data-for="DAILY">
           <button type="button" class="toggle" data-mode="list" aria-pressed="true">Set times</button>
           <button type="button" class="toggle" data-mode="window" aria-pressed="false">Every N hours</button>
         </div>
@@ -365,6 +371,6 @@
 <script src="./firebase-config.js?v=30"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
-<script type="module" src="./app.js?v=36"></script>
+<script type="module" src="./app.js?v=37"></script>
 </body>
 </html>

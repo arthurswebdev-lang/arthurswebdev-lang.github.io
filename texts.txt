@@ -134,19 +134,25 @@ NOTES:
 This is the part you flagged. All three are DURATIONS measured from the task's
 own moment, not clock times.
 
-  "NOTIFY BEFORE"  [ 0 ]   "BEFORE"  [ minutes ▾ ]
+  "NOTIFY BEFORE"
+    [ 0 ]  [ minutes ▾ ]
         units offered: minutes / hours / days
         does: how long before the task's date the push notification is sent.
               0 = the notification arrives at the date itself.
+        note: the label spans the full width and the unit dropdown has no
+              label of its own — it used to say "Before" under a field that
+              already ended in "before".
 
   Collapsed section, tap to open:
     "When it shows in the list"
 
-      "MOVE TO ACTUALS BEFORE"  [ 1 ]   "BEFORE"  [ days ▾ ]
+      "MOVE TO ACTUALS BEFORE"
+        [ 1 ]  [ days ▾ ]
             does: how long before the date the task moves out of Upcoming
                   and into Actual. Default 1 day.
 
-      "STAY ACTIVE AFTER"  [ 10 ]   "THE DATE, BY"  [ minutes ▾ ]
+      "STAY ACTIVE AFTER"
+        [ 10 ]  [ minutes ▾ ]
             does: how long after the date it stays in Actual before it
                   becomes Passed. Default 10 minutes. Counted from the
                   date itself — confirmed in the code.
@@ -173,12 +179,12 @@ NOTES:
   EVENT only:
     "DATE"                                         (date + time picker)
 
-  DAILY, WEEKLY and MONTHLY — the same control for all three now:
+  DAILY, WEEKLY and MONTHLY:
     "TIMES"
-      [ Set times ] [ Every N hours ]              two ways of entering them
+      rows of [ 09:00 ] with "✕", and "+ Time"
 
-      "Set times" mode:
-        rows of [ 09:00 ] with "✕", and "+ Time"
+  DAILY only — a second way to fill that list in:
+      [ Set times ] [ Every N hours ]
 
       "Every N hours" mode:
         "FROM"    [ 09:00 ]
@@ -187,9 +193,13 @@ NOTES:
         hint: "Saved as the times this works out to, so you can adjust them
                one by one afterwards."
 
-        does: both modes end up as a plain list of times. "Every" is a gap,
-              not a clock time — 02:00 means every 2 hours. Only the list is
-              stored, so reopening for an edit always shows "Set times".
+        does: expands into a plain list of times before sending. "Every" is a
+              gap, not a clock time — 02:00 means every 2 hours. Only the list
+              is stored, so reopening for an edit always shows "Set times".
+
+        why daily only: "every N hours" describes a day being filled in, which
+              is what a daily repeat is. On a weekly or monthly one you are
+              naming the moment it happens, so the list is the only way in.
 
   DAILY and WEEKLY:
     "DAYS"      Mo Tu We Th Fr Sa Su
