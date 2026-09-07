@@ -77,6 +77,13 @@ export const fields = {
   category: Joi.string().valid(...Object.values(TaskCategory)),
   link,
   links: Joi.array().items(link).max(20).unique(),
+  /**
+   * One picture for the whole task — the exercise being demonstrated, the shelf
+   * the thing goes back on. The same rule as a link, because it is one: an
+   * http(s) url the app opens. Singular on purpose, and not on steps: it is
+   * there to be glanced at, and a gallery is a different feature.
+   */
+  photoUrl: link,
   status: Joi.string().valid(...Object.values(TaskStatus)),
   subtasks: Joi.array().items(SubtaskSchema),
   /** A config's steps: the same list, minus the ticks. */

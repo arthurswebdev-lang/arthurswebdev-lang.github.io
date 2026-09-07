@@ -26,11 +26,18 @@ const stepDrafts = (config: RepeatedTask): RepeatedSubtaskDraft[] => config.subt
   (step) => ('link' in step ? { name: step.name, link: step.link } : { name: step.name }),
 );
 
-/** Everything a config carries whatever its schedule. */
+/**
+ * Everything a config carries whatever its schedule.
+ *
+ * The picture is spread in rather than assigned, so a config without one does
+ * not gain a `photoUrl: undefined` the schema would refuse — and, more to the
+ * point, so a PATCH that does not mention it does not silently drop it.
+ */
 const sharedDraft = (config: RepeatedTask) => ({
   name: config.name,
   category: config.category,
   links: [...config.links],
+  ...('photoUrl' in config ? { photoUrl: config.photoUrl } : {}),
   remindBeforeMins: config.remindBeforeMins,
   activeBeforeMins: config.activeBeforeMins,
   activeForMins: config.activeForMins,

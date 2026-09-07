@@ -107,8 +107,8 @@ one blank line before a `return` that follows logic.
 - **Editing a repeat regenerates its occurrences only when the *schedule* moves.**
   `scheduleOf` in `src/rules/repeated-task-schedule.rules.ts` reduces a config to the fields that
   decide *when* it fires — weekdays, or fromDay+months, or the daily window **and its weekdays** —
-  and an edit is compared against that. Change the name, links, category, steps or window and the
-  dates are all still right, so the occurrences are **rewritten in place**
+  and an edit is compared against that. Change the name, links, photo, category, steps or window
+  and the dates are all still right, so the occurrences are **rewritten in place**
   (`refreshEventsOfConfig`) rather than deleted. Note the window fields are *not* part of the
   schedule: they change how long an occurrence matters, never when it falls.
 - **Two different lines, for two different things.** Throwing an occurrence *away*
@@ -142,12 +142,13 @@ one blank line before a `return` that follows logic.
 - **Categories are fixed in code** (`TaskCategory`), not data — there are no endpoints to manage
   them. Anything created without one lands in `OTHER`, which keeps the field non-nullable and
   makes "uncategorised" filterable like any other value.
-- **A generated event inherits its config's category, links, window and `subtasks`.** It
+- **A generated event inherits its config's category, links, photo, window and `subtasks`.** It
   has to: PUT refuses generated events, so whatever the occurrence needs to be useful — the call
-  link, the category it groups under, the checklist to work through — can only come from the
-  config. A config's steps are `RepeatedSubtask`: a `Subtask` minus `status`, because a config is
-  a rule and nobody completes a rule. Each occurrence gets its own copy with fresh ids and
-  everything TODO, so ticking last week's leaves this week's alone.
+  link, the picture of the movement, the category it groups under, the checklist to work
+  through — can only come from the config. A config's steps are `RepeatedSubtask`: a `Subtask`
+  minus `status`, because a config is a rule and nobody completes a rule. Each occurrence gets
+  its own copy with fresh ids and everything TODO, so ticking last week's leaves this week's
+  alone.
 - **Weekly and monthly occurrences land at `GENERATED_EVENT_TIME`**, one constant in
   `occurrences.generator.ts`: 02:00 UTC, written as `GENERATED_EVENT_HOUR_LOCAL -
   YEREVAN_OFFSET_HOURS` because what was actually chosen is **06:00 in Yerevan**. Keep the local
@@ -157,6 +158,15 @@ one blank line before a `return` that follows logic.
 - **Links are http(s) only** and capped (20 per task, 2048 chars). They get opened, so a
   `javascript:` or `file:` URL has no business being stored. Tasks carry `links: string[]`;
   a subtask carries at most one.
+- **`photoUrl` is one picture per task**, on every variant and every config — validated as a
+  link, because it is one. Deliberately singular and deliberately not on subtasks: it exists so
+  a gym task can show what the exercise looks like, and the frontend opens it in a lightbox
+  rather than navigating away. It is **absent, never null**, so `exactOptionalPropertyTypes`
+  makes "no photo" a missing key — which is what lets PUT clear it by omission. Two consequences
+  worth knowing: `applyConfigToEvent` needs a `$unset` beside its `$set` (a `$set` cannot write
+  an absent field, so dropping the config's photo would otherwise leave the occurrence's behind),
+  and `sharedDraft` in `repeated-tasks.service.ts` has to spread it conditionally or a PATCH that
+  never mentions it would drop it. No migration: an existing row simply has no key.
 - **`GET /tasks?category=…`** narrows in the Mongo query (plain equality, indexed), while
   `filter=` stays in the rule functions. Neither is required; together they intersect.
 - **A dateless task (`BASIC`) counts as `actual`.** A filter names a position in time and it
@@ -235,6 +245,10 @@ these non-negotiable:
 - **iOS gives web push only to home-screen apps**: the user must Add to Home Screen, and
   permission must be requested from a user gesture inside the installed app.
 - Pages and fly.io are different origins, so the API needs CORS for the Pages origin.
+- **A photo opens in a lightbox, never in a tab.** The card shows a 🖼 chip beside its 🔗 chips;
+  tapping it opens `#photo`, a bare `<dialog>` holding the image. Tapping anywhere closes it, and
+  a url that will not load closes it with a toast rather than leaving an empty box. There is no
+  download control on purpose — the picture is a reference, not an asset.
 - Push lives in `frontend/notifications.js`, kept out of `app.js`. It contributes
   a token and nothing else — the server owns the schedule, so there is no task
   syncing on the client.

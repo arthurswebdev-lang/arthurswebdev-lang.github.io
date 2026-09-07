@@ -15,6 +15,9 @@ export const CreateDailyTaskSchema = assertWindowOrder(JoiObject<CreateDailyTask
   name: fields.name.required(),
   category: fields.category.default(TaskCategory.OTHER),
   links: fields.links.default([]),
+  // No default: absent means there is no picture, and PUT replaces, so
+  // leaving it out is how one is removed.
+  photoUrl: fields.photoUrl,
   ...windowFields,
   subtasks: fields.repeatedSubtasks.default([]),
   startsAt: fields.time.required(),
@@ -30,6 +33,9 @@ export const CreateWeeklyTaskSchema = assertWindowOrder(JoiObject<CreateWeeklyTa
   name: fields.name.required(),
   category: fields.category.default(TaskCategory.OTHER),
   links: fields.links.default([]),
+  // No default: absent means there is no picture, and PUT replaces, so
+  // leaving it out is how one is removed.
+  photoUrl: fields.photoUrl,
   ...windowFields,
   subtasks: fields.repeatedSubtasks.default([]),
   weekdays: fields.weekdays.required(),
@@ -40,6 +46,9 @@ export const CreateMonthlyTaskSchema = assertWindowOrder(JoiObject<CreateMonthly
   name: fields.name.required(),
   category: fields.category.default(TaskCategory.OTHER),
   links: fields.links.default([]),
+  // No default: absent means there is no picture, and PUT replaces, so
+  // leaving it out is how one is removed.
+  photoUrl: fields.photoUrl,
   ...windowFields,
   subtasks: fields.repeatedSubtasks.default([]),
   fromDay: fields.dayOfMonth.required(),
@@ -74,6 +83,7 @@ export const PatchRepeatedTaskSchema = JoiObject<PatchRepeatedTask>({
   name: fields.name,
   category: fields.category,
   links: fields.links,
+  photoUrl: fields.photoUrl,
   subtasks: fields.repeatedSubtasks,
   remindBeforeMins: fields.remindBeforeMins,
   activeBeforeMins: fields.activeBeforeMins,

@@ -15,6 +15,9 @@ export const CreateBasicTaskSchema = JoiObject<CreateBasicTask>({
   name: fields.name.required(),
   category: fields.category.default(TaskCategory.OTHER),
   links: fields.links.default([]),
+  // No default: absent means there is no picture, and PUT replaces, so
+  // leaving it out is how one is removed.
+  photoUrl: fields.photoUrl,
   status: fields.status.default(TaskStatus.TODO),
   subtasks: fields.subtasks.default([]),
 });
@@ -24,6 +27,9 @@ export const CreateEventTaskSchema = assertWindowOrder(JoiObject<CreateEventTask
   name: fields.name.required(),
   category: fields.category.default(TaskCategory.OTHER),
   links: fields.links.default([]),
+  // No default: absent means there is no picture, and PUT replaces, so
+  // leaving it out is how one is removed.
+  photoUrl: fields.photoUrl,
   status: fields.status.default(TaskStatus.TODO),
   subtasks: fields.subtasks.default([]),
   date: fields.date.required(),

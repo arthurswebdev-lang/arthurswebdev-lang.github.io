@@ -31,6 +31,18 @@ function windowOf(config: RepeatedTask): TaskWindow {
 }
 
 /**
+ * The config's picture, if it has one.
+ *
+ * `'photoUrl' in config` and not a comparison against undefined: with
+ * exactOptionalPropertyTypes the key is a string or it is absent, never present
+ * and undefined — and spreading an absent key is what keeps it absent on the
+ * occurrence too.
+ */
+function photoOf(config: RepeatedTask): { photoUrl?: string } {
+  return 'photoUrl' in config ? { photoUrl: config.photoUrl } : {};
+}
+
+/**
  * The config's checklist, copied for one occurrence.
  *
  * `existing` is what that occurrence already has: empty when it is being
@@ -107,6 +119,7 @@ export class TasksRepository
       // be useful has to come from the config.
       category: config.category,
       links: [...config.links],
+      ...photoOf(config),
       ...windowOf(config),
       subtasks: stepsFor(config, []),
       date,
@@ -178,6 +191,8 @@ export class TasksRepository
    * against the ones it already has and the caller has just read it.
    */
   async applyConfigToEvent(event: EventTask, config: RepeatedTask): Promise<EventTask | null> {
+    const photo = photoOf(config);
+
     const updated = await this.collection.findOneAndUpdate(
       { _id: event.id, type: TaskType.EVENT },
       {
@@ -185,9 +200,14 @@ export class TasksRepository
           name: config.name,
           category: config.category,
           links: [...config.links],
+          ...photo,
           ...windowOf(config),
           subtasks: stepsFor(config, event.subtasks),
         },
+        // Taking the picture off the config has to take it off the occurrence.
+        // `$set` can only write a value, so the removal is its own operator —
+        // and an empty `$unset` is an error, hence the conditional spread.
+        ...('photoUrl' in photo ? {} : { $unset: { photoUrl: '' } }),
       },
       { returnDocument: 'after' },
     );

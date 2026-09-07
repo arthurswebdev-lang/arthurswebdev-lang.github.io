@@ -132,6 +132,52 @@ describe('events belonging to a config', { skip: mongoUnavailable }, () => {
   });
 });
 
+/**
+ * The one bit of photo handling that only real Mongo can show: `$set` writes a
+ * value, so removing the config's picture takes a `$unset`. In memory the key
+ * is simply deleted, which is why this lives here.
+ */
+describe('a photo on a generated event', { skip: mongoUnavailable }, () => {
+  const SQUAT = 'https://example.com/squat.jpg';
+  const withPhoto = () => aWeeklyConfig('gym', [1, 5], { photoUrl: SQUAT });
+
+  it('is inherited from the config that made it', async () => {
+    const repository = freshRepository();
+
+    const generated = await repository.createGeneratedEvent(withPhoto(), utc('2026-08-24 09:00'));
+
+    const stored = await repository.getById(generated.id);
+    assert.equal(stored?.photoUrl, SQUAT);
+  });
+
+  it('is replaced when the config points at a different picture', async () => {
+    const repository = freshRepository();
+    const generated = await repository.createGeneratedEvent(withPhoto(), utc('2026-08-24 09:00'));
+    const moved = aWeeklyConfig('gym', [1, 5], { photoUrl: 'https://example.com/front.jpg' });
+
+    await repository.applyConfigToEvent(generated, moved);
+
+    const stored = await repository.getById(generated.id);
+    assert.equal(stored?.photoUrl, 'https://example.com/front.jpg');
+  });
+
+});
+
+/** The `$unset` half, on its own: it is the case a plain `$set` cannot cover. */
+describe('taking a photo off a config', { skip: mongoUnavailable }, () => {
+  it('unsets it on the occurrence rather than leaving the old one', async () => {
+    const repository = freshRepository();
+    const withPhoto = aWeeklyConfig('gym', [1, 5], { photoUrl: 'https://example.com/squat.jpg' });
+    const generated = await repository.createGeneratedEvent(withPhoto, utc('2026-08-24 09:00'));
+
+    await repository.applyConfigToEvent(generated, aWeeklyConfig('gym', [1, 5]));
+
+    const stored = await repository.getById(generated.id);
+    assert.ok(stored !== null);
+    assert.equal('photoUrl' in stored, false);
+  });
+});
+
 describe('listBy narrows in the database', { skip: mongoUnavailable }, () => {
   it('filters by category, and defaults an unset one to OTHER', async () => {
     const repository = freshRepository();

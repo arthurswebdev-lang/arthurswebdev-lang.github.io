@@ -63,6 +63,15 @@ export interface BaseTask {
    * the call to join. Always present, empty when there is nothing to open.
    */
   links: string[];
+  /**
+   * One picture to look at, shown in place rather than opened away — what the
+   * exercise looks like when the name alone is not enough.
+   *
+   * Optional and *absent* when there is none, not null: with
+   * exactOptionalPropertyTypes the key is a string or it is not there, and PUT
+   * replaces, so leaving it out of an update is how a photo is removed.
+   */
+  photoUrl?: string;
 }
 
 export interface BasicTask extends BaseTask {

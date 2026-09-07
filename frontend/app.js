@@ -249,6 +249,48 @@ function stepsSection(task) {
   return section;
 }
 
+/* ---------------------------------------------------------------------------
+   The photo, shown in place.
+
+   A task carries at most one, and it exists to be looked at rather than opened
+   away — knowing which machine, seeing the grip. So it gets a popup and nothing
+   else: no gallery, no zoom, no download. Tap anywhere to put it away again.
+--------------------------------------------------------------------------- */
+
+const photoDialog = document.getElementById('photo');
+const photoImg = document.getElementById('photo-img');
+
+function showPhoto(url, name) {
+  // Cleared first, so a slow or broken url never shows the previous task's
+  // picture under this task's name.
+  photoImg.removeAttribute('src');
+  photoImg.alt = `Photo for ${name}`;
+  photoImg.src = url;
+  photoDialog.showModal();
+}
+
+photoImg.addEventListener('error', () => {
+  photoDialog.close();
+  report('That photo would not load. Check the link on the task.');
+});
+
+// Anywhere, not just the ✕: the whole dialog is the picture, and reaching for a
+// small button in the corner is not what anyone does with a photo on a phone.
+photoDialog.addEventListener('click', () => { photoDialog.close(); });
+
+/** The 🖼 that opens it, sitting alongside the link chips. */
+function taskPhoto(task) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'chip chip--link chip--photo';
+  button.textContent = '🖼';
+  button.title = 'Show the photo';
+  button.setAttribute('aria-label', `Show the photo for ${task.name}`);
+  button.addEventListener('click', () => { showPhoto(task.photoUrl, task.name); });
+
+  return button;
+}
+
 /** A task's link, as the same 🔗 a step carries — tappable, not just a count. */
 function taskLink(task, url) {
   const link = document.createElement('a');
@@ -298,6 +340,7 @@ function taskItem(task) {
     meta.append(repeat);
   }
 
+  if (task.photoUrl) meta.append(taskPhoto(task));
   for (const url of task.links ?? []) meta.append(taskLink(task, url));
 
   // Nothing is said about a basic task having no date: that is what it is.
@@ -1446,6 +1489,7 @@ function openEditor(task) {
   }
 
   fillWindow(task);
+  composerForm.elements['photoUrl'].value = task.photoUrl ?? '';
   for (const url of task.links ?? []) addLinkRow(url);
   for (const step of task.subtasks) addSubtaskRow(step);
 
@@ -1470,6 +1514,7 @@ function openConfigEditor(config) {
   composerForm.elements['name'].value = config.name;
   composerForm.elements['category'].value = config.category;
   fillWindow(config);
+  composerForm.elements['photoUrl'].value = config.photoUrl ?? '';
   for (const url of config.links ?? []) addLinkRow(url);
   for (const step of config.subtasks ?? []) addSubtaskRow(step);
 
@@ -1568,7 +1613,16 @@ function draftPayload(data) {
     name: stepName, ...(link ? { link } : {}),
   }));
 
-  const shared = { name, category, ...(links.length ? { links } : {}) };
+  // Left out when empty rather than sent as '': the server takes the key's
+  // absence as "no photo", which is also how clearing the field removes one.
+  const photoUrl = String(data.get('photoUrl') ?? '').trim();
+
+  const shared = {
+    name,
+    category,
+    ...(links.length ? { links } : {}),
+    ...(photoUrl ? { photoUrl } : {}),
+  };
 
   // Only for kinds that have a date. A one-time task has no moment to be
   // active around, so these fields do not exist on it — and the controls are

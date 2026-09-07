@@ -6,6 +6,11 @@ import type { ITasksRepository, TaskQuery } from '../../src/interfaces/tasks-rep
 import type { CreateTask, EventTask, Subtask, Task, UpdateTask } from '../../src/types/tasks.types.js';
 import type { RepeatedTask } from '../../src/types/repeated-tasks.types.js';
 
+/** Mirrors `photoOf` in the Mongo repository. */
+function photoOf(config: RepeatedTask): { photoUrl?: string } {
+  return 'photoUrl' in config ? { photoUrl: config.photoUrl } : {};
+}
+
 /** Mirrors `stepsFor` in the Mongo repository: a rewrite keeps the ticks. */
 function stepsFor(config: RepeatedTask, existing: Subtask[]): Subtask[] {
   const spare = [...existing];
@@ -84,6 +89,7 @@ export class InMemoryTasksRepository implements ITasksRepository {
       createdAt: date,
       category: config.category,
       links: [...config.links],
+      ...photoOf(config),
       remindBeforeMins: config.remindBeforeMins,
       activeBeforeMins: config.activeBeforeMins,
       activeForMins: config.activeForMins,
@@ -159,6 +165,11 @@ export class InMemoryTasksRepository implements ITasksRepository {
       activeForMins: config.activeForMins,
       subtasks: stepsFor(config, found.subtasks),
     };
+    // Mirrors the `$unset` in the Mongo repository: dropping the config's
+    // picture drops the occurrence's, rather than leaving the old one behind.
+    if ('photoUrl' in config) rewritten.photoUrl = config.photoUrl;
+    else delete rewritten.photoUrl;
+
     this.tasks[index] = rewritten;
 
     return Promise.resolve(rewritten);

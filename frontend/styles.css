@@ -392,6 +392,64 @@ body {
 
 .chip--link:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
 
+/* A button, not an anchor, so it needs the anchor's chrome taken off it. */
+.chip--photo {
+  border: 0;
+  font-family: inherit;
+  line-height: inherit;
+  cursor: pointer;
+}
+
+/* --- photo lightbox ------------------------------------------------------
+   Not a composer sheet: a picture wants the middle of the screen and no frame
+   competing with it, so this one centres and lets the image be the dialog. */
+.lightbox {
+  position: relative;
+  width: min(44rem, calc(100vw - 1.5rem));
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  overflow: visible;
+}
+
+.lightbox::backdrop { background: rgb(26 26 26 / 82%); }
+
+.lightbox__img {
+  display: block;
+  width: 100%;
+  /* Whatever is left of the screen once the safe areas are out of it, so a
+     portrait photo on a notched phone is not cropped by the chrome. */
+  max-height: calc(100vh - 5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  border-radius: var(--radius);
+  background: var(--surface-sunk);
+  object-fit: contain;
+}
+
+/* Sits on the picture rather than beside it: the dialog is the picture, and a
+   row of its own would push the image off a short screen. */
+.lightbox__close {
+  position: absolute;
+  top: -0.75rem;
+  right: -0.5rem;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lightbox__close:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
+
 .task__actions { display: flex; gap: 0.25rem; }
 
 .icon-btn {

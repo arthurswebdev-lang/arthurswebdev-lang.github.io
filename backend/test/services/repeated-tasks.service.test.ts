@@ -244,6 +244,94 @@ describe('a finished occurrence does not block the next one', () => {
   });
 });
 
+/**
+ * A photo is inherited exactly like a link, and for the same reason: a
+ * generated event refuses a PUT, so the picture of the exercise has nowhere
+ * else to come from. It is not part of the schedule, so changing it rewrites
+ * the occurrence in place rather than regenerating it.
+ */
+const SQUAT = 'https://example.com/squat.jpg';
+const DEADLIFT = 'https://example.com/deadlift.jpg';
+
+describe('a photo reaches the occurrence', () => {
+  it('is stamped onto the event a config generates', async () => {
+    const { tasks, service } = serviceWith();
+    await service.create({ ...gymBody, photoUrl: SQUAT }, TEST_USER_ID);
+
+    assert.equal(eventsIn(tasks)[0]?.photoUrl, SQUAT);
+  });
+
+  it('is absent on the event when the config has none', async () => {
+    const { tasks, service } = serviceWith();
+    await service.create(gymBody, TEST_USER_ID);
+
+    const only = eventsIn(tasks)[0];
+    assert.ok(only !== undefined);
+    assert.equal('photoUrl' in only, false);
+  });
+});
+
+describe('changing a photo is not a schedule change', () => {
+  it('rewrites the waiting occurrence rather than remaking it', async () => {
+    const { tasks, service } = serviceWith();
+    const config = await service.create({ ...gymBody, photoUrl: SQUAT }, TEST_USER_ID);
+    const before = eventsIn(tasks)[0];
+    assert.ok(before !== undefined);
+
+    await service.patchById(config.id, TEST_USER_ID, { photoUrl: DEADLIFT });
+
+    const after = eventsIn(tasks);
+    assert.equal(after.length, 1);
+    const only = after[0];
+    assert.ok(only !== undefined);
+    assert.equal(only.id, before.id);
+    assert.equal(only.photoUrl, DEADLIFT);
+  });
+
+});
+
+describe('a photo change reaches a session already started', () => {
+  it('rewrites the occurrence even once a step is ticked', async () => {
+    // The whole point of the rewrite path: swapping the picture has to show up
+    // on the occurrence you are halfway through, not only on the next one.
+    const { tasks, service } = serviceWith();
+    const config = await service.create({ ...gymBody, photoUrl: SQUAT }, TEST_USER_ID);
+    const started = eventsIn(tasks)[0];
+    assert.ok(started !== undefined);
+    const step = started.subtasks[0];
+    assert.ok(step !== undefined);
+    await tasks.updateSubtaskStatus(started.id, step.id, TaskStatus.DONE);
+
+    await service.patchById(config.id, TEST_USER_ID, { photoUrl: DEADLIFT });
+
+    assert.equal(eventsIn(tasks)[0]?.photoUrl, DEADLIFT);
+  });
+});
+
+describe('taking the photo off a config', () => {
+  it('takes it off the occurrence too, rather than leaving the old one', async () => {
+    // A PUT is a replacement, so a body with no photoUrl means there is none —
+    // and the occurrence has to lose it, which `$set` alone cannot do.
+    const { tasks, service } = serviceWith();
+    const config = await service.create({ ...gymBody, photoUrl: SQUAT }, TEST_USER_ID);
+
+    await service.updateById(config.id, TEST_USER_ID, gymBody);
+
+    const only = eventsIn(tasks)[0];
+    assert.ok(only !== undefined);
+    assert.equal('photoUrl' in only, false);
+  });
+
+  it('keeps it through a patch that does not mention it', async () => {
+    const { tasks, service } = serviceWith();
+    const config = await service.create({ ...gymBody, photoUrl: SQUAT }, TEST_USER_ID);
+
+    await service.patchById(config.id, TEST_USER_ID, { name: 'Leg press \u2013 80kg' });
+
+    assert.equal(eventsIn(tasks)[0]?.photoUrl, SQUAT);
+  });
+});
+
 describe('what a patch refuses', () => {
   it('rejects a field that belongs to another schedule', async () => {
     const { service } = serviceWith();

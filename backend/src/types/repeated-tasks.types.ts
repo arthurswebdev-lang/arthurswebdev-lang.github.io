@@ -42,6 +42,8 @@ export interface BaseRepeatedTask extends TaskWindow {
   createdAt: Date;
   category: TaskCategory;
   links: string[];
+  /** Inherited by every occurrence, exactly like `links`. */
+  photoUrl?: string;
   /**
    * The checklist every occurrence starts with. Inherited for the same reason
    * again — `PUT /tasks/:id` refuses a generated event's subtasks, so a
