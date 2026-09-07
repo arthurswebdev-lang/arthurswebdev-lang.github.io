@@ -283,9 +283,16 @@ these non-negotiable:
   permission must be requested from a user gesture inside the installed app.
 - Pages and fly.io are different origins, so the API needs CORS for the Pages origin.
 - **A photo opens in a lightbox, never in a tab.** The card shows a 🖼 chip beside its 🔗 chips;
-  tapping it opens `#photo`, a bare `<dialog>` holding the image. Tapping anywhere closes it, and
-  a url that will not load closes it with a toast rather than leaving an empty box. There is no
-  download control on purpose — the picture is a reference, not an asset.
+  tapping it opens `#photo`, a `<dialog>` that fills the viewport and centres the image inside a
+  `.lightbox__frame`. Tapping anywhere closes it, and a url that will not load closes it with a
+  toast rather than leaving an empty box. There is no download control on purpose — the picture
+  is a reference, not an asset.
+- **Never give a modal `<dialog>` `position: relative`.** The user agent lays a modal dialog out
+  `fixed` and centred; overriding `position` drops it back into normal document flow, where it
+  sits wherever the element happens to fall in the page. The lightbox did this so its ✕ had
+  something to anchor to, and the result was invisible on a phone — the page was long enough that
+  the dialog landed below the fold, so opening a photo showed the backdrop and nothing else,
+  while a short desktop page happened to look fine. The anchor belongs on an inner element.
 - Push lives in `frontend/notifications.js`, kept out of `app.js`. It contributes
   a token and nothing else — the server owns the schedule, so there is no task
   syncing on the client.

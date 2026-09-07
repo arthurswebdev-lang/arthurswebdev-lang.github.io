@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&family=Quicksand:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="./styles.css?v=35">
+<link rel="stylesheet" href="./styles.css?v=36">
 <script>
   // Where the API lives. Point this at the fly.io app once deployed.
   globalThis.API_BASE = "https://artur-todo-list-api.fly.dev";
@@ -137,8 +137,12 @@
 <!-- The photo, shown where you are rather than in a new tab. Deliberately
      bare: an image, and a way back. Tapping anywhere closes it. -->
 <dialog class="lightbox" id="photo">
-  <img class="lightbox__img" id="photo-img" alt="">
-  <button type="button" class="lightbox__close" id="photo-close" aria-label="Close photo">✕</button>
+  <!-- A frame around the picture, so the ✕ has something the size of the image
+       to sit on. The dialog itself fills the screen and only does the centring. -->
+  <div class="lightbox__frame">
+    <img class="lightbox__img" id="photo-img" alt="">
+    <button type="button" class="lightbox__close" id="photo-close" aria-label="Close photo">✕</button>
+  </div>
 </dialog>
 
 <dialog class="composer" id="composer">
@@ -366,6 +370,6 @@
 <script src="./firebase-config.js?v=30"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
-<script type="module" src="./app.js?v=35"></script>
+<script type="module" src="./app.js?v=36"></script>
 </body>
 </html>
