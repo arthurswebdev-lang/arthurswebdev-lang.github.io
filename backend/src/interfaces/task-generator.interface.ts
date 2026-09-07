@@ -11,6 +11,12 @@ export interface ITaskGeneratorService {
   /** Runs `ensurePendingEvent` for every config in the store. */
   syncPendingEvents(now: Date): Promise<EventTask[]>;
 
+  /**
+   * Takes back the untouched occurrence a config had waiting, so a paused rule
+   * leaves the list quiet. Returns how many were removed.
+   */
+  pauseConfig(config: RepeatedTask, now: Date): Promise<number>;
+
   /** Wipes a config's events and generates a fresh pending one (B5). */
   /**
    * Pushes the config's inherited fields onto the occurrences it has waiting,

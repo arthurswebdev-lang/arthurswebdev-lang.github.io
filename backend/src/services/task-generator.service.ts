@@ -41,10 +41,35 @@ export class TaskGeneratorService implements ITaskGeneratorService {
   }
 
   async ensurePendingEvent(config: RepeatedTask, now: Date): Promise<EventTask | null> {
+    if (!config.enabled) return null;
+
     const tasks = await this.tasksRepository.listBy({ userId: config.userId });
     if (pendingEventOfConfig(tasks, config.id, now) !== null) return null;
 
     return this.generateNextFrom(config, now);
+  }
+
+  /**
+   * Stops a config without losing it: takes back the occurrence it had waiting.
+   *
+   * Pausing is for a rule you are not doing at the moment, so leaving its
+   * pending occurrence in the list would defeat the point — it would sit there
+   * until its window shut and then never be replaced, which reads as a task you
+   * forgot rather than a repeat you stopped. Only an untouched, still-future
+   * one goes: `isUnstartedEvent` is the same guard `regenerateForConfig` uses,
+   * because this is the same irreversible act. A session you have started, and
+   * anything already over, is the record of something that happened and stays.
+   */
+  async pauseConfig(config: RepeatedTask, now: Date): Promise<number> {
+    const tasks = await this.tasksRepository.listBy({ userId: config.userId });
+    const disposable = eventsOfConfig(tasks, config.id).filter(
+      (event) => isUnstartedEvent(event) && !isPassedEvent(event, now),
+    );
+
+    return this.tasksRepository.deleteManyByIds(
+      disposable.map((event) => event.id),
+      config.userId,
+    );
   }
 
   async syncPendingEvents(now: Date): Promise<EventTask[]> {
@@ -58,6 +83,10 @@ export class TaskGeneratorService implements ITaskGeneratorService {
     ]);
 
     const needingEvent = configs
+      // A paused config is simply not asked. This is the whole of what pausing
+      // does to the poller — no other pass filters on it, because no other pass
+      // creates anything.
+      .filter((config) => config.enabled)
       .filter((config) => pendingEventOfConfig(tasks, config.id, now) === null);
 
     const generated = await Promise.all(
@@ -79,6 +108,12 @@ export class TaskGeneratorService implements ITaskGeneratorService {
    * it. Anything started or already spent is kept exactly where it is.
    */
   async regenerateForConfig(config: RepeatedTask, now: Date): Promise<EventTask | null> {
+    if (!config.enabled) {
+      await this.pauseConfig(config, now);
+
+      return null;
+    }
+
     const tasks = await this.tasksRepository.listBy({ userId: config.userId });
     const events = eventsOfConfig(tasks, config.id);
     const disposable = events.filter(
@@ -141,6 +176,9 @@ export class TaskGeneratorService implements ITaskGeneratorService {
 
     const config = await this.repeatedTasksRepository.getById(event.configTaskId);
     if (config === null) return null;
+    // Finishing the last occurrence of a paused repeat ends it, rather than
+    // quietly starting the rule up again.
+    if (!config.enabled) return null;
 
     // The poller may already have moved this config on. Finishing an event that
     // had *already* passed means `syncPendingEvents` generated its successor on

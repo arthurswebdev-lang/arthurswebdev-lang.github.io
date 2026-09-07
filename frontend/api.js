@@ -163,6 +163,14 @@ export const fetchRepeatedTask = (token, id) => get(`/repeated-tasks/${id}`, tok
 export const updateRepeatedTask = (token, id, payload) =>
   send("PATCH", `/repeated-tasks/${id}`, token, payload);
 
+/**
+ * Pause or resume a repeat. The same PATCH as above, named for what it does:
+ * this is the one field the repeats list changes on its own, without opening
+ * the composer, so it reads better as its own verb.
+ */
+export const setRepeatEnabled = (token, id, enabled) =>
+  send("PATCH", `/repeated-tasks/${id}`, token, { enabled });
+
 export const setTaskStatus = (token, id, status) =>
   send("PATCH", `/tasks/${id}/status`, token, { status });
 

@@ -62,6 +62,19 @@ export interface BaseRepeatedTask extends TaskWindow {
    * two spellings of the same schedule compare equal.
    */
   timesOfDay: TimeOfDay[];
+  /**
+   * Whether this rule is still running. `false` is a pause, not a delete.
+   *
+   * A paused config keeps everything — its name, steps, photo, schedule — and
+   * simply stops being asked for occurrences. It is for a repeat you are not
+   * doing at the moment but do not want to lose or retype: a routine you are
+   * off for a month, a set of exercises set up on an account you are not using
+   * yet. Pausing also clears the one occurrence it had waiting, so the list
+   * goes quiet rather than keeping a task nothing will ever regenerate.
+   *
+   * Defaults to true, so a config is running unless it is deliberately stopped.
+   */
+  enabled: boolean;
 }
 
 /**
@@ -103,8 +116,10 @@ export type RepeatedDraft<T extends BaseRepeatedTask> =
   Omit<
     T,
     'id' | 'userId' | 'createdAt' | 'category' | 'links' | 'subtasks' | 'timesOfDay'
-    | 'remindBeforeMins' | 'activeBeforeMins' | 'activeForMins'
+    | 'enabled' | 'remindBeforeMins' | 'activeBeforeMins' | 'activeForMins'
   > & {
+    /** Left out means running: a config has to be paused on purpose. */
+    enabled?: boolean;
     category?: TaskCategory;
     links?: string[];
     remindBeforeMins?: number;

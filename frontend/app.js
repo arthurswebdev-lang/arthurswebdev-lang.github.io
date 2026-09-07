@@ -10,7 +10,8 @@
 --------------------------------------------------------------------------- */
 import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
-  fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, updateRepeatedTask,
+  fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, setRepeatEnabled,
+  updateRepeatedTask,
   replaceTask, saveCredentials, sendTestNotification, setStepStatus, setTaskStatus, signUp,
 } from './api.js?v=30';
 import {
@@ -1072,14 +1073,54 @@ const SCHEDULE_LABEL = {
     `day ${String(config.fromDay)} of ${MONTH_LABEL(config.months)}, ${timesSummary(config)}`,
 };
 
+/**
+ * Pause or resume, in place.
+ *
+ * A pause is not a delete and does not ask: the config keeps everything, and
+ * tapping again puts it back. What it does do is take back the one occurrence
+ * the repeat had waiting, so the list goes quiet — which is why the row reloads
+ * the task list as well as itself.
+ */
+function pauseToggle(config) {
+  const paused = config.enabled === false;
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'row__remove repeat__pause';
+  button.textContent = paused ? '▶' : '⏸';
+  button.title = paused ? 'Resume this repeat' : 'Pause this repeat';
+  button.setAttribute('aria-label',
+    `${paused ? 'Resume' : 'Pause'} the ${config.name} repeat`);
+
+  button.addEventListener('click', () => {
+    button.disabled = true;
+    void setRepeatEnabled(credentials.token, config.id, paused).then(
+      () => {
+        announcer.textContent = `${config.name} repeat ${paused ? 'resumed' : 'paused'}`;
+
+        return Promise.all([openRepeats(), load()]);
+      },
+      () => {
+        button.disabled = false;
+        report(`Could not ${paused ? 'resume' : 'pause'} ${config.name}`);
+      },
+    );
+  });
+
+  return button;
+}
+
 function repeatRow(config) {
   const row = document.createElement('div');
-  row.className = 'row repeat';
+  row.className = config.enabled === false ? 'row repeat repeat--paused' : 'row repeat';
 
   const text = document.createElement('span');
   text.className = 'repeat__text';
   const describe = SCHEDULE_LABEL[config.type];
-  text.textContent = `${categoryOf(config.category).icon} ${config.name} — ${describe(config)}`;
+  // Said on the row rather than left to the greyed-out styling alone: "paused"
+  // is a state you need to be able to read, not infer from a colour.
+  const state = config.enabled === false ? 'paused — ' : '';
+  text.textContent = `${categoryOf(config.category).icon} ${config.name} — ${state}${describe(config)}`;
 
   const remove = document.createElement('button');
   remove.type = 'button';
@@ -1112,7 +1153,7 @@ function repeatRow(config) {
   });
   text.classList.add('repeat__text--tappable');
 
-  row.append(text, remove);
+  row.append(text, pauseToggle(config), remove);
 
   return row;
 }

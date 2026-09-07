@@ -114,6 +114,8 @@ export const fields = {
    */
   photoUrl: link,
   status: Joi.string().valid(...Object.values(TaskStatus)),
+  /** A paused config keeps everything and simply stops generating. */
+  enabled: Joi.boolean(),
   subtasks: Joi.array().items(SubtaskSchema),
   /** A config's steps: the same list, minus the ticks. */
   repeatedSubtasks: Joi.array().items(RepeatedSubtaskSchema),

@@ -21,6 +21,7 @@ export const CreateDailyTaskSchema = assertWindowOrder(JoiObject<CreateDailyTask
   ...windowFields,
   subtasks: fields.repeatedSubtasks.default([]),
   timesOfDay: fields.timesOfDay.default([DEFAULT_TIME_OF_DAY]),
+  enabled: fields.enabled.default(true),
   // Defaulted, not required: every existing daily config was written before
   // this field existed and means every day.
   weekdays: fields.weekdays.default(ALL_WEEKDAYS),
@@ -37,6 +38,7 @@ export const CreateWeeklyTaskSchema = assertWindowOrder(JoiObject<CreateWeeklyTa
   ...windowFields,
   subtasks: fields.repeatedSubtasks.default([]),
   timesOfDay: fields.timesOfDay.default([DEFAULT_TIME_OF_DAY]),
+  enabled: fields.enabled.default(true),
   weekdays: fields.weekdays.required(),
 }));
 
@@ -51,6 +53,7 @@ export const CreateMonthlyTaskSchema = assertWindowOrder(JoiObject<CreateMonthly
   ...windowFields,
   subtasks: fields.repeatedSubtasks.default([]),
   timesOfDay: fields.timesOfDay.default([DEFAULT_TIME_OF_DAY]),
+  enabled: fields.enabled.default(true),
   fromDay: fields.dayOfMonth.required(),
   months: fields.months.required(),
 }));
@@ -89,6 +92,7 @@ export const PatchRepeatedTaskSchema = JoiObject<PatchRepeatedTask>({
   activeBeforeMins: fields.activeBeforeMins,
   activeForMins: fields.activeForMins,
   timesOfDay: fields.timesOfDay,
+  enabled: fields.enabled,
   weekdays: fields.weekdays,
   fromDay: fields.dayOfMonth,
   months: fields.months,

@@ -108,6 +108,7 @@ export function aWeeklyConfig(
     activeForMins: DEFAULT_ACTIVE_FOR_MINS,
     subtasks: [],
     timesOfDay: [DEFAULT_TIME_OF_DAY],
+    enabled: true,
     weekdays,
     ...overrides,
   };
@@ -161,6 +162,7 @@ export function aDailyConfig(
     activeForMins: DEFAULT_ACTIVE_FOR_MINS,
     subtasks: [],
     timesOfDay: schedule.timesOfDay,
+    enabled: true,
     weekdays: schedule.weekdays ?? ALL_WEEKDAYS,
   };
 }
@@ -182,6 +184,7 @@ export function aMonthlyConfig(
     activeForMins: DEFAULT_ACTIVE_FOR_MINS,
     subtasks: [],
     timesOfDay: [DEFAULT_TIME_OF_DAY],
+    enabled: true,
     ...schedule,
   };
 }

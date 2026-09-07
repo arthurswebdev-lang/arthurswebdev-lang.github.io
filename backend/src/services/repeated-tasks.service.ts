@@ -43,6 +43,7 @@ const sharedDraft = (config: RepeatedTask) => ({
   activeForMins: config.activeForMins,
   subtasks: stepDrafts(config),
   timesOfDay: config.timesOfDay.map((time) => ({ ...time })),
+  enabled: config.enabled,
 });
 
 function asDraft(config: RepeatedTask): UpdateRepeatedTask {
@@ -135,14 +136,36 @@ export class RepeatedTasksService implements IRepeatedTasksService {
   /**
    * What an edit means for the occurrences already waiting.
    *
-   * Only a change to the *schedule* invalidates a date, and only a date needs
-   * an occurrence remade. Everything else a generated event carries — its name,
+   * Pausing and resuming come first, because they are not questions about dates
+   * at all: a paused config wants its pending occurrence taken back, and a
+   * resumed one wants a new one even though nothing about its schedule changed.
+   *
+   * Otherwise: only a change to the *schedule* invalidates a date, and only a
+   * date needs an occurrence remade. Everything else a generated event carries — its name,
    * category, links, window and steps — can be written straight onto the
    * occurrences that are still waiting, which is how fixing a typo stopped
    * costing you the sessions you had already done.
    */
   private async reconcileEvents(before: RepeatedTask, after: RepeatedTask): Promise<void> {
     const now = new Date();
+
+    // Paused: take back the occurrence it had waiting and stop. Nothing else
+    // matters, because a paused config produces nothing to reconcile.
+    if (!after.enabled) {
+      await this.taskGenerator.pauseConfig(after, now);
+
+      return;
+    }
+
+    // Just resumed. The schedule has not "moved" — it is the same rule it was
+    // before the pause — so neither of the paths below would put an occurrence
+    // back, and the repeat would sit enabled and empty until something else
+    // changed. Asking for one directly is what starts it running again.
+    if (!before.enabled) {
+      await this.taskGenerator.ensurePendingEvent(after, now);
+
+      return;
+    }
 
     if (scheduleMoved(before, after)) {
       await this.taskGenerator.regenerateForConfig(after, now);

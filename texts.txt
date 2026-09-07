@@ -250,7 +250,12 @@ NOTES:
   "Each one keeps a single event waiting in the list. Deleting a repeat
    removes the events it made."
 
-  Each row reads:   <category icon> <name> — <schedule>
+  Each row has a "⏸" (or "▶" once paused) beside its "🗑".
+    Pausing keeps the repeat and stops it generating; the row greys out and
+    reads "paused — …". Tapping again resumes it. No confirmation either way,
+    because neither direction loses anything.
+
+  Each row reads:   <category icon> <name> — [paused — ]<schedule>
     daily:    "09:00, 11:00, 13:00 · Mo Tu We Th Fr"
               or "8 a day, 09:00–23:00" once there are more than four
     weekly:   "07:00, 18:00 · Mo Th"

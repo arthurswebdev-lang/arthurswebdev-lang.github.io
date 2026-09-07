@@ -71,6 +71,10 @@ export class RepeatedTasksRepository
       ...windowWithDefaults(input),
       subtasks: toRepeatedSubtasks(input.subtasks),
       timesOfDay: toTimesOfDay(input.timesOfDay),
+      // Running unless it was deliberately paused. Filled here as well as in
+      // the schema so a config stored before the field existed gains it on its
+      // first write.
+      enabled: input.enabled ?? true,
     };
 
     // Daily is the one schedule whose days are optional, because leaving them

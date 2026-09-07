@@ -24,6 +24,7 @@ function serviceWith() {
 
   return {
     tasks,
+    generator,
     service: new RepeatedTasksService(configs, tasks, generator),
   };
 }
@@ -329,6 +330,144 @@ describe('taking the photo off a config', () => {
     await service.patchById(config.id, TEST_USER_ID, { name: 'Leg press \u2013 80kg' });
 
     assert.equal(eventsIn(tasks)[0]?.photoUrl, SQUAT);
+  });
+});
+
+/**
+ * Pausing keeps the rule and stops the occurrences. It is for a repeat you are
+ * not doing at the moment — a routine you are off for a month, exercises set up
+ * on an account you are not using yet — and the point is that the list goes
+ * quiet without anything being retyped later.
+ */
+describe('pausing a repeat', () => {
+  it('starts enabled, so a config runs unless it is stopped on purpose', async () => {
+    const { service } = serviceWith();
+
+    const config = await service.create(gymBody, TEST_USER_ID);
+
+    assert.equal(config.enabled, true);
+  });
+
+  it('takes back the occurrence it had waiting', async () => {
+    const { tasks, service } = serviceWith();
+    const config = await service.create(gymBody, TEST_USER_ID);
+    assert.equal(eventsIn(tasks).length, 1);
+
+    await service.patchById(config.id, TEST_USER_ID, { enabled: false });
+
+    assert.equal(eventsIn(tasks).length, 0);
+  });
+
+  it('generates nothing on the next poll', async () => {
+    const { tasks, service, generator } = serviceWith();
+    const config = await service.create(gymBody, TEST_USER_ID);
+    await service.patchById(config.id, TEST_USER_ID, { enabled: false });
+
+    await generator.syncPendingEvents(new Date());
+
+    assert.equal(eventsIn(tasks).length, 0);
+  });
+});
+
+describe('what pausing does not throw away', () => {
+  it('keeps a session already started', async () => {
+    const { tasks, service } = serviceWith();
+    const config = await service.create(gymBody, TEST_USER_ID);
+    const started = eventsIn(tasks)[0];
+    assert.ok(started !== undefined);
+    const step = started.subtasks[0];
+    assert.ok(step !== undefined);
+    await tasks.updateSubtaskStatus(started.id, step.id, TaskStatus.DONE);
+
+    await service.patchById(config.id, TEST_USER_ID, { enabled: false });
+
+    assert.ok(eventsIn(tasks).some((event) => event.id === started.id));
+  });
+
+  it('keeps a finished one, which is the record that it happened', async () => {
+    const { tasks, service } = serviceWith();
+    const config = await service.create(gymBody, TEST_USER_ID);
+    const done = eventsIn(tasks)[0];
+    assert.ok(done !== undefined);
+    await tasks.updateStatus(done.id, TaskStatus.DONE);
+
+    await service.patchById(config.id, TEST_USER_ID, { enabled: false });
+
+    assert.ok(eventsIn(tasks).some((event) => event.id === done.id));
+  });
+
+});
+
+describe('what a paused config still holds', () => {
+  it('keeps its name and steps', async () => {
+    const { service } = serviceWith();
+    const config = await service.create(gymBody, TEST_USER_ID);
+
+    const paused = await service.patchById(config.id, TEST_USER_ID, { enabled: false });
+
+    assert.equal(paused.enabled, false);
+    assert.equal(paused.name, gymBody.name);
+    assert.equal(paused.subtasks.length, 2);
+  });
+
+  it('keeps its schedule, so resuming needs nothing retyped', async () => {
+    const { service } = serviceWith();
+    const config = await service.create(gymBody, TEST_USER_ID);
+
+    const paused = await service.patchById(config.id, TEST_USER_ID, { enabled: false });
+
+    assert.ok(paused.type === TaskType.REPEATED_WEEKLY);
+    assert.deepEqual(paused.weekdays, gymBody.weekdays);
+  });
+});
+
+describe('resuming a repeat', () => {
+  it('puts an occurrence back, though the schedule never moved', async () => {
+    // The trap this guards: resuming is not a schedule change, so neither the
+    // regenerate nor the refresh path would produce anything, and the repeat
+    // would sit enabled and empty until something else about it changed.
+    const { tasks, service } = serviceWith();
+    const config = await service.create(gymBody, TEST_USER_ID);
+    await service.patchById(config.id, TEST_USER_ID, { enabled: false });
+
+    await service.patchById(config.id, TEST_USER_ID, { enabled: true });
+
+    assert.equal(eventsIn(tasks).length, 1);
+  });
+
+  it('stays paused through an edit that does not mention it', async () => {
+    const { tasks, service } = serviceWith();
+    const config = await service.create(gymBody, TEST_USER_ID);
+    await service.patchById(config.id, TEST_USER_ID, { enabled: false });
+
+    const renamed = await service.patchById(config.id, TEST_USER_ID, { name: 'Leg press – 80kg' });
+
+    assert.equal(renamed.enabled, false);
+    assert.equal(eventsIn(tasks).length, 0);
+  });
+
+  it('does not generate while paused, even when the schedule is edited', async () => {
+    const { tasks, service } = serviceWith();
+    const config = await service.create(gymBody, TEST_USER_ID);
+    await service.patchById(config.id, TEST_USER_ID, { enabled: false });
+
+    await service.patchById(config.id, TEST_USER_ID, { weekdays: [2, 5] });
+
+    assert.equal(eventsIn(tasks).length, 0);
+  });
+});
+
+describe('a PUT that leaves enabled out', () => {
+  it('resumes the config, because PUT replaces rather than merges', async () => {
+    // Consistent with every other field: a PUT body is the whole config, and an
+    // omitted field falls back to its default. `enabled` defaults to true.
+    const { service } = serviceWith();
+    const config = await service.create(gymBody, TEST_USER_ID);
+    await service.patchById(config.id, TEST_USER_ID, { enabled: false });
+
+    const replaced = await service.updateById(config.id, TEST_USER_ID, gymBody);
+
+    assert.equal(replaced.enabled, true);
   });
 });
 

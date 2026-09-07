@@ -24,6 +24,7 @@ function toEntity(input: CreateRepeatedTask, userId: string): RepeatedTask {
     // list as a moved schedule.
     timesOfDay: [...input.timesOfDay ?? [DEFAULT_TIME_OF_DAY]]
       .sort((a, b) => (a.hour - b.hour) || (a.minute - b.minute)),
+    enabled: input.enabled ?? true,
   };
 
   if (input.type === TaskType.REPEATED_DAILY) {

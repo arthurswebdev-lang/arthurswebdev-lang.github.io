@@ -107,8 +107,8 @@ one blank line before a `return` that follows logic.
 - **Editing a repeat regenerates its occurrences only when the *schedule* moves.**
   `scheduleOf` in `src/rules/repeated-task-schedule.rules.ts` reduces a config to the fields that
   decide *when* it fires — **`timesOfDay` always**, plus weekdays or fromDay+months — and an
-  edit is compared against that. Times and lists are sorted into the key, so reordering either is not a
-  move. Change the name, links, photo, category, steps or window and the dates are all still
+  edit is compared against that. Times and lists are sorted into the key, so reordering either
+  is not a move. Change the name, links, photo, category, steps or window and the dates are all still
   right, so the occurrences are **rewritten in place**
   (`refreshEventsOfConfig`) rather than deleted. Note the window fields are *not* part of the
   schedule: they change how long an occurrence matters, never when it falls.
@@ -128,6 +128,24 @@ one blank line before a `return` that follows logic.
   a create would have refused (`fromDay` on a weekly config, a reminder before the task is
   visible). `type` is accepted but cannot change. PUT still replaces; both reconcile events the
   same way.
+- **`enabled: false` pauses a repeat without losing it.** Defaults to true, so a config runs
+  unless it is deliberately stopped. Pausing is for a rule you are not doing at the moment — a
+  routine you are off for a month, exercises set up on an account you are not using yet — and it
+  keeps everything: name, steps, photo, schedule. `syncPendingEvents` simply does not ask a
+  paused config, which is the whole of what pausing does to the poller, because no other pass
+  creates anything. Pausing also **takes back the one occurrence it had waiting**
+  (`pauseConfig`), or that task would sit in the list until its window shut and then never be
+  replaced — reading as something you forgot rather than something you stopped. It uses
+  `isUnstartedEvent`, the same guard `regenerateForConfig` uses, because it is the same
+  irreversible act: a started session and anything already over both stay. Migrated by
+  `backend/scripts/2026-09-07-config-enabled.ts`, which must run **before** the code that reads
+  the field is deployed — a missing `enabled` is `undefined`, which is falsy, so every repeat in
+  the database would read as paused and the poller would **silently** stop generating.
+- **Resuming is not a schedule change, and needs its own branch.** `reconcileEvents` checks
+  `enabled` before it checks `scheduleMoved`: a config coming back from a pause has the same rule
+  it went in with, so neither the regenerate nor the refresh path would produce anything and the
+  repeat would sit enabled and empty until something else about it changed. It calls
+  `ensurePendingEvent` directly instead.
 - **Every schedule is "which days, and at what times on them".** `timesOfDay: TimeOfDay[]` sits on
   `BaseRepeatedTask`, so daily, weekly and monthly all carry it, and `nextOccurrence` is a single
   day-walk: skip a day the schedule does not run on, otherwise take the first of that day's times
