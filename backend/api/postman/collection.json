@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "tasks-api",
-    "description": "Local API for the tasks service.\n\nSet the `host` collection variable once and every request follows it -- it holds the\nwhole base URL (scheme, host and port), so switching environments is a one-field edit.\n\n`taskId` is filled in automatically: each create request stores the new id, and the\nget/update/delete requests read it. Run the folder top to bottom and it chains.\n\nConfigs (DAILY / REPEATED_WEEKLY / REPEATED_MONTHLY) live under /repeated-tasks and in\ntheir own JSON file. /tasks holds only BASIC and EVENT -- including the events the configs\ngenerate. Run the Tasks folder, then Repeated tasks, top to bottom.\n\nA generated event cannot be replaced: PUT refuses it. Move its status with\nPATCH /tasks/:id/status, and change anything else on the repeated task that produces it.\nConfigs carry no status at all -- they are rules, not to-dos.\n\nNote: PUT replaces the task. The body is the full representation -- same fields and\nsame rules as the matching create request -- so anything left out falls back to its\ndefault instead of keeping its stored value. Only `id` and `createdAt` survive, and\n`type` must match the stored task; sending a different one is rejected with 400.",
+    "description": "Local API for the tasks service.\n\nSet the `host` collection variable once and every request follows it -- it holds the\nwhole base URL (scheme, host and port), so switching environments is a one-field edit.\n\nIds are filled in automatically: each create request stores the new id, and the\nget/update/delete requests read it. Run the folders top to bottom and it chains.\n\nTwo resources, two collections. /tasks holds BASIC and EVENT -- including the events the\nconfigs generate; /repeated-tasks holds the configs (DAILY / REPEATED_WEEKLY /\nREPEATED_MONTHLY). Posting a config to /tasks is a 400. Note the wire value:\nREPEATED_DAILY is spelled `DAILY` while its siblings keep the prefix, a known\ninconsistency visible in responses too.\n\nEvery schedule is \"which days, and at what times on them\". All three config types carry\n`timesOfDay`, a list of UTC {hour, minute}; the type says which days -- `weekdays` for\nDAILY and REPEATED_WEEKLY, `fromDay` plus `months` for REPEATED_MONTHLY. A config that\nnames no time fires at 02:00 UTC, chosen as 06:00 in Yerevan. There is no\nstartsAt/endsAt/repeatEach and no toDay: \"every 2h from 09:00\" is expanded into concrete\ntimes by the client before it is sent.\n\nA dated task carries three durations rather than a calendar window, all in minutes from\nits own `date`: `remindBeforeMins` (when the push is sent, default 0), `activeBeforeMins`\n(when it stops being upcoming, default 1440) and `activeForMins` (how long it stays worth\ndoing, default 10). The first may not exceed the second. A config carries the same three,\nand every occurrence inherits them.\n\nA generated event cannot be replaced: PUT refuses it. Move its status with\nPATCH /tasks/:id/status, tick a step with PATCH /tasks/:id/subtasks/:subtaskId/status, and\nchange anything else on the repeated task that produces it -- name, category, links,\nphoto, window and steps are all inherited. Configs carry no status at all: they are rules,\nnot to-dos, and `enabled: false` pauses one without losing it.\n\nNote: PUT replaces. The body is the full representation -- same fields and same rules as\nthe matching create request -- so anything left out falls back to its default instead of\nkeeping its stored value. Only `id` and `createdAt` survive, and `type` must match the\nstored row. PATCH /repeated-tasks/:id is the merging alternative, for configs only.\n\nEvery schema is a closed object with no unknown-key tolerance, so one stale field is a 400\nrather than a value quietly ignored.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -41,7 +41,22 @@
       "type": "string"
     },
     {
+      "key": "basicTaskId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "subtaskId",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "configId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "weeklyConfigId",
       "value": "",
       "type": "string"
     },
@@ -105,7 +120,7 @@
                 "users"
               ]
             },
-            "description": "Creates the account. The only rule is that the username is free; there is no confirmation step. Password takes letters and digits, any length."
+            "description": "Creates the account. The only rule is that the username is free; there is no confirmation step. The username is lowercased and takes letters, digits, dot, underscore and dash, 3 to 32 characters; the password takes letters and digits, any length. Nothing but the id, the username and createdAt ever comes back -- the hash and the salt stay on the server."
           },
           "response": []
         },
@@ -136,7 +151,7 @@
                 "me"
               ]
             },
-            "description": "Confirms the stored credentials are accepted."
+            "description": "Confirms the stored credentials are accepted, and names who they belong to. Every route below this one identifies its caller the same way, and every task, config and device is scoped to that user -- somebody else's id reads as 404, not 403, because a 403 would confirm the row exists."
           },
           "response": []
         },
@@ -220,7 +235,7 @@
                 "health"
               ]
             },
-            "description": "Reports server and database connectivity."
+            "description": "The one route that needs no credentials. Reports the server and, eventually, the database: `dbConnection` is still hardcoded to `{ ok: false, error: \"not configured\" }` because nothing probes the real connection yet, so a false there does not mean Mongo is down."
           },
           "response": []
         }
@@ -228,6 +243,7 @@
     },
     {
       "name": "Tasks",
+      "description": "/tasks holds BASIC and EVENT, and nothing else -- a config posted here is a 400. The events a config generates live here too, which is how a repeat shows up in the list at all.",
       "item": [
         {
           "name": "List all tasks",
@@ -256,7 +272,7 @@
                 "tasks"
               ]
             },
-            "description": "Every stored task, in insertion order."
+            "description": "Every task you own, sorted rather than returned in insertion order: unfinished before DONE, then soonest first, then by id as a stable tiebreak. A dateless BASIC task has no place on the timeline, so it sorts after every dated one. Each generated event arrives with its `config` attached, so a client can edit the repeat behind it without a second request -- that field is a view, not something you send back."
           },
           "response": []
         },
@@ -293,7 +309,7 @@
                 }
               ]
             },
-            "description": "Events that are still ahead and near enough to matter under their own activeLogic: TODAY for daily-generated events, this week for weekly, a rolling 30 days for monthly. Basic tasks are left out of every filtered list."
+            "description": "Worth acting on right now: an event whose window is open on both sides -- from `date` minus activeBeforeMins until `date` plus activeForMins. Every boundary is a duration from the event's own date, so the answer does not depend on which day you ask or which timezone the server is in.\n\nA BASIC task has no date, so it has no position in time to be early or late for: it counts as actual and appears here. Leaving dateless tasks out of every filtered list is what once made plain to-dos invisible in an app whose list is always filtered."
           },
           "response": []
         },
@@ -330,7 +346,7 @@
                 }
               ]
             },
-            "description": "Events whose moment has gone by. They stay in the list for the user to deal with."
+            "description": "Spent: `now` is past `date` plus activeForMins. Note this is not the same question as \"has the date gone by\" -- activeForMins is what keeps a reminder in the list for a while after it fires, instead of filing it under missed the same minute it is announced. Generation asks about the date; this asks about the window.\n\nDateless BASIC tasks never appear here."
           },
           "response": []
         },
@@ -367,7 +383,7 @@
                 }
               ]
             },
-            "description": "Events still ahead but outside their active window -- next week's session, or something more than 30 days out."
+            "description": "Still ahead, and further out than activeBeforeMins -- so not yet worth showing among today's work. The three filters partition the timeline exactly: before activeFrom is upcoming, after activeUntil is passed, everything between is actual, and no instant belongs to two of them or to none.\n\nDateless BASIC tasks never appear here either."
           },
           "response": []
         },
@@ -404,7 +420,7 @@
                 }
               ]
             },
-            "description": "Categories are fixed in code; there are no endpoints to manage them. Anything created without one lands in OTHER, which filters like any other value. Combines with ?filter=."
+            "description": "Categories are fixed in code (IMPORTANT, WORK, SUPPLEMENTS, FOOD, EDUCATION, SELFCARE, GYM, READING, OTHER); there are no endpoints to manage them. Anything created without one lands in OTHER, which keeps the field non-nullable and makes \"uncategorised\" filterable like any other value.\n\nThis one narrows in the Mongo query (plain equality, indexed) while `filter=` stays in the rule functions. Neither is required, and together they intersect."
           },
           "response": []
         },
@@ -423,6 +439,8 @@
                   "if (pm.response.code === 201) {",
                   "  const task = pm.response.json();",
                   "  pm.collectionVariables.set('taskId', task.id);",
+                  "  // Kept aside so the clear request below has something of its own to remove.",
+                  "  pm.collectionVariables.set('basicTaskId', task.id);",
                   "  pm.test('server assigned a uuid and createdAt', function () {",
                   "    pm.expect(task.id).to.match(/^[0-9a-f-]{36}$/);",
                   "    pm.expect(task.createdAt).to.be.a(\"string\");",
@@ -458,7 +476,7 @@
                 "tasks"
               ]
             },
-            "description": "Simplest task. `status` defaults to TODO and `subtasks` to []; each subtask gets its own uuid."
+            "description": "The simplest task: a name and no date. `status` defaults to TODO, `category` to OTHER, `links` to [] and `subtasks` to []; each subtask gets its own uuid and starts TODO. A subtask carries at most one link, and links are http(s) only -- they get opened, so a javascript: or file: url has no business being stored.\n\nA BASIC task carries no window fields at all. It has no date to measure them from, and sending one is a 400."
           },
           "response": []
         },
@@ -487,6 +505,7 @@
                   "if (pm.response.code === 201) {",
                   "  const task = pm.response.json();",
                   "  pm.collectionVariables.set('taskId', task.id);",
+                  "  pm.collectionVariables.set('subtaskId', task.subtasks[0].id);",
                   "  pm.test('server assigned a uuid and createdAt', function () {",
                   "    pm.expect(task.id).to.match(/^[0-9a-f-]{36}$/);",
                   "    pm.expect(task.createdAt).to.be.a(\"string\");",
@@ -506,7 +525,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"EVENT\",\n  \"name\": \"standup\",\n  \"date\": \"{{eventDate}}\",\n  \"category\": \"WORK\",\n  \"links\": [\n    \"https://meet.example.com/standup\"\n  ]\n}",
+              "raw": "{\n  \"type\": \"EVENT\",\n  \"name\": \"standup\",\n  \"date\": \"{{eventDate}}\",\n  \"category\": \"WORK\",\n  \"links\": [\n    \"https://meet.example.com/standup\"\n  ],\n  \"photoUrl\": \"https://example.com/photos/standup.png\",\n  \"remindBeforeMins\": 5,\n  \"activeBeforeMins\": 60,\n  \"activeForMins\": 30,\n  \"subtasks\": [\n    {\n      \"name\": \"Post yesterday's notes\",\n      \"link\": \"https://notes.example.com/standup\"\n    },\n    {\n      \"name\": \"Join the call\"\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -522,7 +541,7 @@
                 "tasks"
               ]
             },
-            "description": "Event tasks carry a date. The pre-request script sets it one minute out, so the polling service prints its notification while you watch the server log."
+            "description": "A dated task, and the only kind a reminder is ever sent for. The pre-request script sets `date` one minute out, so the poller announces it while you watch the server log.\n\nThe three durations are all in minutes from `date`, and all optional: remindBeforeMins says when the push is sent (0 = on the moment, the default), activeBeforeMins when it stops being upcoming (default 1440), activeForMins how long it stays worth doing afterwards (default 10). remindBeforeMins may not exceed activeBeforeMins -- see the error case in the Errors folder.\n\n`photoUrl` is one picture for the whole task, validated as a link because it is one. It is absent rather than null when there is none, which is what lets a PUT clear it by leaving it out.\n\n`passedDate`, `notifiedAt` and `configTaskId` are server-owned and are refused in a payload."
           },
           "response": []
         },
@@ -554,7 +573,7 @@
                 "{{taskId}}"
               ]
             },
-            "description": "Uses the id stored by the last create request."
+            "description": "Uses the id stored by the last create request. A generated event comes back with its `config` embedded, the same as in the list."
           },
           "response": []
         },
@@ -568,7 +587,12 @@
                 "exec": [
                   "pm.test('update -> 200', function () {",
                   "  pm.response.to.have.status(200);",
-                  "});"
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "  // A replacement rebuilds the checklist, so the steps get fresh ids.",
+                  "  pm.collectionVariables.set('subtaskId', pm.response.json().subtasks[0].id);",
+                  "}"
                 ]
               }
             }
@@ -583,7 +607,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"EVENT\",\n  \"name\": \"standup (updated)\",\n  \"status\": \"DONE\",\n  \"date\": \"{{eventDate}}\",\n  \"subtasks\": []\n}",
+              "raw": "{\n  \"type\": \"EVENT\",\n  \"name\": \"standup (updated)\",\n  \"status\": \"TODO\",\n  \"date\": \"{{eventDate}}\",\n  \"category\": \"WORK\",\n  \"links\": [\n    \"https://meet.example.com/standup\"\n  ],\n  \"remindBeforeMins\": 10,\n  \"activeBeforeMins\": 120,\n  \"activeForMins\": 30,\n  \"subtasks\": [\n    {\n      \"name\": \"Post yesterday's notes\"\n    },\n    {\n      \"name\": \"Join the call\"\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -600,7 +624,7 @@
                 "{{taskId}}"
               ]
             },
-            "description": "Full replacement: send every field the task should end up with. Omitting one does not keep its old value -- it reverts to the default. `type` must match the stored task. Server-owned fields (configTaskId, passedDate) survive."
+            "description": "Full replacement: send every field the task should end up with. Omitting one does not keep its old value -- it reverts to the default, which is exactly how `photoUrl` is cleared (this body leaves it out, so the picture set on create is gone). `type` must match the stored task; a task cannot change variant in place.\n\nOnly `id` and `createdAt` survive from the stored task, plus the server-owned event fields: configTaskId always, and passedDate and notifiedAt unless `date` moved -- a new moment has not been announced yet, so moving a task re-arms its reminder.\n\nThe steps are rebuilt too, so their uuids change; the test script stores the new one for the request below."
           },
           "response": []
         },
@@ -647,7 +671,102 @@
                 "status"
               ]
             },
-            "description": "The only field that moves on a task, and the only way to move a generated one. Marking a generated event DONE brings its next occurrence forward straight away. The body takes status and nothing else."
+            "description": "The only way to move a generated event, since PUT refuses one outright. The body takes `status` and nothing else; DONE, TODO and PARTIALLY_DONE are the three values.\n\nMarking a generated event DONE brings its next occurrence forward straight away rather than waiting for the poller -- finishing early is finishing, and measuring from the event's own date is what stops it handing back the same occurrence again."
+          },
+          "response": []
+        },
+        {
+          "name": "Update subtask status (PATCH)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('patch subtask status -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"DONE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/tasks/{{taskId}}/subtasks/{{subtaskId}}/status",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks",
+                "{{taskId}}",
+                "subtasks",
+                "{{subtaskId}}",
+                "status"
+              ]
+            },
+            "description": "Ticks one step. A subtask is atomic, so only DONE and TODO are accepted -- PARTIALLY_DONE is a whole-task answer.\n\nSteps move on a generated event too: the config owns the name, the date and the checklist, but whether a step is done belongs to the user, the same as the task's own status. The write is positional, so only that one element is touched and a concurrent change to another step is not clobbered. Both ids in the path are validated as uuids before the controller runs; a step id that is not on this task is a 404."
+          },
+          "response": []
+        },
+        {
+          "name": "Clear tasks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('clear -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [\n    \"{{basicTaskId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/tasks/clear",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks",
+                "clear"
+              ]
+            },
+            "description": "Deletes the exact tasks named, 1 to 200 ids, and answers `{ \"deleted\": n }`. Registered ahead of /tasks/:id, or \"clear\" would be read as an id and fail as a malformed uuid.\n\nThere is no ownership pre-check: the delete is scoped by owner, so an id that is not yours simply does not match and the count comes back lower. Reporting which ids failed would tell the caller whose they are.\n\nRemoves the BASIC task created above, so the event task below survives for its own delete."
           },
           "response": []
         },
@@ -679,7 +798,7 @@
                 "{{taskId}}"
               ]
             },
-            "description": "Removes the task. Returns 204 with no body."
+            "description": "Removes the task. Returns 204 with no body.\n\nOne case is not a plain delete: deleting a *generated* event deletes the config behind it and every event that config produced. On its own the occurrence would simply be regenerated by the next poll, so \"delete this\" can only mean the rule."
           },
           "response": []
         }
@@ -687,7 +806,7 @@
     },
     {
       "name": "Repeated tasks (configs)",
-      "description": "Configs are their own resource in their own JSON file. They never appear under /tasks -- the event each one currently has pending represents it there.",
+      "description": "Configs are their own resource in their own collection. They never appear under /tasks -- the event each one currently has pending represents it there. Nobody completes a rule, so a config has no `status` at all; `enabled: false` is how one is stopped.\n\nEvery config is \"which days, and at what times on them\": `timesOfDay` is on all three types, and the schedule fields say which days. Times are UTC -- 05:00 here is 09:00 in Yerevan, which is the only place this app is used. A config that names no time gets one at 02:00 UTC, chosen as 06:00 local.",
       "item": [
         {
           "name": "Create daily task",
@@ -718,7 +837,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"DAILY\",\n  \"name\": \"drink water\",\n  \"category\": \"SELFCARE\",\n  \"startsAt\": {\n    \"hour\": 9,\n    \"minute\": 0\n  },\n  \"endsAt\": {\n    \"hour\": 18,\n    \"minute\": 0\n  },\n  \"repeatEach\": {\n    \"hour\": 1,\n    \"minute\": 30\n  }\n}",
+              "raw": "{\n  \"type\": \"DAILY\",\n  \"name\": \"drink water\",\n  \"category\": \"SELFCARE\",\n  \"weekdays\": [\n    1,\n    2,\n    3,\n    4,\n    5\n  ],\n  \"timesOfDay\": [\n    {\n      \"hour\": 5,\n      \"minute\": 0\n    },\n    {\n      \"hour\": 7,\n      \"minute\": 0\n    },\n    {\n      \"hour\": 9,\n      \"minute\": 0\n    },\n    {\n      \"hour\": 11,\n      \"minute\": 0\n    }\n  ],\n  \"remindBeforeMins\": 0,\n  \"activeBeforeMins\": 30,\n  \"activeForMins\": 60,\n  \"enabled\": true\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -734,7 +853,7 @@
                 "repeated-tasks"
               ]
             },
-            "description": "Repeats through the day: runs between startsAt and endsAt, every repeatEach."
+            "description": "Fires at each of `timesOfDay` on each day in `weekdays` -- four times a day, Monday to Friday. There is no startsAt/endsAt/repeatEach any more: \"every 2h from 09:00 to 23:00\" is a composer input mode that expands into concrete times before the request is sent, so only the list is ever stored. That also means a repeat crossing midnight is just two entries, 21:00 and 01:00, rather than something the schema has to refuse.\n\n`weekdays` is optional here alone: a daily config that names none falls back to all seven, because \"daily\" means every day until days are deselected. `timesOfDay` is deduplicated and stored sorted, so two spellings of the same schedule compare equal.\n\nNote the wire value: REPEATED_DAILY is spelled `DAILY` while its siblings keep the prefix. A known inconsistency."
           },
           "response": []
         },
@@ -752,6 +871,7 @@
                   "",
                   "if (pm.response.code === 201) {",
                   "  pm.collectionVariables.set('configId', pm.response.json().id);",
+                  "  pm.collectionVariables.set('weeklyConfigId', pm.response.json().id);",
                   "}"
                 ]
               }
@@ -767,7 +887,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"REPEATED_WEEKLY\",\n  \"name\": \"gym\",\n  \"weekdays\": [\n    1,\n    3,\n    5\n  ]\n}",
+              "raw": "{\n  \"type\": \"REPEATED_WEEKLY\",\n  \"name\": \"gym\",\n  \"category\": \"GYM\",\n  \"weekdays\": [\n    1,\n    3,\n    5\n  ],\n  \"timesOfDay\": [\n    {\n      \"hour\": 14,\n      \"minute\": 30\n    }\n  ],\n  \"photoUrl\": \"https://example.com/photos/squat.png\",\n  \"remindBeforeMins\": 30,\n  \"activeBeforeMins\": 120,\n  \"activeForMins\": 180,\n  \"subtasks\": [\n    {\n      \"name\": \"Squat 3x5 at 35kg\",\n      \"link\": \"https://example.com/squat\"\n    },\n    {\n      \"name\": \"Bench 3x5\"\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -783,7 +903,7 @@
                 "repeated-tasks"
               ]
             },
-            "description": "Repeats on given weekdays: 0 = Sunday ... 6 = Saturday, no duplicates."
+            "description": "The same shape as a daily config, differing only in what an empty `weekdays` means: here it is refused, because a weekly config that names no days would fire never. 0 = Sunday ... 6 = Saturday, each day at most once.\n\nThis one shows what an occurrence inherits. A generated event cannot be edited, so its category, links, photo, window and checklist can only come from the config -- which is why they are all set here. The steps are `RepeatedSubtask`: a name and an optional link, and deliberately no `status`, because a config is a rule and nobody pre-completes next week's session. Each occurrence gets its own copy with fresh ids, all TODO.\n\nA weekly repeat names one moment, so its `timesOfDay` is a single entry."
           },
           "response": []
         },
@@ -816,7 +936,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"REPEATED_MONTHLY\",\n  \"name\": \"pay rent\",\n  \"fromDay\": 1,\n  \"toDay\": 5,\n  \"months\": [\n    1,\n    2,\n    3,\n    4,\n    5,\n    6,\n    7,\n    8,\n    9,\n    10,\n    11,\n    12\n  ]\n}",
+              "raw": "{\n  \"type\": \"REPEATED_MONTHLY\",\n  \"name\": \"pay rent\",\n  \"category\": \"IMPORTANT\",\n  \"fromDay\": 1,\n  \"months\": [\n    1,\n    2,\n    3,\n    4,\n    5,\n    6,\n    7,\n    8,\n    9,\n    10,\n    11,\n    12\n  ],\n  \"timesOfDay\": [\n    {\n      \"hour\": 6,\n      \"minute\": 0\n    }\n  ],\n  \"remindBeforeMins\": 60,\n  \"activeBeforeMins\": 1440,\n  \"activeForMins\": 2880\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -832,7 +952,7 @@
                 "repeated-tasks"
               ]
             },
-            "description": "Repeats on a day range within given months: 1 = January ... 12 = December. toDay must be >= fromDay."
+            "description": "Falls on `fromDay` of each month in `months`, at each of `timesOfDay`. 1 = January ... 12 = December, each month at most once. There is no `toDay`: a monthly repeat names the day it happens, not a range it may happen in.\n\nA day past the end of a short month simply does not occur that month -- the search walks forward to the next month that has it."
           },
           "response": []
         },
@@ -863,7 +983,7 @@
                 "repeated-tasks"
               ]
             },
-            "description": "Every stored config."
+            "description": "Every config you own, paused ones included -- a pause is not a delete, so it stays in this list with everything it had."
           },
           "response": []
         },
@@ -931,7 +1051,191 @@
                 "tasks"
               ]
             },
-            "description": "Stores the id of an event produced by a config, for the checks below."
+            "description": "Creating a config generates its first occurrence straight away rather than leaving it with nothing pending until the next poll, so one should already be here. A generated event is the one with a non-null `configTaskId`, and it arrives with its `config` attached. Stores its id for the checks below.\n\nThe invariant is one pending occurrence per config: the next is made when this one's date goes by, or when it is finished early."
+          },
+          "response": []
+        },
+        {
+          "name": "Update config (PUT, moves the schedule)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('update config -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"REPEATED_MONTHLY\",\n  \"name\": \"pay rent\",\n  \"category\": \"IMPORTANT\",\n  \"fromDay\": 3,\n  \"months\": [\n    1,\n    4,\n    7,\n    10\n  ],\n  \"timesOfDay\": [\n    {\n      \"hour\": 6,\n      \"minute\": 0\n    }\n  ],\n  \"remindBeforeMins\": 60,\n  \"activeBeforeMins\": 1440,\n  \"activeForMins\": 2880\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/repeated-tasks/{{configId}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "repeated-tasks",
+                "{{configId}}"
+              ]
+            },
+            "description": "PUT replaces a config the same way it replaces a task: the body is the full representation, and anything left out falls back to its default rather than keeping its stored value. `type` cannot change.\n\nWhat happens to the occurrences depends on whether the *schedule* moved. Only the fields that decide when it fires count -- timesOfDay always, plus weekdays, or fromDay and months. This body changes fromDay and months, so it moved: the occurrences no longer follow from the rule and are made again.\n\nEven then, only untouched future ones are thrown away. An occurrence you have started, and anything already over, is the record of something that happened; changing the rule today does not un-happen it. Editing a config used to delete every event it had ever produced, which cost months of finished sessions to fix a typo."
+          },
+          "response": []
+        },
+        {
+          "name": "Rename a config (PATCH, rewritten in place)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('patch config -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"gym (upper body)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/repeated-tasks/{{weeklyConfigId}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "repeated-tasks",
+                "{{weeklyConfigId}}"
+              ]
+            },
+            "description": "PATCH changes only the fields it names. The stored config supplies the rest, and the merged result is re-validated with the full create schema -- so a patch cannot assemble a config a create would have refused. `type` is accepted so a client holding the whole config can send it straight back, but it cannot change anything.\n\nThe name is not part of the schedule, so every date is still right and nothing is deleted: the occurrences still ahead are rewritten in place with the new values. Note that this reaches a session you have already started, and has to -- correcting a repeat from 30kg to 35kg is about the session you are in the middle of. The ticks survive it, because steps are paired against the ones the occurrence already has by name, so a step still present keeps its id and its status.\n\nWindow fields are cosmetic in this sense too: they change how long an occurrence matters, never when it falls."
+          },
+          "response": []
+        },
+        {
+          "name": "Pause a repeat (enabled: false)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('pause config -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/repeated-tasks/{{weeklyConfigId}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "repeated-tasks",
+                "{{weeklyConfigId}}"
+              ]
+            },
+            "description": "A pause, not a delete: the config keeps its name, steps, photo and schedule and simply stops being asked for occurrences. It is for a rule you are not doing at the moment -- a routine you are off for a month, exercises set up on an account you are not using yet.\n\nPausing also takes back the one occurrence it had waiting. Otherwise that task would sit in the list until its window shut and then never be replaced, reading as something you forgot rather than something you stopped. Only an untouched, still-future one goes; a started session and anything already over stay, because taking those back cannot be undone.\n\n`enabled` defaults to true, so a config runs unless it is deliberately stopped."
+          },
+          "response": []
+        },
+        {
+          "name": "Resume a repeat (enabled: true)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('resume config -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/repeated-tasks/{{weeklyConfigId}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "repeated-tasks",
+                "{{weeklyConfigId}}"
+              ]
+            },
+            "description": "Starting again needs its own branch, and this is why: a config coming back from a pause has exactly the rule it went in with, so nothing about its schedule has \"moved\" and neither the regenerate nor the rewrite path would produce anything. The repeat would sit enabled and empty until something else about it changed. Resuming asks for an occurrence directly."
           },
           "response": []
         },
@@ -960,7 +1264,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"EVENT\",\n  \"name\": \"renamed by hand\",\n  \"status\": \"TODO\",\n  \"date\": \"{{eventDate}}\",\n  \"subtasks\": [],\n  \"activeLogic\": \"NEXT_30_DAYS\"\n}",
+              "raw": "{\n  \"type\": \"EVENT\",\n  \"name\": \"renamed by hand\",\n  \"status\": \"TODO\",\n  \"date\": \"{{eventDate}}\",\n  \"subtasks\": []\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -977,7 +1281,7 @@
                 "{{generatedEventId}}"
               ]
             },
-            "description": "A generated event cannot be replaced at all: its name, date and active logic come from its config. Use PATCH /tasks/:id/status for the status, or edit the repeated task for anything else. Hand-made events still take a full PUT."
+            "description": "A generated event takes no replacement at all. Its name, date, window and steps come from its config and would be overwritten by the next regeneration, so a PUT is refused with a 400 naming the config to edit instead.\n\nUse PATCH /tasks/:id/status to move its status, or PATCH /tasks/:id/subtasks/:subtaskId/status to tick a step -- those are the two things the occurrence genuinely owns. Hand-made events (configTaskId: null) still take a full PUT; there is no config to edit instead."
           },
           "response": []
         },
@@ -1006,7 +1310,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"REPEATED_MONTHLY\",\n  \"name\": \"pay rent\",\n  \"status\": \"DONE\",\n  \"fromDay\": 1,\n  \"toDay\": 5,\n  \"months\": [\n    1\n  ]\n}",
+              "raw": "{\n  \"type\": \"REPEATED_MONTHLY\",\n  \"name\": \"pay rent\",\n  \"status\": \"DONE\",\n  \"fromDay\": 3,\n  \"months\": [\n    1\n  ],\n  \"timesOfDay\": [\n    {\n      \"hour\": 6,\n      \"minute\": 0\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1023,53 +1327,7 @@
                 "{{configId}}"
               ]
             },
-            "description": "A config is a rule, not a to-do, so it carries no status at all -- the field does not exist on it. Stopping one means deleting it."
-          },
-          "response": []
-        },
-        {
-          "name": "Update config (regenerates its events)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('update config -> 200', function () {",
-                  "  pm.response.to.have.status(200);",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"REPEATED_MONTHLY\",\n  \"name\": \"pay rent (updated)\",\n  \"fromDay\": 1,\n  \"toDay\": 3,\n  \"months\": [\n    1,\n    4,\n    7,\n    10\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{host}}/repeated-tasks/{{configId}}",
-              "host": [
-                "{{host}}"
-              ],
-              "path": [
-                "repeated-tasks",
-                "{{configId}}"
-              ]
-            },
-            "description": "Editing a config deletes every event it produced and generates a fresh one from the new schedule."
+            "description": "A config is a rule, not a to-do, so it carries no status at all -- the field does not exist on it, and the schemas are closed objects, so sending it is a 400 rather than a value quietly dropped. Stopping a repeat means pausing it with `enabled: false`, or deleting it."
           },
           "response": []
         },
@@ -1101,7 +1359,90 @@
                 "{{configId}}"
               ]
             },
-            "description": "Removes the config and every event it generated. No soft delete."
+            "description": "Removes the config and every event it generated, finished ones included -- unlike an edit, this is not \"the rule changed\", it is \"the rule is gone\". No soft delete; that is what `enabled: false` is for.\n\nThe two collections cannot be written atomically, so the order matters: the events go first. A crash in between leaves a config whose events the next poll simply regenerates, rather than events pointing at a config that no longer exists."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Devices (push)",
+      "description": "One row per FCM registration token, in a third collection. The server owns the schedule, so a client contributes a token and nothing else -- there is no task syncing to do.",
+      "item": [
+        {
+          "name": "Register this install for push",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('register device -> 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"paste-an-fcm-registration-token-here\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/devices",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            },
+            "description": "Registers one browser or home-screen install. The collection is unique on the token, so re-registering the same browser updates the row rather than making every alert arrive twice -- the client does this on every launch, because FCM rotates tokens on its own. It answers 201 either way rather than distinguishing create from update, since neither is an error.\n\nA user with a phone and a laptop has two rows and both should ring. Behind auth: a token registered without credentials would belong to nobody, and there would be no way to know whose events it should get.\n\nThis is the only device endpoint that writes -- there is no DELETE. A dead token is removed when FCM rejects a send, and only for the two codes that mean \"this install is gone\"; a network blip must not delete a row that would have worked on the next pass.\n\nThe token is opaque and has no documented format, so the only rule is 20 to 4096 characters. Paste a real one from the installed PWA."
+          },
+          "response": []
+        },
+        {
+          "name": "Send a test push",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('test push -> 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/devices/test",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "devices",
+                "test"
+              ]
+            },
+            "description": "Sends a push straight away, so the owner can hear whether it arrives without waiting for something to fall due. No body -- the caller is the whole input.\n\nAnswers `{ \"delivered\": n }`, the number of installs it went to, so \"none registered\" is a 0 rather than a silent success. With no Firebase key configured the send goes to the server log instead, and every route still works.\n\nWorth remembering on iOS: web push only reaches a home-screen app, so the PWA must be installed and permission asked from a user gesture inside it."
           },
           "response": []
         }
@@ -1109,7 +1450,7 @@
     },
     {
       "name": "Errors",
-      "description": "The failure shapes the API guarantees, worth keeping green.",
+      "description": "The failure shapes the API guarantees, worth keeping green. Every schema is a closed object -- no unknown-key tolerance anywhere -- so a stale field is a 400 rather than something quietly ignored.",
       "item": [
         {
           "name": "Create with unknown type -> 400",
@@ -1152,7 +1493,7 @@
                 "tasks"
               ]
             },
-            "description": "The `type` discriminator picks the schema; anything else is rejected with the valid list."
+            "description": "The `type` discriminator picks the schema, exactly as it discriminates the union in the code, so the schema that runs and the branch the types narrow to are always the same one. Anything else is rejected with the valid list."
           },
           "response": []
         },
@@ -1181,7 +1522,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"REPEATED_WEEKLY\",\n  \"weekdays\": [\n    9,\n    9\n  ]\n}",
+              "raw": "{\n  \"type\": \"EVENT\",\n  \"name\": \"\",\n  \"date\": \"not-a-date\",\n  \"links\": [\n    \"javascript:alert(1)\"\n  ],\n  \"activeForMins\": 0\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1197,7 +1538,52 @@
                 "tasks"
               ]
             },
-            "description": "Every broken field is reported at once in `errors`, not just the first."
+            "description": "Four broken fields, and all four come back in `errors`: validation does not stop at the first one, because reporting them one at a time is a conversation nobody wants to have.\n\nEach is its own rule. A name has to be 1 to 255 characters. A date has to be ISO. Links are http(s) only, since they get opened. And zero is meaningful for the two \"before\" durations but not for activeForMins, where it would mean the task is passed the instant it arrives."
+          },
+          "response": []
+        },
+        {
+          "name": "Reminder earlier than the task is visible -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('remind before active -> 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"EVENT\",\n  \"name\": \"pinged too early\",\n  \"date\": \"{{eventDate}}\",\n  \"remindBeforeMins\": 120,\n  \"activeBeforeMins\": 60\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/tasks",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tasks"
+              ]
+            },
+            "description": "remindBeforeMins may not exceed activeBeforeMins. Being pinged at 13:00 about something the list hides until 14:00 is never what anyone meant: tapping the notification opens Actual, and the task is not in it.\n\nChecked on the whole object rather than on the field, so it runs after defaults are filled in -- a reference resolved against the raw body would see a key the client never sent. The same rule wraps every dated schema, configs included."
           },
           "response": []
         },
@@ -1226,7 +1612,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"REPEATED_MONTHLY\",\n  \"name\": \"only a name\"\n}",
+              "raw": "{\n  \"type\": \"EVENT\",\n  \"name\": \"only a name\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1243,7 +1629,7 @@
                 "{{taskId}}"
               ]
             },
-            "description": "PUT replaces, so a body missing required fields is rejected rather than treated as a partial edit."
+            "description": "PUT replaces, so a body missing a required field is rejected rather than treated as a partial edit -- an EVENT without a `date` is not a task with its old date, it is not a task. Use PATCH /tasks/:id/status for a status change; configs have a general PATCH, tasks deliberately do not."
           },
           "response": []
         },
@@ -1272,7 +1658,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"DAILY\",\n  \"name\": \"wrong endpoint\",\n  \"startsAt\": {\n    \"hour\": 9,\n    \"minute\": 0\n  },\n  \"endsAt\": {\n    \"hour\": 10,\n    \"minute\": 0\n  },\n  \"repeatEach\": {\n    \"hour\": 1,\n    \"minute\": 0\n  }\n}",
+              "raw": "{\n  \"type\": \"DAILY\",\n  \"name\": \"wrong endpoint\",\n  \"timesOfDay\": [\n    {\n      \"hour\": 9,\n      \"minute\": 0\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1288,7 +1674,99 @@
                 "tasks"
               ]
             },
-            "description": "Configs are a separate resource; /tasks accepts only BASIC and EVENT."
+            "description": "Configs are a separate resource in a separate collection; /tasks accepts BASIC and EVENT only. The union the filtering code works with is deliberately the two task variants, so a config can never reach it."
+          },
+          "response": []
+        },
+        {
+          "name": "Patch a config with nothing to change -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('empty patch -> 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/repeated-tasks/{{weeklyConfigId}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "repeated-tasks",
+                "{{weeklyConfigId}}"
+              ]
+            },
+            "description": "A patch has to name at least one field. An empty body is not a no-op worth a 200 -- it is a request that meant something and lost it on the way."
+          },
+          "response": []
+        },
+        {
+          "name": "Monthly field on a weekly config -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('wrong variant field -> 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fromDay\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/repeated-tasks/{{weeklyConfigId}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "repeated-tasks",
+                "{{weeklyConfigId}}"
+              ]
+            },
+            "description": "The patch schema allows every variant's schedule fields, because the middleware cannot know which kind of config it is looking at until the stored row is read. This is where that is caught instead: the service merges the patch onto the stored config and runs the full create schema over the result, so a patch can never assemble a config a create would have refused."
           },
           "response": []
         },
@@ -1322,7 +1800,7 @@
                 "tasks"
               ]
             },
-            "description": "Every task and config route needs Authorization: Basic base64(user:password)."
+            "description": "Every task, config and device route needs Authorization: Basic base64(user:password). Only POST /users and GET /health are open -- one creates the credentials, the other cannot leak anything."
           },
           "response": []
         },
@@ -1359,7 +1837,7 @@
                 }
               ]
             },
-            "description": "The query is validated too; only actual, passed and upcoming are accepted."
+            "description": "The query is validated too, and deliberately narrowly: it lists only what is actually implemented, so `?limit=5` is a 400 rather than a parameter that quietly does nothing. Only actual, passed and upcoming are accepted for `filter`."
           },
           "response": []
         },
@@ -1391,7 +1869,7 @@
                 "not-a-uuid"
               ]
             },
-            "description": "Route params are validated before the controller runs."
+            "description": "Route params are validated before the controller runs. Ids are uuids everywhere here -- they are the stored `_id` as well, rather than a Mongo ObjectId, so nothing above the repository ever sees a database shape."
           },
           "response": []
         },
@@ -1423,7 +1901,7 @@
                 "00000000-0000-4000-8000-000000000000"
               ]
             },
-            "description": "Well-formed uuid that matches no task."
+            "description": "A well-formed uuid that matches no task of yours. Somebody else's task answers the same 404: a 403 would confirm it exists, which is more than a caller should learn."
           },
           "response": []
         }
