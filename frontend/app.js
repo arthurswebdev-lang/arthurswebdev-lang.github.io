@@ -426,9 +426,9 @@ function message(icon, text, action) {
 function emptyState() {
   const messages = {
     passed: ['🕓', 'Nothing has gone by yet.'],
-    actual: ['🎯', 'Nothing needs doing right now.'],
-    upcoming: ['🌱', 'Nothing further out.'],
-    all: ['≡', 'Nothing here yet.'],
+    actual: ['🎯', 'Nothing needs doing right now. Tap + to add one.'],
+    upcoming: ['🌱', 'Nothing further out. Tap + to add one.'],
+    all: ['≡', 'Nothing here yet. Tap + to add your first task.'],
   };
   const [icon, text] = messages[activeFilter];
 
@@ -617,7 +617,7 @@ function apply(change, send, describe) {
     () => { announcer.textContent = describe; },
     (error) => {
       if (error.message === 'UNAUTHORIZED') return load();
-      report(`That did not save — reloading. ${error.message}`);
+      report(`That did not save, so the list is reloading. The server said: ${error.message}`);
 
       return load();
     },
@@ -725,10 +725,10 @@ function deleteChoiceFor(task) {
 
   return ask({
     title: `Delete "${task.name}"?`,
-    message: 'This task repeats.',
+    message: 'This task comes from a repeat.',
     actions: [
       { id: 'one', label: 'Only this one', danger: true },
-      { id: 'all', label: 'Delete forever', danger: true },
+      { id: 'all', label: 'The whole repeat', danger: true },
     ],
   });
 }
@@ -792,7 +792,7 @@ cleanupButton.addEventListener('click', () => {
 
   void ask({
     title: `Clear ${count} ${sweepLabel()} task${spent.length === 1 ? '' : 's'}?`,
-    message: 'Repeats are kept.',
+    message: 'The repeats that made them are kept.',
     actions: [{ id: 'clear', label: `Clear ${count}`, danger: true }],
   }).then((choice) => {
     if (choice === null) return;
@@ -889,8 +889,8 @@ const testItem = document.getElementById('test-notification');
 const NOTIFICATION_LABEL = {
   granted: 'Notifications on',
   default: 'Turn on notifications',
-  denied: 'Notifications blocked',
-  'needs-install': 'Add to Home Screen first',
+  denied: 'Notifications blocked in Settings',
+  'needs-install': 'Add to Home Screen to get notifications',
 };
 
 function showNotificationsItem() {
@@ -922,7 +922,7 @@ notificationsItem.addEventListener('click', () => {
     },
     (error) => {
       showNotificationsItem();
-      report(`Could not turn notifications on: ${error.message}`);
+      report(`Could not turn notifications on — ${error.message}`);
     },
   );
 });
@@ -944,7 +944,7 @@ testItem.addEventListener('click', () => {
     },
     (error) => {
       showNotificationsItem();
-      report(`Could not send the test: ${error.message}`);
+      report(`Could not send the test. The server said: ${error.message}`);
     },
   );
 });
@@ -1020,7 +1020,7 @@ document.getElementById('export').addEventListener('click', () => {
       // Dismissing the share sheet is a choice, not a failure.
       if (error.name === 'AbortError') return;
 
-      report(`Could not export: ${error.message}`);
+      report(`Could not export — ${error.message}`);
     },
   );
 });
@@ -1106,7 +1106,7 @@ function repeatRow(config) {
 
     row.className = paused ? 'row repeat repeat--paused' : 'row repeat';
     text.textContent = `${categoryOf(config.category).icon} ${config.name} — `
-      + `${paused ? 'paused — ' : ''}${describe(config)}`;
+      + `${paused ? 'Paused · ' : ''}${describe(config)}`;
     pause.textContent = paused ? '▶' : '⏸';
     pause.title = paused ? 'Resume this repeat' : 'Pause this repeat';
     pause.setAttribute('aria-label', `${paused ? 'Resume' : 'Pause'} the ${config.name} repeat`);
@@ -1150,7 +1150,7 @@ function repeatRow(config) {
 
     void ask({
       title: `Delete "${config.name}"?`,
-      message: 'This task repeats.',
+      message: 'The tasks it has already made go with it.',
       actions: [{ id: 'delete', label: 'Delete forever', danger: true }],
     }).then((choice) => {
       if (choice === null) return openRepeats();
@@ -1360,9 +1360,7 @@ function linkToggle(onOpen) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'btn btn--small row-stack__add-link';
-  button.textContent = '+ 🔗';
-  // The icon carries no name of its own, so give it one.
-  button.setAttribute('aria-label', 'Add link');
+  button.textContent = '+ Link';
   button.addEventListener('click', () => { onOpen(); });
 
   return button;
@@ -1421,6 +1419,7 @@ function addSubtaskRow({ name = '', link = '', status = 'TODO' } = {}) {
 
 const timeRows = document.getElementById('time-rows');
 const timesModes = document.getElementById('times-modes');
+const timesLegend = document.getElementById('times-legend');
 const timesList = document.getElementById('times-list');
 const timesWindow = document.getElementById('times-window');
 const timesHint = document.getElementById('times-hint');
@@ -1454,7 +1453,8 @@ function showTimesMode(mode) {
   timesList.hidden = mode !== 'list';
   timesWindow.hidden = mode !== 'window';
   timesHint.textContent = mode === 'window'
-    ? 'Saved as the times this works out to, so you can adjust them one by one afterwards.'
+    ? '2:00 means every two hours. Saved as the times this works out to, so you can adjust '
+      + 'them one by one afterwards.'
     : '';
 }
 
@@ -1556,6 +1556,10 @@ function showStep(name) {
     // The steps field is shared, so its note has to be switched on separately.
     document.getElementById('steps-hint').hidden = draft.kind !== 'REPEATED';
 
+    // Weekly and monthly name one moment, so their list is one row long and
+    // the legend has no business being plural.
+    timesLegend.textContent = shownFor === 'DAILY' ? 'Times' : 'Time';
+
     // The mode toggle is hidden for everything but daily by the loop above, so
     // the window mode has to be put away with it — otherwise switching to
     // weekly while it was showing would leave those three controls on screen
@@ -1571,7 +1575,7 @@ function showStep(name) {
     ? 'Edit repeat'
     : (editing ? 'Edit task' : TITLES[name]);
   // Editing has no earlier step to report or return to: the type is fixed.
-  wizardSteps.textContent = editing ? 'Changing the type means deleting and adding again'
+  wizardSteps.textContent = editing ? "The type can't be changed after saving"
     : `Step ${String(current)} of ${String(total)}`;
   backButton.hidden = editing || name === 'kind';
   saveButton.textContent = editing ? 'Save' : 'Add';
@@ -1878,7 +1882,7 @@ composerForm.addEventListener('submit', () => {
   if (payload.timesOfDay?.length === 0) {
     wizardSteps.textContent = timesWindow.hidden
       ? 'Add at least one time — with none, this would never come round.'
-      : 'That window produces no times. Check that "until" is after "from" and "every" is not zero.';
+      : 'That fills no times. Check that Until is after From, and Every is not 0:00.';
 
     return;
   }
@@ -1902,7 +1906,7 @@ composerForm.addEventListener('submit', () => {
     },
     (error) => {
       if (error.message === 'UNAUTHORIZED') return load();
-      report(`Could not save ${payload.name}: ${error.message}`);
+      report(`Could not save ${payload.name}. The server said: ${error.message}`);
 
       return load();
     },

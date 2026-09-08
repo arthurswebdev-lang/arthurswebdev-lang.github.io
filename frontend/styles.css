@@ -734,6 +734,10 @@ body {
   color: var(--ink-faint);
 }
 
+/* A hint that belongs to the field above it, rather than to the group it sits
+   in, has to climb back over that field's own bottom margin. */
+.field + .field__hint { margin-top: -0.5rem; }
+
 .state {
   margin-top: 2.5rem;
   padding: 2rem 1rem;
