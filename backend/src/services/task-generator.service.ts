@@ -156,13 +156,15 @@ export class TaskGeneratorService implements ITaskGeneratorService {
    * `applyConfigToEvent` merges the steps rather than replacing them.
    *
    * What is *not* rewritten is an occurrence that is over: finished, or with its
-   * window shut. Those are the record of what actually happened, and today's
-   * correction does not reach back into last week's session.
+   * window shut under *both* the window it has and the one the config is about
+   * to give it. Widening `activeForMins` is a statement about the occurrence in
+   * front of you — "this needs longer than I gave it" — so it reopens one whose
+   * old window had already shut. A finished occurrence still never comes back.
    */
   async refreshEventsOfConfig(config: RepeatedTask, now: Date): Promise<EventTask[]> {
     const tasks = await this.tasksRepository.listBy({ userId: config.userId });
     const refreshable = eventsOfConfig(tasks, config.id)
-      .filter((event) => isRewritableEvent(event, now));
+      .filter((event) => isRewritableEvent(event, now, config));
 
     const updated = await Promise.all(
       refreshable.map((event) => this.tasksRepository.applyConfigToEvent(event, config)),

@@ -1,7 +1,7 @@
 import { TaskFilter } from '../enum/task-filter.enum.js';
 import { TaskStatus } from '../enum/task-status.enum.js';
 import { TaskType } from '../enum/task-type.enum.js';
-import type { EventTask, Task } from '../types/tasks.types.js';
+import type { EventTask, Task, TaskWindow } from '../types/tasks.types.js';
 
 /**
  * Every rule behind `GET /tasks?filter=actual|passed|upcoming`, one rule per
@@ -81,6 +81,14 @@ export function activeUntil(event: EventTask): Date {
 }
 
 /**
+ * The same instant, but under a window the event does not carry yet — the one
+ * its config is about to write onto it.
+ */
+export function activeUntilUnder(event: EventTask, window: TaskWindow): Date {
+  return new Date(event.date.getTime() + window.activeForMins * MS_PER_MINUTE);
+}
+
+/**
  * Spent: its window has closed. Note this is *not* `hasDatePassed` — the two
  * were one function until events gained a window of their own, and they answer
  * different questions. Generation asks whether the moment has gone by, so that
@@ -132,9 +140,20 @@ export function isUnstartedEvent(event: EventTask): boolean {
  * must not reach is a session that is over — finished, or with its window shut
  * — because that is a record of what actually happened at 30kg, and today's
  * correction does not change what you lifted last week.
+ *
+ * `under` is the window the config is about to give it, which is not always the
+ * window it currently has. Widening `activeForMins` is a statement about the
+ * occurrence in front of you — "this needs longer than I gave it" — and judging
+ * that edit by the *old* window means the one occurrence it was made for is the
+ * one it cannot reach: already spent under ten minutes, so skipped, while every
+ * future occurrence gets the ten days. So a shut window reopens when the new
+ * one is still open. A finished occurrence never comes back: `status` is the
+ * record of what happened, and no window changes that.
  */
-export function isRewritableEvent(event: EventTask, now: Date): boolean {
-  return event.status !== TaskStatus.DONE && !isPassedEvent(event, now);
+export function isRewritableEvent(event: EventTask, now: Date, under: TaskWindow): boolean {
+  if (event.status === TaskStatus.DONE) return false;
+
+  return !isPassedEvent(event, now) || now <= activeUntilUnder(event, under);
 }
 
 /** Was this event produced by a repeated config, rather than by a client? */

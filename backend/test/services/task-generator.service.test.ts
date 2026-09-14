@@ -467,3 +467,70 @@ describe('configs that can never fire', () => {
     assert.equal(eventsIn(repository).length, 0);
   });
 });
+
+/* Widening `activeForMins` is a statement about the occurrence in front of you,
+   so judging that edit by the window it is replacing is what made the one
+   occurrence it was meant for the one it could not reach. */
+describe('a widened window reaches the occurrence it was widened for', () => {
+  it('rewrites one whose old window had already shut', async () => {
+    const { repository, generator } = withTasks([water]);
+    const spent = await generator.ensurePendingEvent(water, utc('2026-08-19 08:00'));
+    assert.ok(spent !== null);
+
+    // 09:00 plus the default ten minutes is 09:10, so at 09:30 it is spent.
+    const longer = { ...water, activeForMins: 24 * 60 };
+    await generator.refreshEventsOfConfig(longer, utc('2026-08-19 09:30'));
+
+    const after = eventsIn(repository).find((event) => event.id === spent.id);
+    assert.equal(after?.activeForMins, 24 * 60);
+  });
+});
+
+describe('a widened window reaches no further than it says', () => {
+  it('leaves an occurrence the new window would also have shut', async () => {
+    const { repository, generator } = withTasks([water]);
+    const gone = await generator.ensurePendingEvent(water, utc('2026-08-19 08:00'));
+    assert.ok(gone !== null);
+
+    // 09:00 plus the new hour is 10:00, and it is already half past eleven.
+    const longer = { ...water, name: 'renamed', activeForMins: 60 };
+    await generator.refreshEventsOfConfig(longer, utc('2026-08-19 11:30'));
+
+    const after = eventsIn(repository).find((event) => event.id === gone.id);
+    assert.equal(after?.name, 'water');
+  });
+});
+
+describe('a widened window never revives what was finished', () => {
+  it('leaves a finished occurrence alone however long the new window is', async () => {
+    const { repository, generator } = withTasks([water]);
+    const done = await generator.ensurePendingEvent(water, utc('2026-08-19 08:00'));
+    assert.ok(done !== null);
+    await repository.updateStatus(done.id, TaskStatus.DONE);
+
+    const longer = { ...water, name: 'renamed', activeForMins: 24 * 60 };
+    await generator.refreshEventsOfConfig(longer, utc('2026-08-19 09:30'));
+
+    const after = eventsIn(repository).find((event) => event.id === done.id);
+    assert.equal(after?.name, 'water');
+  });
+});
+
+describe('reopening an occurrence keeps what was ticked on it', () => {
+  it('keeps a ticked step ticked through the rewrite', async () => {
+    const withSteps = aDailyConfig('water', { timesOfDay: hourlyBetween('09:00', '23:00', '02:00') });
+    withSteps.subtasks = [{ id: 'a', name: 'glass one' }, { id: 'b', name: 'glass two' }];
+    const { repository, generator } = withTasks([withSteps]);
+    const spent = await generator.ensurePendingEvent(withSteps, utc('2026-08-19 08:00'));
+    assert.ok(spent !== null);
+    const step = spent.subtasks[0];
+    assert.ok(step !== undefined);
+    await repository.updateSubtaskStatus(spent.id, step.id, TaskStatus.DONE);
+
+    const longer = { ...withSteps, activeForMins: 24 * 60 };
+    await generator.refreshEventsOfConfig(longer, utc('2026-08-19 09:30'));
+
+    const after = eventsIn(repository).find((event) => event.id === spent.id);
+    assert.equal(after?.subtasks.find((s) => s.name === 'glass one')?.status, TaskStatus.DONE);
+  });
+});

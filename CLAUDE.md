@@ -120,9 +120,20 @@ one blank line before a `return` that follows logic.
   are in the middle of, and skipping it left the list saying 30kg while the edit sheet said 35kg.
   The ticks survive: `stepsFor` in `tasks.repository.ts` pairs the config's steps against the ones
   the occurrence already has **by name**, so a step still present keeps its id and its status and
-  only a renamed or new one starts TODO. What neither path touches is an occurrence that is over —
+  only a renamed or new one starts TODO. What neither path touches is a *finished* occurrence —
   that is the record of what actually happened. `DELETE /repeated-tasks/:id` still removes
   everything: there the config itself is gone.
+- **"Window not shut" is judged against the window the config is about to give it**, not only the
+  one the occurrence currently carries — `isRewritableEvent` takes the incoming `TaskWindow` as its
+  third argument. Widening `activeForMins` is a statement about the occurrence in front of you
+  ("this one needs longer than I gave it"), so judging that edit by the *old* window made the one
+  occurrence it was meant for the one it could not reach: already spent under ten minutes, so
+  skipped, while every future occurrence got the ten days. A shut window therefore **reopens** when
+  the new one is still open, and the task comes back out of Passed carrying its ticks. Two things
+  this deliberately does not do: revive a DONE occurrence (status is the record of what happened,
+  and no window changes that), or reach one the *new* window would also have shut. And it cannot
+  bring back an occurrence that has been deleted — `nextOccurrence` only ever walks forward from
+  now, so a date already behind us is never regenerated.
 - **`PATCH /repeated-tasks/:id` changes only the fields it names**, merging onto the stored config
   and re-validating the result with the full create schema — so a patch cannot assemble a config
   a create would have refused (`fromDay` on a weekly config, a reminder before the task is
