@@ -314,6 +314,15 @@ these non-negotiable:
   the dialog landed below the fold, so opening a photo showed the backdrop and nothing else,
   while a short desktop page happened to look fine. If something inside needs an anchor, put
   `position: relative` on an inner element.
+- **Search is local and narrows only what is drawn.** The magnifier at the end of the category
+  pills opens a box whose value is trimmed and lowercased once into `search`; `matchesSearch`
+  lowercases each task's name and asks for a substring. It never calls the server — the list is
+  one page and a round trip per keystroke would lag the typing. Everything that reports on the
+  list reads `visibleTasks()` rather than `tasks`: the count, the groups, the empty state, and
+  **`sweepable()`**, so the bin can never clear something the search is hiding. Two things stay on
+  the full set on purpose — `categoriesInUse`, or searching would collapse the pill row and take
+  the magnifier with it, and the empty state, which says "nothing matches" rather than "nothing
+  here" when a search is running. Closing the box clears it.
 - Push lives in `frontend/notifications.js`, kept out of `app.js`. It contributes
   a token and nothing else — the server owns the schedule, so there is no task
   syncing on the client.

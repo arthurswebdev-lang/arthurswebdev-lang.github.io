@@ -673,6 +673,32 @@ body {
   color: var(--ink-soft);
 }
 
+/* Pushed to the far end of the scroller, so it keeps its place however many
+   categories are in play, with a gap that reads as "not one of these". */
+.category--search { margin-left: auto; }
+
+.search {
+  padding: 0 0.7rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.search__input {
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.95rem;
+}
+
+.search__input:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+  border-color: var(--line-strong);
+}
+
 .category:hover { border-color: var(--line-strong); }
 
 .category:focus-visible {

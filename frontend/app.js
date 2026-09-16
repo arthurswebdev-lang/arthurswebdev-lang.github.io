@@ -51,6 +51,16 @@ let activeFilter = 'actual';
 let activeCategory = 'all';
 
 /**
+ * The search box, already trimmed and lowered, so the comparison itself does no
+ * work per task. Empty means no search is running — not "matches nothing".
+ *
+ * Purely local: it narrows the tasks already loaded rather than asking the
+ * server, because the list is small enough to hold in one page and a round trip
+ * per keystroke would lag behind the typing.
+ */
+let search = '';
+
+/**
  * Which categories currently hold something, as of the last unnarrowed read.
  *
  * Kept rather than derived on the spot because `tasks` is not always the whole
@@ -117,6 +127,8 @@ const listEl = document.getElementById('list');
 const motionIsUnwelcome = window.matchMedia('(prefers-reduced-motion: reduce)');
 const summaryEl = document.getElementById('summary');
 const categoriesEl = document.getElementById('categories');
+const searchBar = document.getElementById('search');
+const searchInput = document.getElementById('search-input');
 const announcer = document.getElementById('announcer');
 const toastEl = document.getElementById('toast');
 
@@ -435,6 +447,11 @@ function emptyState() {
   return message(icon, text);
 }
 
+/** An empty list under a search is not an empty list: say which it is. */
+function noMatchState() {
+  return message('🔍', `Nothing matches "${search}".`);
+}
+
 function renderCategories() {
   if (activeCategory === 'all') {
     categoriesInUse = new Set(tasks.map((task) => task.category));
@@ -476,8 +493,68 @@ function renderCategories() {
 
   // Nothing to choose between: a lone "All" is a control that does nothing.
   categoriesEl.hidden = buttons.length === 0;
-  categoriesEl.replaceChildren(all, ...buttons);
+  categoriesEl.replaceChildren(all, ...buttons, searchToggle());
 }
+
+/**
+ * The magnifier at the end of the pills, and the box it opens.
+ *
+ * It is rebuilt with the pills rather than sitting in the markup, because the
+ * row is a horizontal scroller and the button has to stay at its end however
+ * many categories are in play. It reads as pressed while a search is running,
+ * so a filtered list is never a mystery.
+ */
+function searchToggle() {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'category category--search';
+  button.setAttribute('aria-label', 'Search tasks');
+  button.setAttribute('aria-expanded', String(!searchBar.hidden));
+  button.setAttribute('aria-pressed', String(search !== ''));
+  button.title = 'Search tasks';
+  button.textContent = '🔍';
+  button.addEventListener('click', toggleSearch);
+
+  return button;
+}
+
+/** Trimmed and lowered here, once, rather than on every comparison. */
+function setSearch(value) {
+  search = value.trim().toLowerCase();
+  render();
+}
+
+function toggleSearch() {
+  const opening = searchBar.hidden;
+  searchBar.hidden = !opening;
+
+  // Closing clears: a box you cannot see must not go on narrowing the list.
+  if (!opening) searchInput.value = '';
+
+  // Through `setSearch` either way, so the magnifier is rebuilt and reports the
+  // box's state — opening it without this left `aria-expanded` saying false.
+  setSearch(searchInput.value);
+
+  if (opening) searchInput.focus();
+}
+
+/**
+ * Both sides lowered, so "GYM" finds "gym" and "Ջուր" finds itself. `search` is
+ * lowered once when it is stored; the name is lowered per task, which is the
+ * cost of not keeping a second copy of every name around.
+ */
+function matchesSearch(task) {
+  if (search === '') return true;
+
+  return task.name.toLowerCase().includes(search);
+}
+
+/**
+ * What is actually on screen. Everything that reports on the list reads this
+ * rather than `tasks` — the count, the empty state, the groups, and the bin,
+ * which must never clear something the search is hiding.
+ */
+const visibleTasks = () => tasks.filter(matchesSearch);
 
 /**
  * Done sinks to the bottom; above it, whatever has a time comes in time order,
@@ -534,18 +611,19 @@ function render() {
     return;
   }
 
-  const left = tasks.filter((task) => task.status !== 'DONE').length;
-  summaryEl.textContent = tasks.length === 0 ? '' : `${String(left)} of ${String(tasks.length)} left`;
+  const shown = visibleTasks();
+  const left = shown.filter((task) => task.status !== 'DONE').length;
+  summaryEl.textContent = shown.length === 0 ? '' : `${String(left)} of ${String(shown.length)} left`;
 
-  if (tasks.length === 0) {
-    listEl.replaceChildren(emptyState());
+  if (shown.length === 0) {
+    listEl.replaceChildren(search === '' ? emptyState() : noMatchState());
 
     return;
   }
 
   cleanupButton.hidden = sweepable().length === 0;
 
-  const ordered = [...tasks].sort(inListOrder);
+  const ordered = [...shown].sort(inListOrder);
   const groups = groupOrder
     .map((key) => [key, ordered.filter((task) => (task.category ?? OTHER_KEY) === key)])
     .filter(([, items]) => items.length > 0)
@@ -770,11 +848,14 @@ const cleanupButton = document.getElementById('cleanup');
  * carries on. That is what makes it safe to reach for.
  */
 const sweepable = () => {
-  if (activeFilter === 'passed') return tasks;
+  // What is on screen, never the whole store: clearing something a search is
+  // hiding would be a deletion nobody could see coming.
+  const shown = visibleTasks();
+  if (activeFilter === 'passed') return shown;
   // `all` holds everything, spent and pending together, so the only safe reading
   // of "tidy up" is the same as under `actual`: the ones that are finished.
   if (activeFilter === 'actual' || activeFilter === 'all') {
-    return tasks.filter((task) => task.status === 'DONE');
+    return shown.filter((task) => task.status === 'DONE');
   }
 
   return [];
@@ -1195,6 +1276,13 @@ document.getElementById('show-repeats').addEventListener('click', () => {
 });
 
 document.getElementById('repeats-close').addEventListener('click', () => { repeatsDialog.close(); });
+
+searchInput.addEventListener('input', () => { setSearch(searchInput.value); });
+
+// Escape puts the box away the same way the magnifier does, clearing with it.
+searchInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') toggleSearch();
+});
 
 /* --- credentials ---------------------------------------------------------- */
 
