@@ -540,13 +540,20 @@ function toggleSearch() {
 
 /**
  * Both sides lowered, so "GYM" finds "gym" and "Ջուր" finds itself. `search` is
- * lowered once when it is stored; the name is lowered per task, which is the
- * cost of not keeping a second copy of every name around.
+ * lowered once when it is stored; the candidates are lowered per comparison,
+ * which is the cost of not keeping a second copy of every name around.
+ *
+ * Steps count as well as the task's own name. A checklist is where most of the
+ * words in this app live — the utilities to pay, the topics to read — and a
+ * search that could not reach them would miss the thing being looked for while
+ * sitting one line above it. The card draws its steps, so a task that matched
+ * on one shows why.
  */
 function matchesSearch(task) {
   if (search === '') return true;
+  if (task.name.toLowerCase().includes(search)) return true;
 
-  return task.name.toLowerCase().includes(search);
+  return task.subtasks.some((step) => step.name.toLowerCase().includes(search));
 }
 
 /**

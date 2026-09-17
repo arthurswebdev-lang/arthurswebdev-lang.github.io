@@ -316,8 +316,11 @@ these non-negotiable:
   `position: relative` on an inner element.
 - **Search is local and narrows only what is drawn.** The magnifier at the end of the category
   pills opens a box whose value is trimmed and lowercased once into `search`; `matchesSearch`
-  lowercases each task's name and asks for a substring. It never calls the server — the list is
-  one page and a round trip per keystroke would lag the typing. Everything that reports on the
+  lowercases each candidate and asks for a substring. The candidates are the task's **name and
+  its step names** — a checklist is where most of the words in this app live, so a search that
+  stopped at the title would miss the thing being looked for while sitting one line above it. The
+  card draws its steps, so a task that matched on one shows why. It never calls the server — the
+  list is one page and a round trip per keystroke would lag the typing. Everything that reports on the
   list reads `visibleTasks()` rather than `tasks`: the count, the groups, the empty state, and
   **`sweepable()`**, so the bin can never clear something the search is hiding. Two things stay on
   the full set on purpose — `categoriesInUse`, or searching would collapse the pill row and take
