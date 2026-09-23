@@ -9,7 +9,7 @@ import type { RepeatedTask } from '../../src/types/repeated-tasks.types.js';
 import { InMemoryRepeatedTasksRepository } from '../support/in-memory-repeated-repository.js';
 import { InMemoryTasksRepository } from '../support/in-memory-repository.js';
 import {
-  aDailyConfig, aMonthlyConfig, aWeeklyConfig, hourlyBetween,
+  aDailyConfig, aMonthlyConfig, aWeeklyConfig, hourlyBetween, timeOfDay,
 } from '../support/tasks.js';
 import { utc } from '../support/time.js';
 
@@ -591,5 +591,53 @@ describe('catching up never puts the same occurrence in twice', () => {
       utc('2026-08-19 13:00').toISOString(),
       utc('2026-08-19 15:00').toISOString(),
     ]);
+  });
+});
+
+/* Moving a repeat's time to one that has just gone by is the same situation as
+   making a new repeat after its time: the window is open and the occurrence is
+   still worth doing, so the edit should land on today rather than tomorrow. */
+describe('moving a time to earlier today', () => {
+  const morning = aWeeklyConfig('study', [0, 1, 2, 3, 4, 5, 6], {
+    timesOfDay: [timeOfDay('08:00')],
+    activeForMins: 20 * 60,
+  });
+
+  it('lands on today, not tomorrow, while the window is open', async () => {
+    const { generator } = withTasks([morning]);
+    await generator.ensurePendingEvent(morning, utc('2026-08-19 07:00'));
+
+    const moved = { ...morning, timesOfDay: [timeOfDay('09:00')] };
+    const made = await generator.regenerateForConfig(moved, utc('2026-08-19 09:40'));
+
+    assert.deepEqual(made?.date, utc('2026-08-19 09:00'));
+  });
+
+  it('takes tomorrow when the moved time has already run out', async () => {
+    const brief = { ...morning, activeForMins: 10 };
+    const { generator } = withTasks([brief]);
+
+    const moved = { ...brief, timesOfDay: [timeOfDay('09:00')] };
+    const made = await generator.regenerateForConfig(moved, utc('2026-08-19 09:40'));
+
+    assert.deepEqual(made?.date, utc('2026-08-20 09:00'));
+  });
+});
+
+describe('a schedule edit leaves exactly one occurrence behind', () => {
+  it('replaces yesterday\'s plan rather than adding to it', async () => {
+    const morning = aWeeklyConfig('study', [0, 1, 2, 3, 4, 5, 6], {
+      timesOfDay: [timeOfDay('08:00')],
+      activeForMins: 20 * 60,
+    });
+    const { repository, generator } = withTasks([morning]);
+    await generator.ensurePendingEvent(morning, utc('2026-08-19 07:00'));
+
+    const moved = { ...morning, timesOfDay: [timeOfDay('09:00')] };
+    await generator.regenerateForConfig(moved, utc('2026-08-19 09:40'));
+
+    const dates = eventsIn(repository).map((event) => event.date.toISOString());
+
+    assert.deepEqual(dates, [utc('2026-08-19 09:00').toISOString()]);
   });
 });

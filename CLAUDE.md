@@ -169,8 +169,10 @@ one blank line before a `return` that follows logic.
   the person was present for; otherwise the poller announces it a minute after they made the
   repeat. Same reasoning as the guard that stops a machine waking after a day down and reading
   out yesterday.
-  Only creation and resume do this. Editing a schedule (`regenerateForConfig`) still looks only
-  forward.
+  Creation, resume **and a schedule edit** all go through `generateUnderwayOrNext`, so moving a
+  time to one that has just gone by lands on today rather than tomorrow. `regenerateForConfig`
+  passes it the events that **survived** its own deletes, not the list it read at the start —
+  judging by the stale list would hide an occurrence that same call had just removed.
 - **Resuming is not a schedule change, and needs its own branch.** `reconcileEvents` checks
   `enabled` before it checks `scheduleMoved`: a config coming back from a pause has the same rule
   it went in with, so neither the regenerate nor the refresh path would produce anything and the

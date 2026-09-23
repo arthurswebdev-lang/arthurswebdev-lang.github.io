@@ -79,11 +79,25 @@ export class TaskGeneratorService implements ITaskGeneratorService {
     const tasks = await this.tasksRepository.listBy({ userId: config.userId });
     if (pendingEventOfConfig(tasks, config.id, now) !== null) return null;
 
-    // Underway *and* not already stored. The mid-window state — an occurrence
-    // that has started, its successor not made yet — reaches here too, and
-    // creating the one already in the list would put it in twice.
+    return this.generateUnderwayOrNext(config, tasks, now);
+  }
+
+  /**
+   * The occurrence a config should be given: the one already underway when
+   * there is one, otherwise the next.
+   *
+   * `existing` is what the config already has, so an occurrence underway that
+   * is *already* in the list is left alone. That state is not unusual — it is
+   * every ordinary mid-window moment, started with its successor not yet made —
+   * and without the check this puts the same occurrence in twice.
+   */
+  private async generateUnderwayOrNext(
+    config: RepeatedTask,
+    existing: Task[],
+    now: Date,
+  ): Promise<EventTask | null> {
     const begun = occurrenceUnderway(config, now);
-    if (begun !== null && !hasEventOn(tasks, config.id, begun)) {
+    if (begun !== null && !hasEventOn(existing, config.id, begun)) {
       return this.generateUnderway(config, begun, now);
     }
 
@@ -191,13 +205,15 @@ export class TaskGeneratorService implements ITaskGeneratorService {
     // waiting. Without that clause, finishing an occurrence early and then
     // changing the schedule left the config with nothing pending at all.
     const disposed = new Set(disposable.map((event) => event.id));
-    const stillPending = events.some(
-      (event) => !disposed.has(event.id)
-        && event.status !== TaskStatus.DONE
-        && !hasDatePassed(event.date, now),
+    const surviving = events.filter((event) => !disposed.has(event.id));
+    const stillPending = surviving.some(
+      (event) => event.status !== TaskStatus.DONE && !hasDatePassed(event.date, now),
     );
 
-    return stillPending ? null : this.generateNextFrom(config, now);
+    // Judged against what survived rather than what was read: the deletes above
+    // have already happened, and the stale list would hide an occurrence this
+    // very call removed.
+    return stillPending ? null : this.generateUnderwayOrNext(config, surviving, now);
   }
 
   /**
