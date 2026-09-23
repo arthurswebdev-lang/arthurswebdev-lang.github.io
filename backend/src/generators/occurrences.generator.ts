@@ -126,6 +126,33 @@ function searchDays(config: RepeatedTask): number {
 // ── Dispatch ───────────────────────────────────────────────────────────────
 
 /**
+ * The most recent occurrence at or before `before`, or null if the config has
+ * never fired by then. The mirror of `nextOccurrence`, walking backwards.
+ *
+ * Only the creation path asks this. The poller must never look backwards: an
+ * occurrence whose date has gone by does not count as pending, so a backward
+ * answer there would be re-created on every single pass.
+ */
+export function lastOccurrence(config: RepeatedTask, before: Date): Date | null {
+  const times = sortedTimes(config);
+  if (times.length === 0) return null;
+
+  const from = startOfUtcDay(before).getTime();
+
+  for (let offset = 0; offset <= searchDays(config); offset += 1) {
+    const day = new Date(from - offset * MS_PER_DAY);
+    if (!runsOnDay(config, day)) continue;
+
+    // `times` is sorted, so the last one still behind `before` is the latest.
+    const passed = times.map((time) => atTimeOfDay(day, time)).filter((c) => c <= before);
+    const point = passed.at(-1);
+    if (point !== undefined) return point;
+  }
+
+  return null;
+}
+
+/**
  * The next occurrence of any repeated config, or null if it can never fire.
  *
  * Walks a day at a time from the day `after` falls in — today included, so a

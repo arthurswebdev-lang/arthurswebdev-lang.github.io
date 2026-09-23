@@ -534,3 +534,62 @@ describe('reopening an occurrence keeps what was ticked on it', () => {
     assert.equal(after?.subtasks.find((s) => s.name === 'glass one')?.status, TaskStatus.DONE);
   });
 });
+
+/* A repeat set up after today's time has gone by used to show nothing until
+   tomorrow, though the window it asked for was still wide open. */
+describe('a repeat made after today\'s time has gone by', () => {
+  it('starts with the occurrence already underway, not tomorrow\'s', async () => {
+    const wide = { ...water, activeForMins: 12 * 60 };
+    const { generator } = withTasks([wide]);
+
+    // 13:00 has gone by, but its window runs on past midnight.
+    const first = await generator.ensurePendingEvent(wide, utc('2026-08-19 14:00'));
+
+    assert.deepEqual(first?.date, utc('2026-08-19 13:00'));
+  });
+
+  it('takes the next one when the occurrence underway has run out', async () => {
+    // The default window is ten minutes, so 13:00 is spent well before 14:00.
+    const { generator } = withTasks([water]);
+
+    const first = await generator.ensurePendingEvent(water, utc('2026-08-19 14:00'));
+
+    assert.deepEqual(first?.date, utc('2026-08-19 15:00'));
+  });
+});
+
+describe('an occurrence that is already underway is not announced', () => {
+  it('stamps it notified, so no alert arrives for a moment already gone', async () => {
+    const wide = { ...water, activeForMins: 12 * 60 };
+    const { generator } = withTasks([wide]);
+
+    const first = await generator.ensurePendingEvent(wide, utc('2026-08-19 14:00'));
+
+    assert.deepEqual(first?.notifiedAt, utc('2026-08-19 14:00'));
+  });
+
+  it('leaves one that is still ahead for the poller to announce', async () => {
+    const { generator } = withTasks([water]);
+
+    const first = await generator.ensurePendingEvent(water, utc('2026-08-19 08:00'));
+
+    assert.equal(first?.notifiedAt, null);
+  });
+});
+
+describe('catching up never puts the same occurrence in twice', () => {
+  it('adds only the successor when the one underway is already stored', async () => {
+    const wide = { ...water, activeForMins: 12 * 60 };
+    const { repository, generator } = withTasks([wide]);
+
+    await generator.ensurePendingEvent(wide, utc('2026-08-19 14:00'));
+    await generator.ensurePendingEvent(wide, utc('2026-08-19 14:30'));
+
+    const dates = eventsIn(repository).map((event) => event.date.toISOString());
+
+    assert.deepEqual(dates, [
+      utc('2026-08-19 13:00').toISOString(),
+      utc('2026-08-19 15:00').toISOString(),
+    ]);
+  });
+});

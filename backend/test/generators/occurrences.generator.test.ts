@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
   atTimeOfDay,
   clampDayToMonth,
+  lastOccurrence,
   nextOccurrence,
   runsInMonth,
   runsOnDay,
@@ -296,5 +297,42 @@ describe('nextOccurrence over every schedule', () => {
 
     assert.ok(next !== null);
     assert.equal(next > asked, true);
+  });
+});
+
+describe('looking backwards for the occurrence already underway', () => {
+  const daily = aDailyConfig('water', { timesOfDay: hourlyBetween('08:00', '20:00', '06:00') });
+
+  it('finds today\'s earlier time rather than yesterday\'s last one', () => {
+    assert.deepEqual(lastOccurrence(daily, utc('2026-08-19 10:00')), utc('2026-08-19 08:00'));
+  });
+
+  it('takes the latest time of the day that has already gone by', () => {
+    assert.deepEqual(lastOccurrence(daily, utc('2026-08-19 15:00')), utc('2026-08-19 14:00'));
+  });
+
+  it('crosses into yesterday when the day has not reached its first time', () => {
+    assert.deepEqual(lastOccurrence(daily, utc('2026-08-19 07:00')), utc('2026-08-18 20:00'));
+  });
+
+  it('counts a time falling exactly on the instant asked about', () => {
+    assert.deepEqual(lastOccurrence(daily, utc('2026-08-19 08:00')), utc('2026-08-19 08:00'));
+  });
+});
+
+describe('looking backwards skips the days a schedule does not run on', () => {
+  it('reaches back over the weekend to the last weekday it ran', () => {
+    const weekdays = aWeeklyConfig('standup', [1, 2, 3, 4, 5], {
+      timesOfDay: [timeOfDay('09:00')],
+    });
+
+    // Sunday: the last standup was Friday.
+    assert.deepEqual(lastOccurrence(weekdays, utc('Sun 2026-08-23 12:00')), utc('Fri 2026-08-21 09:00'));
+  });
+
+  it('has nothing to report for a config that can never fire', () => {
+    const broken = aDailyConfig('water', { timesOfDay: [] });
+
+    assert.equal(lastOccurrence(broken, utc('2026-08-19 10:00')), null);
   });
 });

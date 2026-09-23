@@ -152,6 +152,25 @@ one blank line before a `return` that follows logic.
   `backend/scripts/2026-09-07-config-enabled.ts`, which must run **before** the code that reads
   the field is deployed — a missing `enabled` is `undefined`, which is falsy, so every repeat in
   the database would read as paused and the poller would **silently** stop generating.
+- **A new repeat catches up to the occurrence already underway.** Set up a daily 08:00 routine at
+  10:00 and `nextOccurrence` answers *tomorrow* — it only ever looks forward — so the app had
+  nothing to say about today even though the window asked for was still wide open.
+  `ensurePendingEvent` now asks `lastOccurrence` for the most recent moment at or before now, and
+  takes it when `activeUntilFor` says the window is still open. The poller adds tomorrow's beside
+  it on its next pass, which is the same two-event state every day reaches once a date goes by.
+  Three things make this safe, and each one is a trap:
+  **(1)** only this path may look backwards. `syncPendingEvents` must not — an occurrence whose
+  date has passed never counts as pending, so a backward answer there would be re-created on
+  every pass, for ever.
+  **(2)** it must check the occurrence is not already stored. The ordinary mid-window state —
+  started, successor not yet made — reaches this code too, and without the `hasEventOn` guard it
+  puts the same occurrence in twice. The existing "one pending event" tests caught exactly this.
+  **(3)** the caught-up occurrence is stamped `notifiedAt`, because its reminder is for a moment
+  the person was present for; otherwise the poller announces it a minute after they made the
+  repeat. Same reasoning as the guard that stops a machine waking after a day down and reading
+  out yesterday.
+  Only creation and resume do this. Editing a schedule (`regenerateForConfig`) still looks only
+  forward.
 - **Resuming is not a schedule change, and needs its own branch.** `reconcileEvents` checks
   `enabled` before it checks `scheduleMoved`: a config coming back from a pause has the same rule
   it went in with, so neither the regenerate nor the refresh path would produce anything and the

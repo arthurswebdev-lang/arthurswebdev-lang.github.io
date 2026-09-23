@@ -1,16 +1,34 @@
 import {
-  eventsOfConfig, hasDatePassed, isEventTask, isPassedEvent, isRewritableEvent,
-  isUnstartedEvent, pendingEventOfConfig,
+  activeUntilFor, eventsOfConfig, hasDatePassed, isEventTask, isPassedEvent,
+  isRewritableEvent, isUnstartedEvent, pendingEventOfConfig,
 } from '../filters/tasks.filters.js';
 import { TaskStatus } from '../enum/task-status.enum.js';
-import { nextOccurrence } from '../generators/occurrences.generator.js';
+import { lastOccurrence, nextOccurrence } from '../generators/occurrences.generator.js';
 import type {
   IRepeatedTasksRepository,
 } from '../interfaces/repeated-tasks-repository.interface.js';
 import type { ITaskGeneratorService } from '../interfaces/task-generator.interface.js';
 import type { ITasksRepository } from '../interfaces/tasks-repository.interface.js';
-import type { EventTask } from '../types/tasks.types.js';
+import type { EventTask, Task } from '../types/tasks.types.js';
 import type { RepeatedTask } from '../types/repeated-tasks.types.js';
+
+/** Is this config's occurrence for that exact moment already in the list? */
+function hasEventOn(tasks: Task[], configTaskId: string, date: Date): boolean {
+  return eventsOfConfig(tasks, configTaskId)
+    .some((event) => event.date.getTime() === date.getTime());
+}
+
+/**
+ * The occurrence that has already started and has not run out yet, if there is
+ * one: the most recent one at or before `now`, kept only while the window the
+ * config asks for is still open.
+ */
+function occurrenceUnderway(config: RepeatedTask, now: Date): Date | null {
+  const last = lastOccurrence(config, now);
+  if (last === null) return null;
+
+  return activeUntilFor(last, config) >= now ? last : null;
+}
 
 /**
  * Keeps the stored tasks in step with what the configs imply: every config has
@@ -40,13 +58,53 @@ export class TaskGeneratorService implements ITaskGeneratorService {
     return stamped.filter((event): event is EventTask => event !== null);
   }
 
+  /**
+   * Gives a config the occurrence it should have right now.
+   *
+   * Usually that is the next one. But a repeat made *after* today's time has
+   * gone by would otherwise show nothing until tomorrow — set up a daily 08:00
+   * routine at 10:00 and the app has nothing to say about today, though the
+   * window you asked for is still wide open. So if today's occurrence has
+   * already begun and is still worth doing, that is the one it gets, and the
+   * poller adds tomorrow's beside it on its next pass, exactly as it does every
+   * other day once a date goes by.
+   *
+   * Only this path looks backwards. `syncPendingEvents` must not: an occurrence
+   * whose date has passed never counts as pending, so the poller would make a
+   * fresh copy of it on every single pass.
+   */
   async ensurePendingEvent(config: RepeatedTask, now: Date): Promise<EventTask | null> {
     if (!config.enabled) return null;
 
     const tasks = await this.tasksRepository.listBy({ userId: config.userId });
     if (pendingEventOfConfig(tasks, config.id, now) !== null) return null;
 
+    // Underway *and* not already stored. The mid-window state — an occurrence
+    // that has started, its successor not made yet — reaches here too, and
+    // creating the one already in the list would put it in twice.
+    const begun = occurrenceUnderway(config, now);
+    if (begun !== null && !hasEventOn(tasks, config.id, begun)) {
+      return this.generateUnderway(config, begun, now);
+    }
+
     return this.generateNextFrom(config, now);
+  }
+
+  /**
+   * An occurrence whose moment is behind us, so its reminder is for a time the
+   * person was present for — they were in the app, making the repeat. Stamped
+   * as already announced, or the poller would read it out to them a minute
+   * later. Same reasoning as the guard that stops a machine waking after a day
+   * down and announcing yesterday.
+   */
+  private async generateUnderway(
+    config: RepeatedTask,
+    date: Date,
+    now: Date,
+  ): Promise<EventTask | null> {
+    const event = await this.tasksRepository.createGeneratedEvent(config, date);
+
+    return this.tasksRepository.markNotified(event.id, now);
   }
 
   /**

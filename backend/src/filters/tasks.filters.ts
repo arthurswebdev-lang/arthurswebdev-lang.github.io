@@ -68,6 +68,16 @@ export function activeFrom(event: EventTask): Date {
 }
 
 /**
+ * The same instant for a date that is not on an event yet, under a window that
+ * may not be on one either: a config deciding whether the occurrence it is
+ * about to make has any life left in it, or an edit asking the same about an
+ * occurrence it is about to rewrite.
+ */
+export function activeUntilFor(date: Date, window: TaskWindow): Date {
+  return new Date(date.getTime() + window.activeForMins * MS_PER_MINUTE);
+}
+
+/**
  * When it stops being worth acting on: its moment plus the time it was given to
  * be dealt with.
  *
@@ -77,15 +87,7 @@ export function activeFrom(event: EventTask): Date {
  * already filed under "missed".
  */
 export function activeUntil(event: EventTask): Date {
-  return new Date(event.date.getTime() + event.activeForMins * MS_PER_MINUTE);
-}
-
-/**
- * The same instant, but under a window the event does not carry yet — the one
- * its config is about to write onto it.
- */
-export function activeUntilUnder(event: EventTask, window: TaskWindow): Date {
-  return new Date(event.date.getTime() + window.activeForMins * MS_PER_MINUTE);
+  return activeUntilFor(event.date, event);
 }
 
 /**
@@ -153,7 +155,7 @@ export function isUnstartedEvent(event: EventTask): boolean {
 export function isRewritableEvent(event: EventTask, now: Date, under: TaskWindow): boolean {
   if (event.status === TaskStatus.DONE) return false;
 
-  return !isPassedEvent(event, now) || now <= activeUntilUnder(event, under);
+  return !isPassedEvent(event, now) || now <= activeUntilFor(event.date, under);
 }
 
 /** Was this event produced by a repeated config, rather than by a client? */
