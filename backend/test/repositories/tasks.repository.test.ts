@@ -201,3 +201,62 @@ describe('listBy narrows in the database', { skip: mongoUnavailable }, () => {
     assert.deepEqual(reread?.links, links);
   });
 });
+
+/* Finishing a task finishes its steps, in one update rather than one request
+   each. The reverse is deliberately not symmetric. */
+describe('finishing a task ticks its steps', { skip: mongoUnavailable }, () => {
+  const withSteps: CreateTask = {
+    type: TaskType.BASIC,
+    name: 'pay the bills',
+    subtasks: [{ name: 'water' }, { name: 'gas' }, { name: 'internet' }],
+  };
+
+  it('marks every step done when the task is marked done', async () => {
+    const repository = freshRepository();
+    const task = await repository.create(withSteps, TEST_USER_ID);
+
+    const done = await repository.updateStatus(task.id, TaskStatus.DONE);
+
+    assert.deepEqual(done?.subtasks.map((step) => step.status), [
+      TaskStatus.DONE, TaskStatus.DONE, TaskStatus.DONE,
+    ]);
+  });
+
+  it('leaves the steps ticked when the task is reopened', async () => {
+    const repository = freshRepository();
+    const task = await repository.create(withSteps, TEST_USER_ID);
+    await repository.updateStatus(task.id, TaskStatus.DONE);
+
+    const reopened = await repository.updateStatus(task.id, TaskStatus.TODO);
+
+    assert.equal(reopened?.status, TaskStatus.TODO);
+    assert.ok(reopened?.subtasks.every((step) => step.status === TaskStatus.DONE));
+  });
+});
+
+describe('finishing a task with no steps', { skip: mongoUnavailable }, () => {
+  it('is a plain status write, not an error', async () => {
+    const repository = freshRepository();
+    const task = await repository.create(anEventPayload('standup'), TEST_USER_ID);
+
+    const done = await repository.updateStatus(task.id, TaskStatus.DONE);
+
+    assert.equal(done?.status, TaskStatus.DONE);
+    assert.deepEqual(done?.subtasks, []);
+  });
+});
+
+describe('a half-done checklist', { skip: mongoUnavailable }, () => {
+  it('keeps a step already ticked ticked, and finishes the rest', async () => {
+    const repository = freshRepository();
+    const task = await repository.create({
+      type: TaskType.BASIC,
+      name: 'pay the bills',
+      subtasks: [{ name: 'water', status: TaskStatus.DONE }, { name: 'gas' }],
+    }, TEST_USER_ID);
+
+    const done = await repository.updateStatus(task.id, TaskStatus.DONE);
+
+    assert.ok(done?.subtasks.every((step) => step.status === TaskStatus.DONE));
+  });
+});

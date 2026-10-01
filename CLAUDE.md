@@ -134,6 +134,15 @@ one blank line before a `return` that follows logic.
   and no window changes that), or reach one the *new* window would also have shut. And it cannot
   bring back an occurrence that has been deleted — `nextOccurrence` only ever walks forward from
   now, so a date already behind us is never regenerated.
+- **Finishing a task finishes its steps, and reopening it does not unfinish them.** `DONE` on
+  `PATCH /tasks/:id/status` ticks every step in the same Mongo update (`subtasks.$[].status`; an
+  empty array is a no-op). One write rather than one request per step — a checklist of fifty would
+  otherwise be fifty round trips, each paying for its own scrypt verify. The asymmetry is the
+  point: `TODO` leaves the steps exactly as they are, because "every step ticked, task still open"
+  is a state someone may be in on purpose, and undoing a tap must not throw that work away. The
+  frontend asks before the DONE direction only (`toggleDone`), since one tap otherwise silently
+  ticks eight others; it asks nothing on the way back, and nothing when there is no step left
+  undone.
 - **`PATCH /repeated-tasks/:id` changes only the fields it names**, merging onto the stored config
   and re-validating the result with the full create schema — so a patch cannot assemble a config
   a create would have refused (`fromDay` on a weekly config, a reminder before the task is

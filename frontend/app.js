@@ -709,14 +709,50 @@ function apply(change, send, describe) {
   );
 }
 
-function toggleDone(task) {
-  const status = task.status === 'DONE' ? 'TODO' : 'DONE';
-
+/**
+ * Sends the status, and ticks the steps locally when it is DONE so the card
+ * matches what the server does in the same write.
+ */
+function sendDone(task, status) {
   apply(
-    () => { task.status = status; },
+    () => {
+      task.status = status;
+      if (status === 'DONE') for (const step of task.subtasks) step.status = 'DONE';
+    },
     () => setTaskStatus(credentials.token, task.id, status),
     `${task.name} marked ${status === 'DONE' ? 'done' : 'not done'}`,
   );
+}
+
+/**
+ * Finishing a task finishes its steps, so a checklist with work left in it
+ * asks first — ticking one control must not quietly tick eight others.
+ *
+ * Only in that direction. Reopening a task leaves every step as it was, which
+ * is why there is no question on the way back: "all steps ticked, task still
+ * open" is a state someone can be in on purpose, and undoing a tap must not
+ * throw the work away. That asymmetry is the whole feature.
+ */
+function toggleDone(task) {
+  const status = task.status === 'DONE' ? 'TODO' : 'DONE';
+  const left = task.subtasks.filter((step) => step.status !== 'DONE').length;
+
+  if (status === 'TODO' || left === 0) {
+    sendDone(task, status);
+
+    return;
+  }
+
+  void ask({
+    title: `Finish ${task.name}?`,
+    message: `${String(left)} of its ${String(task.subtasks.length)} steps are not done yet.`
+      + ' Finishing the task ticks them too.',
+    actions: [{ id: 'all', label: 'Finish all' }],
+  }).then((choice) => {
+    if (choice === null) return;
+
+    sendDone(task, status);
+  });
 }
 
 function toggleStep(task, step) {

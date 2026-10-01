@@ -150,11 +150,22 @@ export class TasksRepository
   /**
    * A single-field write, not a read-modify-replace: status is the one thing a
    * generated event may change, and PATCH must not disturb anything else.
+   *
+   * The one exception is finishing: **a task that is done has no step left to
+   * do**, so DONE ticks every step in the same update. `$[]` touches each
+   * element of the array, and an empty `subtasks` is simply a no-op. Doing it
+   * here rather than one request per step matters — a checklist of fifty would
+   * otherwise be fifty round trips, each paying for its own scrypt verify.
+   *
+   * It is deliberately one-way. TODO leaves the steps exactly as they are,
+   * because "every step ticked, task still open" is a real state someone may be
+   * in on purpose, and coming back from done must not wipe the work out.
    */
   async updateStatus(id: string, status: TaskStatus): Promise<Task | null> {
+    const finishing = status === TaskStatus.DONE;
     const updated = await this.collection.findOneAndUpdate(
       this.byId(id),
-      { $set: { status } },
+      { $set: { status, ...(finishing ? { 'subtasks.$[].status': TaskStatus.DONE } : {}) } },
       { returnDocument: 'after' },
     );
 
