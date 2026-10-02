@@ -363,8 +363,14 @@ these non-negotiable:
   arrives, so nothing drags. And the move/up listeners go on **`window`**, not through
   `setPointerCapture` — the capture would sit on a grip that lives *inside* the step being moved,
   and moving a node re-inserts it, which is enough in some engines to drop the capture mid-drag.
-  A step only changes place once the pointer passes the **midpoint** of its neighbour, or the two
-  swap back and forth while a still finger rests on the boundary. The grip is a `<button>` and
+  **The carried step's own edges decide a swap, never the pointer** (`reorderCarried`): going up
+  its top edge, going down its bottom edge, against the neighbour's **midpoint**. The pointer is
+  one point and can sit anywhere in a step grabbed by its grip, so judging by it made a tall step
+  swap while it still visibly sat in its old slot, and made a step held near its bottom refuse to
+  swap when its top had plainly covered the one above. The neighbour's near edge would swap the
+  moment the two touched — too eager to aim at. Direction is fixed on entry to the loop: re-reading
+  it could swap up, land past the midpoint of what it just passed, and swap back for ever. The loop
+  exists for a fast drag that crosses several steps between two pointer events. The grip is a `<button>` and
   takes ArrowUp/ArrowDown, since a drag handle on its own cannot be reached from a keyboard.
   The carried step is translated to the finger on every `pointermove`, and the rest **glide** from
   where they were to where they land — `stepTops` before the reorder, `glideSteps` after, the same

@@ -1502,19 +1502,46 @@ const GLIDE = { duration: 160, easing: 'cubic-bezier(0.2, 0, 0, 1)' };
 const stepsOf = (container) => [...container.querySelectorAll(':scope > .row-stack')];
 
 /**
- * The step under `y`, which is measured from the top of the list.
+ * Moves the carried step past whichever neighbours it now overlaps, given the
+ * top edge the finger is holding it at. Reports whether anything moved.
  *
- * Deliberately `offsetTop` and not `getBoundingClientRect`. While the others
- * are gliding they carry a transform, and a rect includes it — so the list
- * would be hit-tested against where things are *flying*, not where they have
- * landed, and a held finger would set off a whole cascade of swaps. `offsetTop`
- * ignores transforms and reports where the layout actually put them.
- * `.rows--steps` is positioned so these numbers are relative to the list.
+ * **The step's own edges decide this, not the pointer.** The pointer is one
+ * point and can sit anywhere in a step you grabbed by its grip, so judging by
+ * it meant a tall step swapped while it still visibly sat in its old slot, and
+ * a step grabbed near its bottom refused to swap while its top edge had clearly
+ * covered the one above. The leading edge is what you are actually watching:
+ * going up that is the step's top, going down it is its bottom.
+ *
+ * The neighbour's **midpoint** is the line to cross — its near edge would swap
+ * the moment the two touched, which is far too eager to aim at.
+ *
+ * Direction is fixed on entry. A loop that re-read it could swap up, find
+ * itself past the midpoint of what it just passed, and swap straight back for
+ * ever. Looping at all is for a fast drag that crosses several steps between
+ * two pointer events.
+ *
+ * All measurements are `offsetTop`, never `getBoundingClientRect`: a gliding
+ * neighbour carries a transform and a rect would include it, so this would be
+ * reading where steps are *flying* rather than where they have landed.
+ * `.rows--steps` is positioned so the numbers are relative to the list.
  */
-function stepUnder(container, y, carried) {
-  return stepsOf(container).find((other) => (
-    other !== carried && y >= other.offsetTop && y <= other.offsetTop + other.offsetHeight
-  )) ?? null;
+function reorderCarried(container, step, top) {
+  const up = top < step.offsetTop;
+  const bottom = top + step.offsetHeight;
+  let moved = false;
+
+  for (;;) {
+    const neighbour = up ? step.previousElementSibling : step.nextElementSibling;
+    if (neighbour === null) return moved;
+
+    const middle = neighbour.offsetTop + neighbour.offsetHeight / 2;
+    if (up ? top >= middle : bottom <= middle) return moved;
+
+    const before = stepTops(container);
+    container.insertBefore(up ? step : neighbour, up ? neighbour : step);
+    glideSteps(before, step);
+    moved = true;
+  }
 }
 
 /** Where every step sits now, to compare against where it ends up. */
@@ -1604,20 +1631,14 @@ function dragHandle(step, container) {
     const move = (moved) => {
       follow(moved.clientY);
 
-      const y = moved.clientY - container.getBoundingClientRect().top;
-      const over = stepUnder(container, y, step);
-      if (over === null) return;
+      // Where the finger is holding the step's top edge, measured from the top
+      // of the list. Taken from the pointer rather than from the step's rect so
+      // it stays put while the reorder below shifts the step's layout slot.
+      const top = moved.clientY - grabbedAt - container.getBoundingClientRect().top;
 
-      // Only past the halfway line, or the two swap back and forth while the
-      // finger sits still over the boundary between them.
-      const above = y < over.offsetTop + over.offsetHeight / 2;
-      const before = stepTops(container);
-
-      container.insertBefore(step, above ? over : over.nextSibling);
-      glideSteps(before, step);
-      // The step's layout position just changed under it, so re-aim before the
+      // The step's layout position changes under it, so re-aim before the
       // browser paints or it would jump by the height of its neighbour.
-      follow(moved.clientY);
+      if (reorderCarried(container, step, top)) follow(moved.clientY);
     };
 
     const stop = () => {
