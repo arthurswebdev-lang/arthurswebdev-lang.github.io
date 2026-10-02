@@ -952,8 +952,12 @@ select.field__input { appearance: none; background-image: none; }
 
 /* A step can be two lines once it has a link, so the space *between* steps has
    to be clearly bigger than the space inside one. At the same gap they read as
-   one long undifferentiated list of inputs. */
-.rows--steps { gap: 1rem; }
+   one long undifferentiated list of inputs.
+
+   Positioned so a step's `offsetTop` is measured from the list itself. That is
+   what the drag reads to decide where the finger is, because `offsetTop`
+   ignores the glide transforms while a rect would include them. */
+.rows--steps { gap: 1rem; position: relative; }
 
 .row-stack__add-link { flex: 0 0 auto; padding: 0.3rem 0.55rem; font-size: 0.75rem; }
 
@@ -991,9 +995,23 @@ select.field__input { appearance: none; background-image: none; }
 
 .row__drag:active { cursor: grabbing; }
 
-/* The step being carried, so it is clear which one the list is making room
-   for. Kept subtle — it is still the thing being read while it moves. */
-.row-stack--carried { opacity: 0.55; }
+/* The step being carried. Lifted rather than faded: it is the thing under the
+   finger and still has to be readable, so it gets a shadow and a layer above
+   the others instead of going half-transparent. No transition on `transform` —
+   that is set from pointermove and must track the finger exactly, not chase
+   it. */
+.row-stack--carried {
+  position: relative;
+  z-index: 2;
+  cursor: grabbing;
+}
+
+.row-stack--carried .field__input,
+.row-stack--carried .row__drag,
+.row-stack--carried .row__remove {
+  border-color: var(--line-strong);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 14%);
+}
 
 .row__remove:hover,
 .row__drag:hover { background: var(--surface-sunk); color: var(--ink); }

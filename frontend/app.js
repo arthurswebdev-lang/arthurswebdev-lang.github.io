@@ -1497,16 +1497,45 @@ function linkToggle(onOpen) {
   return button;
 }
 
-/** The step the pointer is over, ignoring the one being carried. */
+const GLIDE = { duration: 160, easing: 'cubic-bezier(0.2, 0, 0, 1)' };
+
+const stepsOf = (container) => [...container.querySelectorAll(':scope > .row-stack')];
+
+/**
+ * The step under `y`, which is measured from the top of the list.
+ *
+ * Deliberately `offsetTop` and not `getBoundingClientRect`. While the others
+ * are gliding they carry a transform, and a rect includes it — so the list
+ * would be hit-tested against where things are *flying*, not where they have
+ * landed, and a held finger would set off a whole cascade of swaps. `offsetTop`
+ * ignores transforms and reports where the layout actually put them.
+ * `.rows--steps` is positioned so these numbers are relative to the list.
+ */
 function stepUnder(container, y, carried) {
-  const steps = [...container.querySelectorAll(':scope > .row-stack')];
+  return stepsOf(container).find((other) => (
+    other !== carried && y >= other.offsetTop && y <= other.offsetTop + other.offsetHeight
+  )) ?? null;
+}
 
-  return steps.find((other) => {
-    if (other === carried) return false;
-    const box = other.getBoundingClientRect();
+/** Where every step sits now, to compare against where it ends up. */
+const stepTops = (container) => new Map(stepsOf(container).map((el) => [el, el.offsetTop]));
 
-    return y >= box.top && y <= box.bottom;
-  }) ?? null;
+/**
+ * Plays each step from where it used to be to where it now is.
+ *
+ * The reorder has already happened: this only animates the gap between the two
+ * layouts, so nothing here can move a step to the wrong place. The carried one
+ * is left out — it is following a finger and must not be animated away from it.
+ */
+function glideSteps(before, carried) {
+  if (motionIsUnwelcome.matches) return;
+
+  for (const [el, top] of before) {
+    const shift = top - el.offsetTop;
+    if (el === carried || shift === 0) continue;
+
+    el.animate([{ transform: `translateY(${String(shift)}px)` }, { transform: 'none' }], GLIDE);
+  }
 }
 
 /** Moves `step` one place, and reports whether there was anywhere to go. */
@@ -1545,7 +1574,11 @@ function dragHandle(step, container) {
     if (!back && event.key !== 'ArrowDown') return;
 
     event.preventDefault();
-    if (nudgeStep(container, step, back)) handle.focus();
+    const before = stepTops(container);
+    if (!nudgeStep(container, step, back)) return;
+
+    glideSteps(before, null);
+    handle.focus();
   });
 
   handle.addEventListener('pointerdown', (event) => {
@@ -1554,19 +1587,49 @@ function dragHandle(step, container) {
     event.preventDefault();
     step.classList.add('row-stack--carried');
 
+    // Where in the step the finger landed, so it keeps hold of that same point
+    // rather than snapping the step's top edge under the fingertip.
+    const grabbedAt = event.clientY - step.getBoundingClientRect().top;
+
+    /**
+     * Puts the step under the finger. Both sides are read fresh every move, so
+     * it re-aims itself after a reorder has shifted its layout position — and
+     * after a scroll, which is why nothing is cached from pointerdown.
+     */
+    const follow = (clientY) => {
+      const layoutTop = container.getBoundingClientRect().top + step.offsetTop;
+      step.style.transform = `translateY(${String(clientY - grabbedAt - layoutTop)}px)`;
+    };
+
     const move = (moved) => {
-      const over = stepUnder(container, moved.clientY, step);
+      follow(moved.clientY);
+
+      const y = moved.clientY - container.getBoundingClientRect().top;
+      const over = stepUnder(container, y, step);
       if (over === null) return;
 
       // Only past the halfway line, or the two swap back and forth while the
       // finger sits still over the boundary between them.
-      const box = over.getBoundingClientRect();
-      const above = moved.clientY < box.top + box.height / 2;
+      const above = y < over.offsetTop + over.offsetHeight / 2;
+      const before = stepTops(container);
+
       container.insertBefore(step, above ? over : over.nextSibling);
+      glideSteps(before, step);
+      // The step's layout position just changed under it, so re-aim before the
+      // browser paints or it would jump by the height of its neighbour.
+      follow(moved.clientY);
     };
 
     const stop = () => {
+      const carriedTo = step.style.transform;
+      step.style.transform = '';
       step.classList.remove('row-stack--carried');
+
+      // Let go and it settles into the gap rather than snapping into it.
+      if (carriedTo !== '' && !motionIsUnwelcome.matches) {
+        step.animate([{ transform: carriedTo }, { transform: 'none' }], GLIDE);
+      }
+
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', stop);
       window.removeEventListener('pointercancel', stop);
