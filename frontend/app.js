@@ -1497,6 +1497,93 @@ function linkToggle(onOpen) {
   return button;
 }
 
+/** The step the pointer is over, ignoring the one being carried. */
+function stepUnder(container, y, carried) {
+  const steps = [...container.querySelectorAll(':scope > .row-stack')];
+
+  return steps.find((other) => {
+    if (other === carried) return false;
+    const box = other.getBoundingClientRect();
+
+    return y >= box.top && y <= box.bottom;
+  }) ?? null;
+}
+
+/** Moves `step` one place, and reports whether there was anywhere to go. */
+function nudgeStep(container, step, back) {
+  const sibling = back ? step.previousElementSibling : step.nextElementSibling;
+  if (sibling === null) return false;
+
+  container.insertBefore(back ? step : sibling, back ? sibling : step);
+
+  return true;
+}
+
+/**
+ * The grip that reorders a step.
+ *
+ * Pointer events, not HTML5 drag-and-drop: Safari on iOS fires no drag events
+ * for touch at all, and this app lives on a home screen, so `draggable` would
+ * have worked on the desktop and nowhere that matters. Pointer capture is what
+ * keeps the moves coming once the finger leaves the grip itself, and
+ * `touch-action: none` in the stylesheet is what stops the page scrolling
+ * underneath instead.
+ *
+ * Arrow keys do the same job without a pointer, which is also the only way to
+ * reorder with a keyboard — a drag handle alone is unreachable.
+ */
+function dragHandle(step, container) {
+  const handle = document.createElement('button');
+  handle.type = 'button';
+  handle.className = 'row__drag';
+  handle.textContent = '☰';
+  handle.title = 'Drag to reorder';
+  handle.setAttribute('aria-label', 'Reorder step: drag, or use the arrow keys');
+
+  handle.addEventListener('keydown', (event) => {
+    const back = event.key === 'ArrowUp';
+    if (!back && event.key !== 'ArrowDown') return;
+
+    event.preventDefault();
+    if (nudgeStep(container, step, back)) handle.focus();
+  });
+
+  handle.addEventListener('pointerdown', (event) => {
+    if (!event.isPrimary) return;
+
+    event.preventDefault();
+    step.classList.add('row-stack--carried');
+
+    const move = (moved) => {
+      const over = stepUnder(container, moved.clientY, step);
+      if (over === null) return;
+
+      // Only past the halfway line, or the two swap back and forth while the
+      // finger sits still over the boundary between them.
+      const box = over.getBoundingClientRect();
+      const above = moved.clientY < box.top + box.height / 2;
+      container.insertBefore(step, above ? over : over.nextSibling);
+    };
+
+    const stop = () => {
+      step.classList.remove('row-stack--carried');
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', stop);
+      window.removeEventListener('pointercancel', stop);
+    };
+
+    // On the window rather than through `setPointerCapture`: the capture would
+    // sit on this grip, which lives *inside* the step being moved, and moving a
+    // node re-inserts it — enough, in some engines, to drop the capture
+    // halfway through the first drag. The window is never re-inserted.
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop);
+    window.addEventListener('pointercancel', stop);
+  });
+
+  return handle;
+}
+
 /**
  * A step is a column, not a row: its name keeps the full width, and a link —
  * which most steps do not have — only appears once asked for, on a line of its
@@ -1530,7 +1617,9 @@ function addSubtaskRow({ name = '', link = '', status = 'TODO' } = {}) {
 
   // The ✕ on the name line belongs to the whole step, not just that line —
   // otherwise removing it strands an empty .step behind the link underneath.
-  addRow(step, [nameInput, toggle], () => { step.remove(); });
+  // The grip rides on the same line, so it is beside the name it moves rather
+  // than floating against a step that may be two lines tall.
+  addRow(step, [dragHandle(step, subtaskRows), nameInput, toggle], () => { step.remove(); });
   if (link !== '') openLink(link);
 
   subtaskRows.append(step);

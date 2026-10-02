@@ -356,6 +356,19 @@ these non-negotiable:
   the full set on purpose — `categoriesInUse`, or searching would collapse the pill row and take
   the magnifier with it, and the empty state, which says "nothing matches" rather than "nothing
   here" when a search is running. Closing the box clears it.
+- **Steps reorder by a grip, and it must be pointer events — not HTML5 drag-and-drop.** Safari on
+  iOS fires no drag events for touch at all, so `draggable` would have worked on the desktop and
+  nowhere this app is actually used. Two details are load-bearing. `touch-action: none` on
+  `.row__drag`: without it a finger on the grip scrolls the page and no `pointermove` ever
+  arrives, so nothing drags. And the move/up listeners go on **`window`**, not through
+  `setPointerCapture` — the capture would sit on a grip that lives *inside* the step being moved,
+  and moving a node re-inserts it, which is enough in some engines to drop the capture mid-drag.
+  A step only changes place once the pointer passes the **midpoint** of its neighbour, or the two
+  swap back and forth while a still finger rests on the boundary. The grip is a `<button>` and
+  takes ArrowUp/ArrowDown, since a drag handle on its own cannot be reached from a keyboard.
+  Nothing else needs doing with the new order: `subtaskValues()` already reads `.row-stack` in DOM
+  order, and `stepsFor` pairs steps **by name**, so reordering a repeat's checklist keeps every
+  tick on the occurrence it belongs to.
 - Push lives in `frontend/notifications.js`, kept out of `app.js`. It contributes
   a token and nothing else — the server owns the schedule, so there is no task
   syncing on the client.

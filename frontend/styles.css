@@ -966,7 +966,8 @@ select.field__input { appearance: none; background-image: none; }
   font-size: 0.8rem;
 }
 
-.row__remove {
+.row__remove,
+.row__drag {
   flex: 0 0 auto;
   width: 2rem;
   height: 2rem;
@@ -978,9 +979,27 @@ select.field__input { appearance: none; background-image: none; }
   cursor: pointer;
 }
 
-.row__remove:hover { background: var(--surface-sunk); color: var(--ink); }
+/* `touch-action: none` is load-bearing, not decoration: without it a finger on
+   the grip scrolls the page and the pointermove events never arrive, so the
+   step cannot be dragged at all on a phone. */
+.row__drag {
+  touch-action: none;
+  cursor: grab;
+  font-size: 0.85rem;
+  line-height: 1;
+}
 
-.row__remove:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
+.row__drag:active { cursor: grabbing; }
+
+/* The step being carried, so it is clear which one the list is making room
+   for. Kept subtle — it is still the thing being read while it moves. */
+.row-stack--carried { opacity: 0.55; }
+
+.row__remove:hover,
+.row__drag:hover { background: var(--surface-sunk); color: var(--ink); }
+
+.row__remove:focus-visible,
+.row__drag:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
 
 /* --- header side: count, and options tucked behind a caret ---------------- */
 .header__user {
