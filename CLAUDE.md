@@ -366,6 +366,18 @@ these non-negotiable:
   A step only changes place once the pointer passes the **midpoint** of its neighbour, or the two
   swap back and forth while a still finger rests on the boundary. The grip is a `<button>` and
   takes ArrowUp/ArrowDown, since a drag handle on its own cannot be reached from a keyboard.
+  The carried step is translated to the finger on every `pointermove`, and the rest **glide** from
+  where they were to where they land — `stepTops` before the reorder, `glideSteps` after, the same
+  measure-then-animate shape `playMoves` uses for cards. Both are skipped under
+  `prefers-reduced-motion`; the reorder itself still happens.
+  **Hit-test with `offsetTop`, never `getBoundingClientRect`.** A gliding step carries a transform
+  and a rect includes it, so the list would be tested against where steps are *flying* rather than
+  where they have landed, and one held finger would set off a cascade of swaps. `offsetTop` ignores
+  transforms, which is also why `.rows--steps` is `position: relative` — that makes those numbers
+  relative to the list itself. `follow` re-reads the container's rect and `step.offsetTop` every
+  move, so it re-aims after a reorder shifts its layout position and after a scroll, and it is
+  called again straight after `insertBefore` or the step jumps by a neighbour's height before the
+  next paint.
   Nothing else needs doing with the new order: `subtaskValues()` already reads `.row-stack` in DOM
   order, and `stepsFor` pairs steps **by name**, so reordering a repeat's checklist keeps every
   tick on the occurrence it belongs to.
