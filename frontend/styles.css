@@ -533,6 +533,12 @@ body {
 .composer {
   width: min(38rem, calc(100vw - 2 * var(--app-pad)));
   margin: auto auto 0;
+  /* The user agent already gives a modal dialog `overflow: auto` and a max-height
+     of its own, so this is not what makes a long form scrollable. It is here to
+     take the top inset off that height: the UA's cap ignores it, and a composer
+     tall enough to reach it puts the ✕ under the Dynamic Island. */
+  max-height: calc(100dvh - 1rem - env(safe-area-inset-top));
+  overflow-y: auto;
   padding: 1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
   border: 1px solid var(--line);
   border-bottom: none;
@@ -540,6 +546,12 @@ body {
   background: var(--surface);
   color: var(--ink);
 }
+
+/* Only the task composer. `.composer` is also worn by sign-in and the repeats
+   list, and neither wants the extra width. 45rem is the content column itself
+   (--app-width less its two paddings), so the sheet lines up with the cards
+   behind it rather than overhanging them. */
+#composer { width: min(45rem, calc(100vw - 2 * var(--app-pad))); }
 
 .composer::backdrop { background: rgb(26 26 26 / 40%); }
 
@@ -948,18 +960,55 @@ select.field__input { appearance: none; background-image: none; }
    Deliberately not `.step` — that belongs to the rendered step in the task
    list (see further down), and a `flex-direction` set here leaked into it and
    stood the checkbox, name and link on top of each other. */
-.row-stack { display: flex; flex-direction: column; gap: 0.35rem; }
+.row-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  position: relative;
+  padding: 0.55rem 0.6rem 0.55rem 2.1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
 
-/* A step can be two lines once it has a link, so the space *between* steps has
-   to be clearly bigger than the space inside one. At the same gap they read as
-   one long undifferentiated list of inputs.
+/* The number is a CSS counter, not text set from script, because a counter
+   renumbers itself when a step is added, removed or dragged somewhere else.
+   Doing it in JS would mean remembering to renumber in four places, the drag
+   code among them. It sits in the left padding, clear of the grip. */
+.row-stack::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  /* Fills the gutter the card's left padding reserves and centres the digits in
+     it, horizontally and vertically. A measured offset would have to be guessed
+     against the input's height and would drift the moment either changed; this
+     only needs the box to be one input tall. */
+  left: 0;
+  top: 0.55rem;
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.5rem;
+  color: var(--ink-faint);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
 
-   Positioned so a step's `offsetTop` is measured from the list itself. That is
-   what the drag reads to decide where the finger is, because `offsetTop`
-   ignores the glide transforms while a rect would include them. */
-.rows--steps { gap: 1rem; position: relative; }
+/* A step can be two lines once it has a link, so where one ends and the next
+   begins has to be unmistakable. That used to be the job of a big gap alone;
+   each step now has its own border and fill, so the gap only has to keep the
+   cards from touching.
 
-.row-stack__add-link { flex: 0 0 auto; padding: 0.3rem 0.55rem; font-size: 0.75rem; }
+   `counter-reset` starts the numbering here, and `position: relative` makes a
+   step's `offsetTop` measured from this list — which is what the drag reads to
+   decide where the finger is, because `offsetTop` ignores the glide transforms
+   while a rect would include them. */
+.rows--steps { counter-reset: step; gap: 0.5rem; position: relative; }
+
+/* Padding and size come from .btn--small, which is later in the file at the same
+   specificity; only the flex behaviour is this rule's to give. */
+.row-stack__add-link { flex: 0 0 auto; }
 
 /* An empty list should not still pay for the gap under it — with no links yet,
    the button sits directly under the category. */
@@ -1004,13 +1053,10 @@ select.field__input { appearance: none; background-image: none; }
   position: relative;
   z-index: 2;
   cursor: grabbing;
-}
-
-.row-stack--carried .field__input,
-.row-stack--carried .row__drag,
-.row-stack--carried .row__remove {
+  /* On the card, not on the controls inside it. This rule predates the card, and
+     left the step itself sitting flat while its inputs floated off it. */
   border-color: var(--line-strong);
-  box-shadow: 0 6px 16px rgb(0 0 0 / 14%);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 16%);
 }
 
 .row__remove:hover,

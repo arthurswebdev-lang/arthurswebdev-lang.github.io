@@ -1446,6 +1446,7 @@ function toggleGroup(container, options, selected) {
 
 const linkRows = document.getElementById('link-rows');
 const subtaskRows = document.getElementById('subtask-rows');
+const stepsLegend = document.getElementById('steps-legend');
 
 function inputCell(placeholder, type = 'text') {
   const input = document.createElement('input');
@@ -1486,12 +1487,21 @@ const addLinkRow = (url = '') => {
   return input;
 };
 
-/** The small control that trades itself for the input it opens. */
+/**
+ * The small control that trades itself for the input it opens.
+ *
+ * Icon-only. It shares the step's first line with the grip, the name and the ✕,
+ * and spelling out "+ Link" there left the name field about 150px on a phone.
+ * The task-level one is a different control altogether — static markup in
+ * index.html — and keeps the word, having a row to itself.
+ */
 function linkToggle(onOpen) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'btn btn--small row-stack__add-link';
-  button.textContent = '+ Link';
+  button.textContent = '🔗';
+  button.title = 'Add a link to this step';
+  button.setAttribute('aria-label', 'Add a link to this step');
   button.addEventListener('click', () => { onOpen(); });
 
   return button;
@@ -1673,7 +1683,7 @@ function dragHandle(step, container) {
  * which most steps do not have — only appears once asked for, on a line of its
  * own where a url is actually readable. Side by side, neither fitted a phone.
  */
-function addSubtaskRow({ name = '', link = '', status = 'TODO' } = {}) {
+function addSubtaskRow({ name = '', link = '', status = 'TODO' } = {}, after = null) {
   const step = document.createElement('div');
   step.className = 'row-stack';
   // Carried, not edited. PUT replaces the whole task, so a step that came back
@@ -1703,12 +1713,65 @@ function addSubtaskRow({ name = '', link = '', status = 'TODO' } = {}) {
   // otherwise removing it strands an empty .step behind the link underneath.
   // The grip rides on the same line, so it is beside the name it moves rather
   // than floating against a step that may be two lines tall.
-  addRow(step, [dragHandle(step, subtaskRows), nameInput, toggle], () => { step.remove(); });
+  addRow(step, [dragHandle(step, subtaskRows), nameInput, toggle], () => {
+    step.remove();
+    syncStepCount();
+  });
   if (link !== '') openLink(link);
 
-  subtaskRows.append(step);
+  nameInput.addEventListener('keydown', (event) => handleStepKey(event, step, nameInput));
 
-  return step;
+  // `after` puts the step beside the one Enter was pressed in, not at the end
+  // of a long list where the person would have to scroll to find it.
+  if (after === null) subtaskRows.append(step);
+  else subtaskRows.insertBefore(step, after.nextSibling);
+  syncStepCount();
+
+  return nameInput;
+}
+
+/** The legend carries the count, so a long checklist can be sized up without scrolling it. */
+function syncStepCount() {
+  const count = subtaskRows.children.length;
+  stepsLegend.textContent = count === 0 ? 'Steps' : `Steps · ${String(count)}`;
+}
+
+/**
+ * Enter makes the next step and Backspace on an empty one takes it away, so a
+ * checklist can be typed in without leaving the keyboard. Enter must be stopped
+ * here: the input sits in a form, and left alone it would submit the task.
+ */
+function handleStepKey(event, step, nameInput) {
+  // Mid-composition the keys mean something to the keyboard, not to us: the
+  // first Enter of a composed word picks a candidate and must not also make a
+  // step.
+  if (event.isComposing) return;
+
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    addSubtaskRow({}, step).focus();
+
+    return;
+  }
+
+  if (event.key !== 'Backspace') return;
+
+  // Only a deliberate press, never auto-repeat. Holding Backspace to clear a
+  // name would otherwise empty the field, delete the step on the next repeat,
+  // land in the step above and carry on eating *its* name.
+  if (event.repeat) return;
+
+  // Nothing worth keeping: an empty name, and no link quietly attached below
+  // that would go with it. Never the last step either — an emptied list would
+  // leave no field to type into.
+  const hasLink = step.querySelector('[data-field="link"]') !== null;
+  if (nameInput.value !== '' || hasLink || subtaskRows.children.length < 2) return;
+
+  event.preventDefault();
+  const neighbour = step.previousElementSibling ?? step.nextElementSibling;
+  step.remove();
+  syncStepCount();
+  neighbour.querySelector('[data-field="name"]').focus();
 }
 
 /* ---------------------------------------------------------------------------
@@ -1915,8 +1978,8 @@ backButton.addEventListener('click', () => {
 });
 
 document.getElementById('wizard-close').addEventListener('click', () => { composer.close(); });
-document.getElementById('add-link').addEventListener('click', () => { addLinkRow(); });
-document.getElementById('add-subtask').addEventListener('click', () => { addSubtaskRow(); });
+document.getElementById('add-link').addEventListener('click', () => { addLinkRow().focus(); });
+document.getElementById('add-subtask').addEventListener('click', () => { addSubtaskRow().focus(); });
 
 document.getElementById('add').addEventListener('click', () => {
   draft.kind = null;
@@ -1927,6 +1990,7 @@ document.getElementById('add').addEventListener('click', () => {
   fillCategories();
   linkRows.replaceChildren();
   subtaskRows.replaceChildren();
+  syncStepCount();
   timeRows.replaceChildren();
   showTimesMode('list');
   addTimeRow(clockFromUtc(DEFAULT_TIME_OF_DAY));
@@ -1964,6 +2028,7 @@ function openEditor(task) {
   fillCategories();
   linkRows.replaceChildren();
   subtaskRows.replaceChildren();
+  syncStepCount();
   toggleGroup(document.getElementById('weekday-toggles'), WEEKDAYS, []);
   toggleGroup(document.getElementById('month-toggles'), MONTHS, []);
 
@@ -1995,6 +2060,7 @@ function openConfigEditor(config) {
   fillCategories();
   linkRows.replaceChildren();
   subtaskRows.replaceChildren();
+  syncStepCount();
   toggleGroup(document.getElementById('weekday-toggles'), WEEKDAYS, config.weekdays ?? []);
   toggleGroup(document.getElementById('month-toggles'), MONTHS, config.months ?? []);
 
