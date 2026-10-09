@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&family=Quicksand:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="./styles.css?v=44">
+<link rel="stylesheet" href="./styles.css?v=45">
 <script>
   // Where the API lives. Point this at the fly.io app once deployed.
   globalThis.API_BASE = "https://artur-todo-list-api.fly.dev";
@@ -307,8 +307,14 @@
              in front of you, but on a rule they are a template, and that they
              come back unticked every time is worth saying once. -->
         <p class="field__hint" id="steps-hint" hidden>Each new task starts with these, unticked.</p>
+        <!-- A second way in, shown only once the list is long enough to have to
+             be scrolled. It adds at the top, where it stands, so a new step on a
+             checklist of twenty does not mean scrolling to the end and back. -->
+        <button type="button" class="btn btn--small" id="add-subtask-top"
+                title="Add a step at the top" hidden>+ Step</button>
         <div class="rows rows--steps" id="subtask-rows"></div>
-        <button type="button" class="btn btn--small" id="add-subtask">+ Step</button>
+        <button type="button" class="btn btn--small" id="add-subtask"
+                title="Add a step at the end">+ Step</button>
       </fieldset>
 
       <!-- Every schedule fires at a set of times now, so there is one control
@@ -386,6 +392,6 @@
 <script src="./firebase-config.js?v=30"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
-<script type="module" src="./app.js?v=46"></script>
+<script type="module" src="./app.js?v=47"></script>
 </body>
 </html>

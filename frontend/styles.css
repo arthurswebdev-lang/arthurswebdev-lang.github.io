@@ -1014,6 +1014,10 @@ select.field__input { appearance: none; background-image: none; }
    the button sits directly under the category. */
 .rows:empty { margin-bottom: 0; }
 
+/* Clear of the list it stands above. The list carries its own margin below, so
+   only this side needs saying. */
+#add-subtask-top { margin-bottom: 0.5rem; }
+
 .btn--small {
   padding: 0.35rem 0.7rem;
   font-size: 0.8rem;

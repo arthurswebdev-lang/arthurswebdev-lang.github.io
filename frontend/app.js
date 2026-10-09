@@ -1447,6 +1447,7 @@ function toggleGroup(container, options, selected) {
 const linkRows = document.getElementById('link-rows');
 const subtaskRows = document.getElementById('subtask-rows');
 const stepsLegend = document.getElementById('steps-legend');
+const addStepTop = document.getElementById('add-subtask-top');
 
 function inputCell(placeholder, type = 'text') {
   const input = document.createElement('input');
@@ -1683,7 +1684,17 @@ function dragHandle(step, container) {
  * which most steps do not have — only appears once asked for, on a line of its
  * own where a url is actually readable. Side by side, neither fitted a phone.
  */
-function addSubtaskRow({ name = '', link = '', status = 'TODO' } = {}, after = null) {
+/**
+ * Where a new step goes. An element means "straight after this one", which is
+ * what Enter wants; `'top'` is the long-list shortcut; nothing means the end.
+ */
+function placeStep(step, where) {
+  if (where === 'top') subtaskRows.prepend(step);
+  else if (where) subtaskRows.insertBefore(step, where.nextSibling);
+  else subtaskRows.append(step);
+}
+
+function addSubtaskRow({ name = '', link = '', status = 'TODO' } = {}, where = null) {
   const step = document.createElement('div');
   step.className = 'row-stack';
   // Carried, not edited. PUT replaces the whole task, so a step that came back
@@ -1721,19 +1732,24 @@ function addSubtaskRow({ name = '', link = '', status = 'TODO' } = {}, after = n
 
   nameInput.addEventListener('keydown', (event) => handleStepKey(event, step, nameInput));
 
-  // `after` puts the step beside the one Enter was pressed in, not at the end
-  // of a long list where the person would have to scroll to find it.
-  if (after === null) subtaskRows.append(step);
-  else subtaskRows.insertBefore(step, after.nextSibling);
+  placeStep(step, where);
   syncStepCount();
 
   return nameInput;
 }
 
 /** The legend carries the count, so a long checklist can be sized up without scrolling it. */
+/**
+ * Past this many steps the list has to be scrolled to reach the button under it,
+ * so a second one appears above. Below it, two buttons for one job would be
+ * clutter earning nothing.
+ */
+const STEPS_BEFORE_TOP_ADD = 5;
+
 function syncStepCount() {
   const count = subtaskRows.children.length;
   stepsLegend.textContent = count === 0 ? 'Steps' : `Steps · ${String(count)}`;
+  addStepTop.hidden = count <= STEPS_BEFORE_TOP_ADD;
 }
 
 /**
@@ -1980,6 +1996,7 @@ backButton.addEventListener('click', () => {
 document.getElementById('wizard-close').addEventListener('click', () => { composer.close(); });
 document.getElementById('add-link').addEventListener('click', () => { addLinkRow().focus(); });
 document.getElementById('add-subtask').addEventListener('click', () => { addSubtaskRow().focus(); });
+addStepTop.addEventListener('click', () => { addSubtaskRow({}, 'top').focus(); });
 
 document.getElementById('add').addEventListener('click', () => {
   draft.kind = null;
