@@ -387,6 +387,20 @@ these non-negotiable:
   Nothing else needs doing with the new order: `subtaskValues()` already reads `.row-stack` in DOM
   order, and `stepsFor` pairs steps **by name**, so reordering a repeat's checklist keeps every
   tick on the occurrence it belongs to.
+- **The look is chosen on the device: light or dark, in one of ten colours.** Options → Theme
+  opens `#theme`; a tap applies and saves at once (`tasks-theme` in localStorage — a preference of
+  this device, not the account), so the list behind the sheet is the preview and there is no Save.
+  Two attributes on `<html>` carry it, `data-theme` and `data-accent`, read by
+  `frontend/theme.css`, which sits on top of `styles.css` and changes colour, type, corners and
+  surfaces only. Three things are load-bearing. **The inline script at the top of `index.html`**
+  sets both attributes from storage before any stylesheet paints, or a saved theme flashes the
+  default first. **The root attributes are not `data-mode`**: the times picker finds its buttons
+  with `closest('[data-mode]')`, which would climb to `<html>`. And **each palette block also
+  applies to `.swatch[data-accent=…]`**, so a swatch wears its own colours whatever the page is set
+  to — add a colour by adding both its blocks (dark and light) and its entry in `ACCENTS` in
+  `theme.js`. The status colours (actual, upcoming, passed, missed, done) are per mode, never per
+  colour: they carry meaning. Default is dark Midnight. `theme.js` owns all of it, kept out of
+  `app.js` like push.
 - Push lives in `frontend/notifications.js`, kept out of `app.js`. It contributes
   a token and nothing else — the server owns the schedule, so there is no task
   syncing on the client.

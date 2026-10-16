@@ -1,0 +1,759 @@
+/* ---------------------------------------------------------------------------
+   The app's look: "Midnight Glass", in two modes and ten colours.
+
+   Laid over styles.css, which keeps every layout and behaviour decision. This
+   file changes colour, type, corners and surfaces only — frosted cards, one
+   accent gradient for the thing to press, a soft glow behind everything.
+
+   Two attributes on <html> choose the look, set by theme.js and, before the
+   first paint, by the small script at the top of index.html:
+
+     data-theme   light | dark       (anything else reads as dark)
+     data-accent  midnight | ocean | graphite | coffee | forest | rose |
+                  sunset | aurora | plum | gold   (anything else: midnight)
+
+   The tokens come in three layers, and only the last differs per colour:
+     1. mode tokens — the neutral fills, lines and shadows a mode is built of.
+        Dark stacks white over the ground; light stacks white for surfaces and
+        a dark tint for recesses, because white on a pale ground is invisible.
+     2. status tokens — actual, upcoming, passed, missed, done. Per mode, and
+        deliberately the same for every colour: they carry meaning, not mood.
+     3. palette tokens — ground, ink, accent, glow. One block per mode and
+        colour, at the end of the file.
+
+   Each palette block also applies to `.swatch[data-accent=…]`, so a swatch in
+   the theme picker wears its own colours whatever the page is set to: the
+   picker is a preview of every choice rather than a list of names.
+--------------------------------------------------------------------------- */
+
+/* --- 1 + 2. dark mode (the default) ---------------------------------------- */
+:root {
+  color-scheme: dark;
+
+  --surface: rgb(255 255 255 / 5.5%);
+  --surface-sunk: rgb(255 255 255 / 7%);
+  --line: rgb(255 255 255 / 9%);
+  --line-strong: rgb(255 255 255 / 20%);
+  --line-soft: rgb(255 255 255 / 13%);
+  --accent-ink: #ffffff;
+
+  --fill-1: rgb(255 255 255 / 4%);
+  --fill-2: rgb(255 255 255 / 6%);
+  --fill-3: rgb(255 255 255 / 8%);
+  --card-top: rgb(255 255 255 / 7%);
+  --card-bottom: rgb(255 255 255 / 3%);
+  --card-done: rgb(255 255 255 / 2.5%);
+  --check-ring: rgb(255 255 255 / 28%);
+  --field-bg: rgb(0 0 0 / 25%);
+  --title-from: #ffffff;
+  --shade: rgb(0 0 0 / 40%);
+  --shade-strong: rgb(0 0 0 / 55%);
+  --backdrop-mix: 65%;
+
+  --done-from: #34d399;
+  --done-to: #22c3ee;
+  --done-check-ink: #06281d;
+
+  --actual-bg: rgb(255 196 87 / 14%);
+  --actual-ink: #ffcf73;
+  --passed-bg: rgb(52 211 153 / 14%);
+  --passed-ink: #5fe0b0;
+  --upcoming-bg: rgb(96 165 250 / 15%);
+  --upcoming-ink: #8cc0ff;
+  --overdue-bg: rgb(251 113 133 / 15%);
+  --overdue-ink: #ff95a8;
+  --done-bg: rgb(52 211 153 / 18%);
+  --done-ink: #5fe0b0;
+
+  --accent-glow: 0 6px 24px color-mix(in srgb, var(--accent) 45%, transparent);
+  --shadow: 0 1px 0 rgb(255 255 255 / 6%) inset, 0 10px 30px rgb(0 0 0 / 35%);
+  --radius: 20px;
+  --radius-sm: 12px;
+
+  --font-display: "Outfit", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+/* --- 1 + 2. light mode ------------------------------------------------------ */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --surface: rgb(255 255 255 / 72%);
+  --surface-sunk: rgb(20 30 60 / 6%);
+  --line: rgb(20 30 60 / 10%);
+  --line-strong: rgb(20 30 60 / 22%);
+  --line-soft: rgb(20 30 60 / 13%);
+
+  --fill-1: rgb(255 255 255 / 55%);
+  --fill-2: rgb(255 255 255 / 72%);
+  --fill-3: rgb(20 30 60 / 6%);
+  --card-top: rgb(255 255 255 / 90%);
+  --card-bottom: rgb(255 255 255 / 70%);
+  --card-done: rgb(255 255 255 / 42%);
+  --check-ring: rgb(20 30 60 / 30%);
+  --field-bg: rgb(255 255 255 / 85%);
+  --title-from: var(--ink);
+  --shade: rgb(30 40 80 / 10%);
+  --shade-strong: rgb(30 40 80 / 18%);
+  --backdrop-mix: 40%;
+
+  --done-check-ink: #ffffff;
+  --done-from: #10b981;
+  --done-to: #0891b2;
+
+  /* The original app's tints, solved for 4.5:1 on their own fills. */
+  --actual-bg: #fdf0cc;
+  --actual-ink: #8b6700;
+  --passed-bg: #cfebde;
+  --passed-ink: #0b7642;
+  --upcoming-bg: #d9e7fd;
+  --upcoming-ink: #3265b9;
+  --overdue-bg: #f8dad7;
+  --overdue-ink: #b4382d;
+  --done-bg: #cfebde;
+  --done-ink: #0b7642;
+
+  --accent-glow: 0 6px 20px color-mix(in srgb, var(--accent) 35%, transparent);
+  --shadow: 0 1px 0 rgb(255 255 255 / 80%) inset, 0 8px 24px rgb(30 40 80 / 8%);
+}
+
+body {
+  background:
+    radial-gradient(60rem 30rem at 85% -10%, var(--glow-1), transparent 60%),
+    radial-gradient(40rem 26rem at -10% 20%, var(--glow-2), transparent 60%),
+    var(--ground);
+  background-attachment: fixed;
+}
+
+/* --- header: frosted, so the glow shows through ---------------------------- */
+.header {
+  background: color-mix(in srgb, var(--ground) 72%, transparent);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  margin-inline: calc(-1 * var(--app-pad));
+  padding-inline: var(--app-pad);
+}
+
+.header::after {
+  background: linear-gradient(color-mix(in srgb, var(--ground) 60%, transparent), transparent);
+}
+
+.header__title {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  background: linear-gradient(90deg, var(--title-from), var(--title-tint));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.header__user {
+  -webkit-text-fill-color: var(--ink-faint);
+  font-weight: 500;
+}
+
+/* --- filters: a segmented glass bar ---------------------------------------- */
+.filters {
+  padding: 0.3rem;
+  margin-bottom: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--fill-1);
+}
+
+.filter {
+  border-color: transparent;
+  background: transparent;
+  border-radius: 12px;
+}
+
+.filter:hover { border-color: var(--line); }
+
+.filter[aria-pressed="true"] { box-shadow: 0 0 0 1px currentcolor inset; }
+
+.filter--all[aria-pressed="true"] {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: var(--accent-ink);
+  box-shadow: var(--accent-glow);
+}
+
+.categories { border-bottom-color: transparent; }
+
+.category {
+  background: var(--fill-2);
+  border-color: var(--line);
+}
+
+/* No glow on a pressed pill: the row scrolls sideways, and its overflow cuts a
+   shadow off square. */
+.category[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--cat, var(--accent)) 30%, transparent);
+  border-color: color-mix(in srgb, var(--cat, var(--accent)) 70%, transparent);
+}
+
+.category--all[aria-pressed="true"] {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+}
+
+.search { border-bottom-color: transparent; }
+.search__input { background: var(--fill-2); }
+
+/* --- groups and cards ------------------------------------------------------- */
+.group__title {
+  border-left: none;
+  padding-left: 0.1rem;
+  color: var(--ink-faint);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+/* The category colour becomes a small glowing dot instead of a bar. */
+.group__title::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--cat);
+  box-shadow: 0 0 10px var(--cat);
+}
+
+.group__count { background: var(--fill-3); color: var(--ink-soft); }
+
+.task {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-color: var(--line);
+  background: linear-gradient(180deg, var(--card-top), var(--card-bottom));
+}
+
+.task--done { background: var(--card-done); opacity: 0.78; }
+
+.task__name { font-weight: 500; font-size: 1.04rem; }
+
+.task__check { border-color: var(--check-ring); }
+
+.task--done .task__check,
+.step--done .step__check {
+  background: linear-gradient(135deg, var(--done-from), var(--done-to));
+  color: var(--done-check-ink);
+}
+
+.chip { background: var(--fill-3); }
+.chip--repeat { border-color: var(--line-strong); }
+/* Restated after the plain .chip rule above, which would otherwise win on
+   order and turn every time chip the same grey. */
+.chip--when { background: var(--actual-bg); color: var(--actual-ink); }
+.chip--overdue { background: var(--overdue-bg); color: var(--overdue-ink); }
+.chip--upcoming { background: var(--upcoming-bg); color: var(--upcoming-ink); }
+.chip--done { background: var(--done-bg); color: var(--done-ink); }
+
+.steps__bar { background: var(--fill-3); }
+.steps__fill { background: linear-gradient(90deg, var(--done-from), var(--done-to)); }
+
+.icon-btn { color: var(--ink-faint); }
+
+/* --- floating buttons ------------------------------------------------------- */
+.fab {
+  border: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: var(--accent-glow), 0 0 0 1px rgb(255 255 255 / 15%) inset;
+  border-radius: 20px;
+}
+
+.fab--clear {
+  background: color-mix(in srgb, var(--surface-solid) 80%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 10px 30px var(--shade);
+}
+
+/* --- sheets and dialogs ----------------------------------------------------- */
+.composer {
+  background: color-mix(in srgb, var(--surface-solid) 94%, transparent);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-color: var(--line-soft);
+  border-radius: 26px 26px 0 0;
+  box-shadow: 0 -20px 60px var(--shade-strong);
+}
+
+.composer::backdrop {
+  background: color-mix(in srgb, var(--backdrop) var(--backdrop-mix), transparent);
+  backdrop-filter: blur(3px);
+}
+
+.lightbox::backdrop {
+  background: color-mix(in srgb, var(--backdrop) 90%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.composer__title { font-weight: 600; }
+
+.field__input {
+  background: var(--field-bg);
+  border-color: var(--line-soft);
+}
+
+.field__input:focus-visible {
+  outline: none;
+  border-color: var(--accent-ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+select.field__input option { background: var(--surface-solid); }
+
+.btn { background: var(--fill-2); border-color: var(--line-soft); }
+
+.btn--primary,
+.toggle[aria-pressed="true"] {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.btn--danger {
+  background: var(--overdue-bg);
+  border-color: color-mix(in srgb, var(--overdue-ink) 45%, transparent);
+}
+
+.toggle { background: var(--fill-1); border-color: var(--line-soft); }
+
+.choice { background: var(--fill-1); }
+.choice:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+.row-stack { background: var(--fill-1); }
+.row-stack--carried { background: var(--surface-solid); box-shadow: 0 16px 40px var(--shade-strong); }
+.row__remove,
+.row__drag { background: var(--fill-2); }
+
+.menu__toggle { background: var(--fill-2); }
+.menu__panel {
+  background: color-mix(in srgb, var(--surface-solid) 92%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-color: var(--line-soft);
+  box-shadow: 0 20px 50px var(--shade-strong);
+}
+
+.toast {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: color-mix(in srgb, var(--overdue-ink) 45%, transparent);
+}
+
+.toast--ok { border-color: color-mix(in srgb, var(--done-ink) 45%, transparent); }
+
+.state,
+.empty { border-color: var(--line-soft); background: var(--fill-1); }
+
+/* The browser's own fieldset groove looked like a mistake on glass. */
+fieldset.field {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--fill-1);
+}
+
+fieldset.field > legend { padding-inline: 0.4rem; }
+
+/* --- the theme picker ------------------------------------------------------- */
+/* Each swatch carries its own palette (see the blocks below), so its tile is
+   that colour's ground and its dot that colour's accent, in the current mode. */
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.55rem 0 0.45rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background:
+    radial-gradient(circle at 50% 30%, var(--glow-1), transparent 70%),
+    var(--ground);
+  color: var(--ink-soft);
+  font: inherit;
+  /* Small enough that "Midnight" and "Graphite" fit a fifth of a phone. */
+  font-size: 0.64rem;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: border-color 0.18s, transform 0.18s;
+}
+
+.swatch:hover { transform: translateY(-1px); }
+.swatch:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
+
+.swatch[aria-pressed="true"] {
+  border-color: var(--accent-ring);
+  box-shadow: 0 0 0 1px var(--accent-ring) inset;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.swatch__dot {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--accent-ink);
+  font-size: 0.8rem;
+}
+
+.swatch__name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- 3. palettes: dark ------------------------------------------------------ */
+/* Midnight */
+:root,
+:root:not([data-theme="light"]) .swatch[data-accent="midnight"] {
+  --ground: #0b0f1e;
+  --surface-solid: #151a2e;
+  --ink: #eef0ff;
+  --ink-soft: #b4b9d6;
+  --ink-faint: #8a90b2;
+  --accent: #7c5cff;
+  --accent-2: #4f7cff;
+  --accent-ring: #a48bff;
+  --glow-1: rgb(124 92 255 / 22%);
+  --glow-2: rgb(34 211 238 / 10%);
+  --title-tint: #c9bcff;
+  --backdrop: rgb(4 6 14);
+}
+
+/* Ocean */
+:root:not([data-theme="light"])[data-accent="ocean"],
+:root:not([data-theme="light"]) .swatch[data-accent="ocean"] {
+  --ground: #07111f;
+  --surface-solid: #0f1d33;
+  --ink: #eaf3ff;
+  --ink-soft: #a9bdd8;
+  --ink-faint: #7f95b3;
+  --accent: #2f6fe0;
+  --accent-2: #0096c7;
+  --accent-ring: #6aa8ff;
+  --glow-1: rgb(47 128 255 / 24%);
+  --glow-2: rgb(0 180 216 / 12%);
+  --title-tint: #b5d4ff;
+  --backdrop: rgb(2 6 14);
+}
+
+/* Graphite */
+:root:not([data-theme="light"])[data-accent="graphite"],
+:root:not([data-theme="light"]) .swatch[data-accent="graphite"] {
+  --ground: #101113;
+  --surface-solid: #1b1d21;
+  --ink: #f2f3f5;
+  --ink-soft: #b9bcc3;
+  --ink-faint: #8d9199;
+  --accent: #6b7380;
+  --accent-2: #464c56;
+  --accent-ring: #a7aeb9;
+  --glow-1: rgb(160 168 180 / 14%);
+  --glow-2: rgb(255 255 255 / 5%);
+  --title-tint: #d4d8de;
+  --backdrop: rgb(5 5 6);
+}
+
+/* Coffee */
+:root:not([data-theme="light"])[data-accent="coffee"],
+:root:not([data-theme="light"]) .swatch[data-accent="coffee"] {
+  --ground: #15100c;
+  --surface-solid: #221a14;
+  --ink: #f6ede4;
+  --ink-soft: #cdbba9;
+  --ink-faint: #a08b78;
+  --accent: #a8703f;
+  --accent-2: #6f4529;
+  --accent-ring: #d3a27a;
+  --glow-1: rgb(176 122 79 / 22%);
+  --glow-2: rgb(222 184 135 / 8%);
+  --title-tint: #e8c9a6;
+  --backdrop: rgb(8 5 3);
+}
+
+/* Forest */
+:root:not([data-theme="light"])[data-accent="forest"],
+:root:not([data-theme="light"]) .swatch[data-accent="forest"] {
+  --ground: #08130f;
+  --surface-solid: #11211b;
+  --ink: #eaf7f0;
+  --ink-soft: #a8c7b8;
+  --ink-faint: #7d9e8e;
+  --accent: #17935f;
+  --accent-2: #0f6e52;
+  --accent-ring: #5fd4a0;
+  --glow-1: rgb(31 169 113 / 20%);
+  --glow-2: rgb(180 220 120 / 8%);
+  --title-tint: #b8ecd2;
+  --backdrop: rgb(2 7 5);
+}
+
+/* Rose */
+:root:not([data-theme="light"])[data-accent="rose"],
+:root:not([data-theme="light"]) .swatch[data-accent="rose"] {
+  --ground: #170b12;
+  --surface-solid: #26131d;
+  --ink: #fff0f5;
+  --ink-soft: #d9b3c4;
+  --ink-faint: #ab8597;
+  --accent: #d4466f;
+  --accent-2: #9a3470;
+  --accent-ring: #f08bab;
+  --glow-1: rgb(226 85 127 / 22%);
+  --glow-2: rgb(255 170 120 / 8%);
+  --title-tint: #ffc2d4;
+  --backdrop: rgb(8 3 6);
+}
+
+/* Sunset */
+:root:not([data-theme="light"])[data-accent="sunset"],
+:root:not([data-theme="light"]) .swatch[data-accent="sunset"] {
+  --ground: #160d0a;
+  --surface-solid: #241612;
+  --ink: #fff3ec;
+  --ink-soft: #dbbcab;
+  --ink-faint: #ae8f7e;
+  --accent: #e0572a;
+  --accent-2: #c23a6a;
+  --accent-ring: #ffa47d;
+  --glow-1: rgb(255 122 69 / 22%);
+  --glow-2: rgb(224 69 123 / 12%);
+  --title-tint: #ffd0b0;
+  --backdrop: rgb(8 4 3);
+}
+
+/* Aurora */
+:root:not([data-theme="light"])[data-accent="aurora"],
+:root:not([data-theme="light"]) .swatch[data-accent="aurora"] {
+  --ground: #061416;
+  --surface-solid: #0e2226;
+  --ink: #e8fbfb;
+  --ink-soft: #a3cccc;
+  --ink-faint: #78a0a2;
+  --accent: #0d9488;
+  --accent-2: #4f52d9;
+  --accent-ring: #5eead4;
+  --glow-1: rgb(20 184 166 / 20%);
+  --glow-2: rgb(99 102 241 / 14%);
+  --title-tint: #a7f3e8;
+  --backdrop: rgb(2 7 8);
+}
+
+/* Plum */
+:root:not([data-theme="light"])[data-accent="plum"],
+:root:not([data-theme="light"]) .swatch[data-accent="plum"] {
+  --ground: #120a1a;
+  --surface-solid: #1f1229;
+  --ink: #f7efff;
+  --ink-soft: #c9b2da;
+  --ink-faint: #9c86ae;
+  --accent: #a63fcb;
+  --accent-2: #7029b0;
+  --accent-ring: #d58bf0;
+  --glow-1: rgb(180 74 216 / 24%);
+  --glow-2: rgb(255 120 200 / 8%);
+  --title-tint: #e7c2ff;
+  --backdrop: rgb(6 3 9);
+}
+
+/* Gold */
+:root:not([data-theme="light"])[data-accent="gold"],
+:root:not([data-theme="light"]) .swatch[data-accent="gold"] {
+  --ground: #12100a;
+  --surface-solid: #1f1b11;
+  --ink: #fbf6e9;
+  --ink-soft: #d3c7a5;
+  --ink-faint: #a59a7b;
+  --accent: #b4861f;
+  --accent-2: #875a10;
+  --accent-ring: #e9c66a;
+  --glow-1: rgb(201 154 46 / 20%);
+  --glow-2: rgb(255 230 160 / 7%);
+  --title-tint: #f3dc9c;
+  --backdrop: rgb(7 6 3);
+}
+
+/* --- 3. palettes: light ----------------------------------------------------- */
+/* Midnight */
+:root[data-theme="light"],
+:root[data-theme="light"] .swatch[data-accent="midnight"] {
+  --ground: #eef0fb;
+  --surface-solid: #ffffff;
+  --ink: #1b1f3b;
+  --ink-soft: #4a5070;
+  --ink-faint: #666b8a;
+  --accent: #6a4cf0;
+  --accent-2: #3d6af0;
+  --accent-ring: #8b72ff;
+  --glow-1: rgb(124 92 255 / 18%);
+  --glow-2: rgb(34 211 238 / 14%);
+  --title-tint: #6a4cf0;
+  --backdrop: rgb(20 24 50);
+}
+
+/* Ocean */
+:root[data-theme="light"][data-accent="ocean"],
+:root[data-theme="light"] .swatch[data-accent="ocean"] {
+  --ground: #eaf2fb;
+  --surface-solid: #ffffff;
+  --ink: #0f2540;
+  --ink-soft: #3f5673;
+  --ink-faint: #5c7189;
+  --accent: #1f62d6;
+  --accent-2: #0278b5;
+  --accent-ring: #5a9bff;
+  --glow-1: rgb(47 128 255 / 16%);
+  --glow-2: rgb(0 180 216 / 14%);
+  --title-tint: #1f62d6;
+  --backdrop: rgb(8 20 40);
+}
+
+/* Graphite */
+:root[data-theme="light"][data-accent="graphite"],
+:root[data-theme="light"] .swatch[data-accent="graphite"] {
+  --ground: #f1f2f4;
+  --surface-solid: #ffffff;
+  --ink: #1c1e22;
+  --ink-soft: #4b4f57;
+  --ink-faint: #686c75;
+  --accent: #4b5361;
+  --accent-2: #2f343c;
+  --accent-ring: #8a919c;
+  --glow-1: rgb(120 128 140 / 14%);
+  --glow-2: rgb(180 186 196 / 16%);
+  --title-tint: #4b5361;
+  --backdrop: rgb(20 22 26);
+}
+
+/* Coffee */
+:root[data-theme="light"][data-accent="coffee"],
+:root[data-theme="light"] .swatch[data-accent="coffee"] {
+  --ground: #f6efe7;
+  --surface-solid: #fffaf4;
+  --ink: #2a1d14;
+  --ink-soft: #5c4636;
+  --ink-faint: #7a6351;
+  --accent: #8a5a33;
+  --accent-2: #5e3b22;
+  --accent-ring: #c08a5e;
+  --glow-1: rgb(176 122 79 / 16%);
+  --glow-2: rgb(222 184 135 / 22%);
+  --title-tint: #8a5a33;
+  --backdrop: rgb(30 20 12);
+}
+
+/* Forest */
+:root[data-theme="light"][data-accent="forest"],
+:root[data-theme="light"] .swatch[data-accent="forest"] {
+  --ground: #ecf5ef;
+  --surface-solid: #ffffff;
+  --ink: #10261c;
+  --ink-soft: #3d5a4b;
+  --ink-faint: #5a7768;
+  --accent: #13804f;
+  --accent-2: #0b6148;
+  --accent-ring: #3fbf86;
+  --glow-1: rgb(31 169 113 / 15%);
+  --glow-2: rgb(180 220 120 / 18%);
+  --title-tint: #13804f;
+  --backdrop: rgb(8 24 16);
+}
+
+/* Rose */
+:root[data-theme="light"][data-accent="rose"],
+:root[data-theme="light"] .swatch[data-accent="rose"] {
+  --ground: #fbeef2;
+  --surface-solid: #ffffff;
+  --ink: #3a1424;
+  --ink-soft: #6b4253;
+  --ink-faint: #875f70;
+  --accent: #c23862;
+  --accent-2: #8e2c66;
+  --accent-ring: #ec7fa0;
+  --glow-1: rgb(226 85 127 / 15%);
+  --glow-2: rgb(255 170 120 / 16%);
+  --title-tint: #c23862;
+  --backdrop: rgb(36 10 22);
+}
+
+/* Sunset */
+:root[data-theme="light"][data-accent="sunset"],
+:root[data-theme="light"] .swatch[data-accent="sunset"] {
+  --ground: #fcf0ea;
+  --surface-solid: #ffffff;
+  --ink: #3a1c10;
+  --ink-soft: #6b4636;
+  --ink-faint: #876252;
+  --accent: #c4461a;
+  --accent-2: #a82d5a;
+  --accent-ring: #ff9a70;
+  --glow-1: rgb(255 122 69 / 16%);
+  --glow-2: rgb(224 69 123 / 12%);
+  --title-tint: #c4461a;
+  --backdrop: rgb(36 16 8);
+}
+
+/* Aurora */
+:root[data-theme="light"][data-accent="aurora"],
+:root[data-theme="light"] .swatch[data-accent="aurora"] {
+  --ground: #e9f6f5;
+  --surface-solid: #ffffff;
+  --ink: #0d2a2a;
+  --ink-soft: #3b5b5b;
+  --ink-faint: #587878;
+  --accent: #0b7f75;
+  --accent-2: #4346c9;
+  --accent-ring: #3fd6c0;
+  --glow-1: rgb(20 184 166 / 15%);
+  --glow-2: rgb(99 102 241 / 12%);
+  --title-tint: #0b7f75;
+  --backdrop: rgb(6 26 26);
+}
+
+/* Plum */
+:root[data-theme="light"][data-accent="plum"],
+:root[data-theme="light"] .swatch[data-accent="plum"] {
+  --ground: #f4edf9;
+  --surface-solid: #ffffff;
+  --ink: #2a1238;
+  --ink-soft: #574066;
+  --ink-faint: #735c82;
+  --accent: #9233b8;
+  --accent-2: #6324a0;
+  --accent-ring: #c47ae6;
+  --glow-1: rgb(180 74 216 / 15%);
+  --glow-2: rgb(255 120 200 / 12%);
+  --title-tint: #9233b8;
+  --backdrop: rgb(26 10 36);
+}
+
+/* Gold */
+:root[data-theme="light"][data-accent="gold"],
+:root[data-theme="light"] .swatch[data-accent="gold"] {
+  --ground: #f8f2e2;
+  --surface-solid: #fffcf3;
+  --ink: #2c2310;
+  --ink-soft: #5b4e2e;
+  --ink-faint: #76683f;
+  --accent: #94690f;
+  --accent-2: #6f4a0a;
+  --accent-ring: #d9b04a;
+  --glow-1: rgb(201 154 46 / 18%);
+  --glow-2: rgb(255 230 160 / 30%);
+  --title-tint: #94690f;
+  --backdrop: rgb(30 24 8);
+}

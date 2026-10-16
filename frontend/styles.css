@@ -10,9 +10,10 @@
    own is white text on #4285F4 (3.56:1), so the accent *fill* is Google's own
    darker companion blue #3367D6 (5.18:1) and the brand blue stays as the
    ring and border.
-   Deliberately single-theme: the app is light whatever the device is set to.
-   `color-scheme: light` is what stops the browser from darkening its own
-   widgets (the date picker, scrollbars, form controls) on a dark-mode device.
+   These are now the base layer only. theme.css, loaded after this file, sets
+   the look the app actually wears — light or dark, in one of ten colours —
+   and redefines every token below, `color-scheme` included. Layout and
+   behaviour stay here; theme.css changes colour, type, corners and surfaces.
 --------------------------------------------------------------------------- */
 :root {
   color-scheme: light;

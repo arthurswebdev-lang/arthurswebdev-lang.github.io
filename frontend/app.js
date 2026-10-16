@@ -17,6 +17,7 @@ import {
 import {
   enableNotifications, notificationState, refreshRegistration,
 } from './notifications.js?v=30';
+import { openThemePicker } from './theme.js?v=1';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -1316,6 +1317,11 @@ async function openRepeats() {
 document.getElementById('show-repeats').addEventListener('click', () => {
   closeMenu();
   void openRepeats();
+});
+
+document.getElementById('show-theme').addEventListener('click', () => {
+  closeMenu();
+  openThemePicker();
 });
 
 document.getElementById('repeats-close').addEventListener('click', () => { repeatsDialog.close(); });

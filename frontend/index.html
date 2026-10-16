@@ -1,13 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark" data-accent="midnight">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <title>Tasks</title>
 
 <link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#f2f2f2">
-<meta name="color-scheme" content="light">
+<!-- Both are kept in step with the chosen theme by theme.js; these are the
+     default theme's values, for the moment before it runs. -->
+<meta name="theme-color" content="#0b0f1e">
+<meta name="color-scheme" content="dark light">
+
+<script>
+  // Before any stylesheet paints, so a saved theme never flashes the default
+  // one first. No validation here: theme.css treats an unknown value as the
+  // default, and theme.js corrects the attributes as soon as it runs.
+  try {
+    const saved = JSON.parse(localStorage.getItem('tasks-theme') ?? 'null');
+    if (typeof saved?.mode === 'string') document.documentElement.dataset.theme = saved.mode;
+    if (typeof saved?.accent === 'string') document.documentElement.dataset.accent = saved.accent;
+  } catch {
+    // Blocked storage: the default theme, which the markup already names.
+  }
+</script>
 
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -16,8 +31,9 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&family=Quicksand:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="./styles.css?v=45">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="./styles.css?v=46">
+<link rel="stylesheet" href="./theme.css?v=2">
 <script>
   // Where the API lives. Point this at the fly.io app once deployed.
   globalThis.API_BASE = "https://artur-todo-list-api.fly.dev";
@@ -37,6 +53,7 @@
                   aria-haspopup="true" aria-expanded="false" aria-label="Options">⌄</button>
           <div class="menu__panel" id="menu-panel" hidden>
             <button type="button" class="menu__item" id="show-repeats">Repeats</button>
+            <button type="button" class="menu__item" id="show-theme">Theme</button>
             <button type="button" class="menu__item" id="export">Export a backup</button>
             <button type="button" class="menu__item" id="notifications" hidden></button>
             <button type="button" class="menu__item" id="test-notification" hidden>Send a test</button>
@@ -144,6 +161,29 @@
     it removes the ones it made.
   </p>
   <div id="repeats-list"></div>
+</dialog>
+
+<!-- Applied as you tap, so there is nothing to save or cancel: the list behind
+     the sheet is the preview, and ✕ simply puts the sheet away. -->
+<dialog class="composer" id="theme">
+  <header class="wizard__bar">
+    <h2 class="composer__title">Theme</h2>
+    <button type="button" class="wizard__back" id="theme-close" aria-label="Close">✕</button>
+  </header>
+  <p class="composer__note">Saved on this device only.</p>
+
+  <fieldset class="field">
+    <legend class="field__label">Mode</legend>
+    <div class="toggles" id="theme-modes">
+      <button type="button" class="toggle" data-theme-mode="light" aria-pressed="false">☀️ Light</button>
+      <button type="button" class="toggle" data-theme-mode="dark" aria-pressed="false">🌙 Dark</button>
+    </div>
+  </fieldset>
+
+  <fieldset class="field">
+    <legend class="field__label">Colour</legend>
+    <div class="swatches" id="theme-accents"></div>
+  </fieldset>
 </dialog>
 
 <!-- The photo, shown where you are rather than in a new tab. Deliberately
@@ -392,6 +432,6 @@
 <script src="./firebase-config.js?v=30"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
-<script type="module" src="./app.js?v=47"></script>
+<script type="module" src="./app.js?v=48"></script>
 </body>
 </html>
