@@ -1,12 +1,12 @@
 /* ---------------------------------------------------------------------------
    Task list, reading from the API.
 
-   Only the GET endpoints are wired. Marking done, deleting and adding act on
-   the copy held here so the interaction can be seen, but they do not persist —
-   a reload brings back whatever the server has.
-
-   The server decides which tasks are passed / actual / upcoming and which
-   category they belong to; this file asks for a slice and draws it.
+   Every task is read once, in one request, and held here. Switching between
+   passed / actual / upcoming / all, or between categories, only redraws: no
+   request, no "Loading…". The time filters are the server's own rules
+   (backend/src/filters/tasks.filters.ts), repeated below in `inTimeFilter`, so
+   the two must change together. Writes go to the server and then refresh the
+   copy quietly, without taking the list off the screen.
 --------------------------------------------------------------------------- */
 import {
   clearTasks, createRepeatedTask, createTask, deleteRepeatedTask, deleteTask, fetchRepeatedTask,
@@ -46,7 +46,16 @@ const DAY = 24 * 60 * 60 * 1000;
 
 /* --- state ---------------------------------------------------------------- */
 
+/** Every task the account has, unfiltered: the one copy everything reads from. */
 let tasks = [];
+
+/**
+ * The same tasks by category: `all` holds every one, and each category that has
+ * any holds its own. Rebuilt by `setTasks` whenever the set changes, so picking
+ * a category is a lookup rather than a pass over the whole list.
+ */
+let byCategory = new Map([['all', tasks]]);
+
 let credentials = null;
 let activeFilter = 'actual';
 let activeCategory = 'all';
@@ -61,17 +70,19 @@ let activeCategory = 'all';
  */
 let search = '';
 
-/**
- * Which categories currently hold something, as of the last unnarrowed read.
- *
- * Kept rather than derived on the spot because `tasks` is not always the whole
- * picture: the server narrows the query when a category is picked, so deriving
- * from it then would leave that one pill on screen and no way back to the
- * others. Refreshed only while 'all' is showing, which is the one time the
- * list is known to cover every category.
- */
-let categoriesInUse = new Set();
 let status = 'loading';
+
+/** Replaces the copy, and the map built from it — the only place either is written. */
+function setTasks(list) {
+  tasks = list;
+  byCategory = new Map([['all', list]]);
+  for (const task of list) {
+    const key = task.category ?? OTHER_KEY;
+    const group = byCategory.get(key);
+    if (group === undefined) byCategory.set(key, [task]);
+    else group.push(task);
+  }
+}
 
 /* --- formatting ----------------------------------------------------------- */
 
@@ -102,6 +113,29 @@ const activeUntil = (task) => shifted(task, task.activeForMins ?? DEFAULT_ACTIVE
  * would put "Missed" on a task the server still calls actual.
  */
 const hasPassed = (task) => hasDate(task) && activeUntil(task) <= new Date();
+
+/** When a dated task stops being upcoming and becomes actual. */
+const activeFrom = (task) => shifted(task, -(task.activeBeforeMins ?? DEFAULT_ACTIVE_BEFORE_MINS));
+
+/**
+ * Which of the four filters a task belongs under, by the server's rules — one
+ * interval each, so passed, actual and upcoming split the timeline with no gap
+ * and no overlap. A task with no date has no position in time: it is always
+ * relevant, so it is actual. `all` is the list without a filter.
+ *
+ * Judged at the moment of drawing, not at the moment of reading, so a task
+ * moves from upcoming to actual to passed as the clock does.
+ */
+function inTimeFilter(task, filter, now) {
+  if (filter === 'all') return true;
+  if (!hasDate(task)) return filter === 'actual';
+
+  const passed = now > activeUntil(task);
+  if (filter === 'passed') return passed;
+  if (filter === 'actual') return !passed && now >= activeFrom(task);
+
+  return now < activeFrom(task);
+}
 
 function whenLabel(task) {
   const date = new Date(task.date);
@@ -453,10 +487,22 @@ function noMatchState() {
   return message('🔍', `Nothing matches "${search}".`);
 }
 
-function renderCategories() {
-  if (activeCategory === 'all') {
-    categoriesInUse = new Set(tasks.map((task) => task.category));
+/**
+ * The categories with something under the current time filter. The search is
+ * left out on purpose: narrowing by text must not collapse the pill row and
+ * take the magnifier at its end with it.
+ */
+function categoriesInUse(now) {
+  const keys = new Set();
+  for (const [key, group] of byCategory) {
+    if (key !== 'all' && group.some((task) => inTimeFilter(task, activeFilter, now))) keys.add(key);
   }
+
+  return keys;
+}
+
+function renderCategories(now) {
+  const inUse = categoriesInUse(now);
 
   const all = document.createElement('button');
   all.type = 'button';
@@ -472,7 +518,7 @@ function renderCategories() {
   // something. The selected one stays whatever happens, so clearing the last
   // task in it does not pull the pill out from under its own list.
   const buttons = [...Object.entries(CATEGORIES), [OTHER_KEY, OTHER_CATEGORY]]
-    .filter(([key]) => categoriesInUse.has(key) || key === activeCategory)
+    .filter(([key]) => inUse.has(key) || key === activeCategory)
     .map(([key, meta]) => {
       const button = document.createElement('button');
       button.type = 'button';
@@ -558,11 +604,13 @@ function matchesSearch(task) {
 }
 
 /**
- * What is actually on screen. Everything that reports on the list reads this
- * rather than `tasks` — the count, the empty state, the groups, and the bin,
- * which must never clear something the search is hiding.
+ * What is actually on screen: the chosen category, inside the chosen time
+ * filter, narrowed by the search. Everything that reports on the list reads
+ * this rather than `tasks` — the count, the empty state, the groups, and the
+ * bin, which must never clear something the filters or the search are hiding.
  */
-const visibleTasks = () => tasks.filter(matchesSearch);
+const visibleTasks = (now = new Date()) => (byCategory.get(activeCategory) ?? [])
+  .filter((task) => inTimeFilter(task, activeFilter, now) && matchesSearch(task));
 
 /**
  * Done sinks to the bottom; above it, whatever has a time comes in time order,
@@ -579,7 +627,10 @@ function inListOrder(left, right) {
 }
 
 function render() {
-  renderCategories();
+  // One instant for the whole draw, so the pills and the list cannot disagree
+  // about a task whose window closes between the two.
+  const now = new Date();
+  renderCategories(now);
 
   document.querySelectorAll('.filter').forEach((button) => {
     button.setAttribute('aria-pressed', String(button.dataset.state === activeFilter));
@@ -619,7 +670,7 @@ function render() {
     return;
   }
 
-  const shown = visibleTasks();
+  const shown = visibleTasks(now);
   const left = shown.filter((task) => task.status !== 'DONE').length;
   summaryEl.textContent = shown.length === 0 ? '' : `${String(left)} of ${String(shown.length)} left`;
 
@@ -860,10 +911,7 @@ function remove(task) {
     if (choice === null) return;
 
     apply(
-      () => {
-        const index = tasks.indexOf(task);
-        if (index !== -1) tasks.splice(index, 1);
-      },
+      () => { setTasks(tasks.filter((other) => other !== task)); },
       // `clearTasks` takes exactly what it is given; `deleteTask` escalates to
       // the whole rule when handed a generated event.
       () => (choice === 'all'
@@ -923,7 +971,7 @@ cleanupButton.addEventListener('click', () => {
     if (choice === null) return;
 
     apply(
-      () => { tasks = tasks.filter((task) => !ids.includes(task.id)); },
+      () => { setTasks(tasks.filter((task) => !ids.includes(task.id))); },
       () => clearTasks(credentials.token, ids),
       `${count} cleared`,
     );
@@ -932,22 +980,45 @@ cleanupButton.addEventListener('click', () => {
 
 /* --- loading -------------------------------------------------------------- */
 
+/**
+ * Counts reads, so only the latest one lands. Two saves in quick succession
+ * each reload, and the older answer arriving second would otherwise put back
+ * a list the newer one had already moved past.
+ */
+let loadNumber = 0;
+
+/**
+ * Reads every task, unfiltered, and redraws.
+ *
+ * "Loading…" only shows when there is nothing to show yet — the first read, or
+ * the first after signing in. Every later read is a quiet refresh: the list
+ * stays on screen and is replaced when the answer arrives, and a refresh that
+ * fails keeps the copy it has and says so, rather than swapping a usable list
+ * for an error.
+ */
 async function load() {
   if (credentials === null) return;
 
-  status = 'loading';
-  render();
+  const refreshing = status === 'ready';
+  const number = ++loadNumber;
+
+  if (!refreshing) {
+    status = 'loading';
+    render();
+  }
 
   try {
-    tasks = await fetchTasks(credentials.token, {
-      filter: activeFilter,
-      category: activeCategory,
-    });
+    const fresh = await fetchTasks(credentials.token);
+    if (number !== loadNumber) return;
+
+    setTasks(fresh);
     status = 'ready';
     // Fire and forget: a rotated token is worth fixing, but never worth
     // holding the list up for.
     void refreshRegistration(credentials.token);
   } catch (error) {
+    if (number !== loadNumber) return;
+
     if (error.message === 'UNAUTHORIZED') {
       await forgetCredentials();
       credentials = null;
@@ -959,22 +1030,34 @@ async function load() {
       return;
     }
 
-    status = 'error';
+    if (refreshing) report('Could not refresh the list. Showing the last copy.');
+    else status = 'error';
   }
 
   render();
 }
 
+/* Both only redraw: the copy already holds every task in every category. */
 function selectCategory(key) {
   activeCategory = key;
-  void load();
+  render();
 }
 
 document.querySelectorAll('.filter').forEach((button) => {
   button.addEventListener('click', () => {
     activeFilter = button.dataset.state;
-    void load();
+    render();
   });
+});
+
+/*
+ * Coming back to the app is the one read nobody asks for. A home-screen app is
+ * resumed rather than reopened, often days later, and the server has gone on
+ * making occurrences in the meantime — without this the list would only ever
+ * catch up after a save.
+ */
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && status === 'ready') void load();
 });
 
 /* --- who is signed in, and signing out ------------------------------------ */
@@ -1158,7 +1241,10 @@ document.getElementById('signout').addEventListener('click', () => {
 async function signOut() {
   await forgetCredentials();
   credentials = null;
-  tasks = [];
+  setTasks([]);
+  // Not 'ready': the next account's first read must show "Loading…" rather than
+  // count as a refresh of a list that belonged to someone else.
+  status = 'signed-out';
   showWho();
   render();
   await askForCredentials();

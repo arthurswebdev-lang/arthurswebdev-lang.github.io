@@ -276,7 +276,17 @@ one blank line before a `return` that follows logic.
 - **`GET /tasks?filter=actual|passed|upcoming`** filters in the service, using the rules in
   `src/filters/tasks.filters.ts`, not in the Mongo query — the three states are one interval
   each, and worth reading as functions rather than as an aggregation pipeline. `passed` alone
-  could move into the query if the collection grows.
+  could move into the query if the collection grows. **The frontend no longer sends either
+  parameter**: it reads every task once and filters on its own copy (next bullet), so the
+  parameters stay for other clients and for the Postman collection.
+- **The frontend holds every task and filters locally.** `load()` asks for `GET /tasks` with no
+  query; `setTasks` stores the list and a `Map` of it by category (`all` → every task, each
+  category → its own), and switching filter or category only redraws. The time filters are
+  `inTimeFilter` in `frontend/app.js`, **a copy of the rules in `tasks.filters.ts`** — change one,
+  change the other, or the list and the server disagree about what is actual. "Loading…" shows
+  only while nothing is held yet; every later `load()` (after a save, on returning to the app via
+  `visibilitychange`) is a quiet refresh that keeps the list on screen, and one that fails keeps
+  the copy and says so in a toast. `loadNumber` drops any answer older than the latest request.
 - **Query params go through `validateQuery`, never `validate`.** Express 5 re-parses `req.query`
   on every read, so the validated copy must be pinned back with `defineProperty`.
 - **Services that ask "what is true now" take a clock.** `TasksService` receives
@@ -352,8 +362,9 @@ these non-negotiable:
   card draws its steps, so a task that matched on one shows why. It never calls the server — the
   list is one page and a round trip per keystroke would lag the typing. Everything that reports on the
   list reads `visibleTasks()` rather than `tasks`: the count, the groups, the empty state, and
-  **`sweepable()`**, so the bin can never clear something the search is hiding. Two things stay on
-  the full set on purpose — `categoriesInUse`, or searching would collapse the pill row and take
+  **`sweepable()`**, so the bin can never clear something the search is hiding. Two things ignore
+  the search on purpose — `categoriesInUse` (which still follows the time filter), or searching
+  would collapse the pill row and take
   the magnifier with it, and the empty state, which says "nothing matches" rather than "nothing
   here" when a search is running. Closing the box clears it.
 - **Steps reorder by a grip, and it must be pointer events — not HTML5 drag-and-drop.** Safari on
