@@ -27,13 +27,15 @@
     },
     {
       "key": "username",
-      "value": "artur",
-      "type": "string"
+      "value": "",
+      "type": "string",
+      "description": "Your account's username. Fill it in once: POST /users creates the account, every other request signs with it."
     },
     {
       "key": "password",
-      "value": "secret123",
-      "type": "string"
+      "value": "",
+      "type": "string",
+      "description": "Your account's password. Fill it in once; it is sent as Basic auth on every request."
     },
     {
       "key": "taskId",
