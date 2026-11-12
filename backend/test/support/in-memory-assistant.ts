@@ -75,6 +75,11 @@ export const text = (value: string): ContentBlock =>
 export class ScriptedClient implements IAssistantClient {
   readonly seen: MessageParam[][] = [];
 
+  /** Set to an error to make the health ping fail, the way an expired key would. */
+  pingError: Error | null = null;
+
+  pings = 0;
+
   constructor(private readonly replies: AssistantModelReply[]) {}
 
   async send(messages: MessageParam[]): Promise<AssistantModelReply> {
@@ -83,6 +88,12 @@ export class ScriptedClient implements IAssistantClient {
     if (reply === undefined) throw new Error('The script ran out of replies.');
 
     return Promise.resolve(reply);
+  }
+
+  async ping(): Promise<void> {
+    this.pings += 1;
+    if (this.pingError !== null) throw this.pingError;
+    await Promise.resolve();
   }
 }
 

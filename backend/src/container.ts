@@ -37,11 +37,18 @@ export interface Container {
   readonly assistantClient: IAssistantClient | null;
 }
 
-/** Same shape as push: no key means the feature is off, not a failed boot. */
+/**
+ * Same shape as push: no key means the feature is off, not a failed boot. The
+ * feature flag switches it off on purpose, key or no key.
+ */
 function createAssistantClient(): IAssistantClient | null {
+  if (!config.features.assistant) return null;
+
   const claude = createClaude(config.anthropicApiKey);
 
-  return claude === null ? null : new ClaudeAssistantClient(claude, config.assistantModel);
+  return claude === null
+    ? null
+    : new ClaudeAssistantClient(claude, config.assistantModel, config.assistantHealthModel);
 }
 
 /**

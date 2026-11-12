@@ -13,4 +13,10 @@ export interface AssistantModelReply {
  */
 export interface IAssistantClient {
   send(messages: MessageParam[]): Promise<AssistantModelReply>;
+  /**
+   * The smallest possible real call, to learn whether the API answers at all.
+   * Throws for any reason it does not: a bad or expired key, no credit, an
+   * outage.
+   */
+  ping(): Promise<void>;
 }

@@ -30,6 +30,29 @@ export interface Config {
   readonly anthropicApiKey: string | undefined;
   /** The model the assistant talks to, so it can change without a deploy. */
   readonly assistantModel: string;
+  /** The small, cheap model the health check pings. */
+  readonly assistantHealthModel: string;
+  /** Feature flags: switch a feature off without a code change. */
+  readonly features: Features;
+}
+
+export interface Features {
+  /** The chat assistant. Off: its routes answer 503 and the app hides it. */
+  readonly assistant: boolean;
+}
+
+/**
+ * A flag from the environment. Unset means `fallback`; anything that is not a
+ * clear on/off word is refused at boot rather than guessed at.
+ */
+export function readFlag(name: string, raw: string | undefined, fallback: boolean): boolean {
+  if (raw === undefined || raw.trim() === '') return fallback;
+
+  const value = raw.trim().toLowerCase();
+  if (['on', 'true', '1', 'yes'].includes(value)) return true;
+  if (['off', 'false', '0', 'no'].includes(value)) return false;
+
+  throw new Error(`Invalid ${name}: ${raw} (use on or off)`);
 }
 
 function readPort(raw: string | undefined): number {
@@ -65,4 +88,8 @@ export const config: Config = {
   appUrl: process.env['APP_URL'],
   anthropicApiKey: process.env['ANTHROPIC_API_KEY'],
   assistantModel: process.env['ASSISTANT_MODEL'] ?? 'claude-opus-5-5',
+  assistantHealthModel: process.env['ASSISTANT_HEALTH_MODEL'] ?? 'claude-haiku-5-5',
+  features: {
+    assistant: readFlag('FEATURE_ASSISTANT', process.env['FEATURE_ASSISTANT'], true),
+  },
 };

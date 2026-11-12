@@ -310,7 +310,12 @@ one blank line before a `return` that follows logic.
   turn. A chat is one `assistantSessions` document, deleted on Accept, on close, or by its TTL
   index after 30 idle minutes; a long one is restarted from a summary built from `answers` and
   `plan`, never trimmed from the middle. `ANTHROPIC_API_KEY` unset → routes answer 503 and the
-  button is hidden, the same shape as push without Firebase.
+  button is hidden, the same shape as push without Firebase. **`FEATURE_ASSISTANT=off`** does the
+  same on purpose, key or no key (`readFlag` in `config.ts` refuses a value that is not a clear
+  on/off word, rather than guessing). Opening the chat first calls **`GET /assistant/health`**,
+  which pings `ASSISTANT_HEALTH_MODEL` (Haiku, 1 token, thinking off) and caches the answer for a
+  minute; any failure — key, credit, outage — is `{ available: false }`, the reason goes to the
+  log only, and the chat stays locked with a "not available" message.
 
 ## Gotchas worth remembering
 

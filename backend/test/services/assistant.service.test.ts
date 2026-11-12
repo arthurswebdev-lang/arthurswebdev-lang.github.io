@@ -199,3 +199,20 @@ describe('AssistantService — odd tool input', () => {
     assert.match(JSON.stringify(client.seen[1]?.at(-1)), /"is_error":true/);
   });
 });
+
+describe('AssistantService — health check', () => {
+  it('says available when the ping answers, and reuses that for a minute', async () => {
+    const { service, client } = setup([]);
+
+    assert.deepEqual(await service.health(), { available: true });
+    assert.deepEqual(await service.health(), { available: true });
+    assert.equal(client.pings, 1);
+  });
+
+  it('says not available for any failure, without the reason', async () => {
+    const { service, client } = setup([]);
+    client.pingError = new Error('400 Your credit balance is too low');
+
+    assert.deepEqual(await service.health(), { available: false });
+  });
+});

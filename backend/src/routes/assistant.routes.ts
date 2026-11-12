@@ -9,7 +9,8 @@ import {
 import { ServiceUnavailableError } from '../utils/http-errors/service-unavailable.error.js';
 
 /**
- * Answers 503 when no Claude key is configured, before anything else runs.
+ * Answers 503 when the assistant is off — no Claude key, or FEATURE_ASSISTANT
+ * set to off — before anything else runs.
  * The frontend reads that from the templates call and hides the button.
  */
 function requireConfigured(configured: boolean): RequestHandler {
@@ -36,6 +37,7 @@ export class AssistantRoutes {
     }
 
     this.router.get('/assistant/templates', ...gate, controller.templates.bind(controller));
+    this.router.get('/assistant/health', ...gate, controller.health.bind(controller));
     this.router.post('/assistant/sessions', ...gate, validateStart, controller.start.bind(controller));
     this.router.post('/assistant/sessions/:id/messages', ...gate, validateSend, controller.send.bind(controller));
     this.router.post('/assistant/sessions/:id/accept', ...gate, validateAccept, controller.accept.bind(controller));

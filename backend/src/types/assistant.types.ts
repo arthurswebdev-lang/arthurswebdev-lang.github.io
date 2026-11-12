@@ -117,6 +117,11 @@ export interface AssistantReply {
   done: boolean;
 }
 
+/** What the app needs to know before it opens a chat — and nothing about why. */
+export interface AssistantHealth {
+  available: boolean;
+}
+
 export interface TemplateSummary {
   id: string;
   title: string;

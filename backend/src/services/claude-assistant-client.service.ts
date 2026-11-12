@@ -25,7 +25,22 @@ export class ClaudeAssistantClient implements IAssistantClient {
   constructor(
     private readonly client: Anthropic,
     private readonly model: string,
+    private readonly healthModel: string,
   ) {}
+
+  /**
+   * One token from the small model, thinking off: it costs a fraction of a
+   * cent and fails exactly when a real chat would — the key, the credit and
+   * the API are all the same.
+   */
+  async ping(): Promise<void> {
+    await this.client.messages.create({
+      model: this.healthModel,
+      max_tokens: 1,
+      thinking: { type: 'disabled' },
+      messages: [{ role: 'user', content: 'ping' }],
+    });
+  }
 
   async send(messages: MessageParam[]): Promise<AssistantModelReply> {
     const response = await this.client.beta.messages.create({

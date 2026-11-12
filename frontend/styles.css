@@ -1421,6 +1421,9 @@ select.field__input { appearance: none; background-image: none; }
 
 .assistant__box { flex: 1; min-width: 0; resize: none; }
 
+/* Locked while the health check runs, and for good when the AI is down. */
+.assistant__form[inert] { opacity: 0.45; }
+
 .assistant__box[hidden] { display: none; }
 
 /* On a phone the chat takes the whole width and height: it is a full-screen

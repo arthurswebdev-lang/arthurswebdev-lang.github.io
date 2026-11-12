@@ -13,12 +13,12 @@ import {
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, setRepeatEnabled,
   updateRepeatedTask,
   replaceTask, saveCredentials, sendTestNotification, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=31';
+} from './api.js?v=32';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=31';
+} from './notifications.js?v=32';
 import { openThemePicker } from './theme.js?v=1';
-import { assistantAvailable, openAssistant } from './assistant.js?v=4';
+import { assistantAvailable, openAssistant } from './assistant.js?v=5';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match

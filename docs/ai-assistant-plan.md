@@ -521,8 +521,14 @@ Each phase ends working and deployed.
 | Routes | `backend/src/routes/assistant.routes.ts` |
 | Chat sheet | `frontend/assistant.js` (+ `#assistant` in `index.html`) |
 
-Config: `ANTHROPIC_API_KEY` (unset → assistant off, routes answer 503, button hidden) and
-`ASSISTANT_MODEL` (default `claude-opus-5-5`).
+Config: `ANTHROPIC_API_KEY` (unset → assistant off, routes answer 503, button hidden),
+`ASSISTANT_MODEL` (default `claude-opus-5-5`), `ASSISTANT_HEALTH_MODEL` (default
+`claude-haiku-5-5`) and the feature flag `FEATURE_ASSISTANT` (`on` by default; `off` switches
+the assistant off without a code change: `fly secrets set FEATURE_ASSISTANT=off`).
+
+Health check: when the chat opens, `GET /assistant/health` pings the health model with one
+token. Any failure (expired key, no credit, outage) shows "The AI assistant is not available
+right now" and keeps the input locked. The answer is cached for one minute.
 
 Not done yet from the build order: the eval file (phase 8). The RAG question is answered in
 `docs/RAG-choice.md`.

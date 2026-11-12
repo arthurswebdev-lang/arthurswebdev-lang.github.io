@@ -197,6 +197,12 @@ const timezoneOffsetMinutes = () => new Date().getTimezoneOffset();
 /** The quick-start templates. Fails (503) when the server has no Claude key. */
 export const fetchAssistantTemplates = (token) => get("/assistant/templates", token);
 
+/**
+ * Whether the AI answers right now: the server pings a small model. Any
+ * failure there — key, credit, outage — comes back as `{ available: false }`.
+ */
+export const fetchAssistantHealth = (token) => get("/assistant/health", token);
+
 /** Starts a chat from a template, a first message, or both. */
 export const startAssistantSession = (token, { templateId, message }) =>
   send("POST", "/assistant/sessions", token, {

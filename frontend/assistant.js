@@ -15,9 +15,9 @@
    about the task list: app.js passes in what to do once something is created.
 --------------------------------------------------------------------------- */
 import {
-  acceptAssistantPlan, closeAssistantSession, fetchAssistantTemplates, sendAssistantMessage,
-  startAssistantSession,
-} from './api.js?v=31';
+  acceptAssistantPlan, closeAssistantSession, fetchAssistantHealth, fetchAssistantTemplates,
+  sendAssistantMessage, startAssistantSession,
+} from './api.js?v=32';
 
 const dialog = document.getElementById('assistant');
 const log = document.getElementById('assistant-log');
@@ -262,14 +262,46 @@ function suggestions(all) {
   return picked;
 }
 
-function reset() {
+/** Locks the answer bar: nothing can be sent while the AI is not reachable. */
+function lockInput(locked) {
+  form.inert = locked;
+}
+
+/** Bumped on every open, so a slow health answer from an earlier open is ignored. */
+let openNumber = 0;
+
+/**
+ * Opens on a quick check that the AI answers at all — the server pings a small
+ * model, and any failure (expired key, no credit, an outage) comes back as
+ * "not available". The person is told that and nothing more, before typing
+ * anything that could not be answered.
+ */
+async function reset() {
+  const number = ++openNumber;
   log.replaceChildren();
-  chips.replaceChildren(...suggestions(templates || []).map(chip));
-  chips.hidden = false;
+  chips.hidden = true;
   sessionId = null;
   showControl({ input: 'text' });
   textBox.value = '';
   textBox.placeholder = 'Tell me what you want to set up';
+  lockInput(true);
+
+  const checking = bubble('ai bubble--typing', 'Checking that the AI is available…');
+  const available = await fetchAssistantHealth(token)
+    .then((health) => health.available === true)
+    .catch(() => false);
+  if (number !== openNumber) return;
+
+  checking.remove();
+  if (!available) {
+    bubble('error', 'The AI assistant is not available right now. Please try again later, or add the task by hand.');
+
+    return;
+  }
+
+  chips.replaceChildren(...suggestions(templates || []).map(chip));
+  chips.hidden = false;
+  lockInput(false);
   bubble('ai', 'Hi! What do you want to set up? Pick one below, or just tell me.');
 }
 
@@ -282,8 +314,8 @@ function endSession() {
 export function openAssistant(options) {
   ({ token } = options);
   onCreated = options.onCreated;
-  reset();
   dialog.showModal();
+  void reset();
   // No focus on purpose: on iOS that opens the keyboard, and the first tap on
   // a chip or an option then only closes the keyboard and is lost.
 }
@@ -309,6 +341,6 @@ skipButton.addEventListener('click', () => { void say('skip'); });
 document.getElementById('assistant-close').addEventListener('click', () => { dialog.close(); });
 document.getElementById('assistant-new').addEventListener('click', () => {
   endSession();
-  reset();
+  void reset();
 });
 dialog.addEventListener('close', endSession);

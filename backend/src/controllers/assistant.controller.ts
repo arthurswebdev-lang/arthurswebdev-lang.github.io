@@ -3,7 +3,7 @@ import type { NextFunction, Request, Response } from 'express';
 import type { IAssistantService } from '../interfaces/assistant-service.interface.js';
 import { currentUserId } from '../middlewares/auth.middleware.js';
 import type {
-  AcceptPlan, AssistantReply, SendMessage, SessionIdParams, StartSession, TemplateSummary,
+  AcceptPlan, AssistantHealth, AssistantReply, SendMessage, SessionIdParams, StartSession, TemplateSummary,
 } from '../types/assistant.types.js';
 import type { BodyRequest, ParamsRequest } from '../types/request.type.js';
 import * as SuccessHandlerUtil from '../utils/success-handler.util.js';
@@ -13,6 +13,14 @@ export class AssistantController {
 
   templates(_request: Request, response: Response<TemplateSummary[]>, next: NextFunction): void {
     SuccessHandlerUtil.handleList(response, next, this.assistantService.templates());
+  }
+
+  async health(_request: Request, response: Response<AssistantHealth>, next: NextFunction): Promise<void> {
+    try {
+      SuccessHandlerUtil.handleList(response, next, await this.assistantService.health());
+    } catch (error) {
+      next(error);
+    }
   }
 
   async start(

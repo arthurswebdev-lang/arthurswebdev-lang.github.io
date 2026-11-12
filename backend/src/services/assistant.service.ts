@@ -7,7 +7,7 @@ import type {
 } from '../interfaces/assistant-sessions-repository.interface.js';
 import { templateById, templateSummaries } from '../prompts/assistant-templates.js';
 import type {
-  AcceptPlan, AskControl, AssistantReply, AssistantSession, ContentBlock, CreatedItem,
+  AcceptPlan, AskControl, AssistantHealth, AssistantReply, AssistantSession, ContentBlock, CreatedItem,
   SendMessage, StartSession, TemplateSummary, ToolResultBlockParam, ToolUseBlock,
 } from '../types/assistant.types.js';
 import { ConflictError } from '../utils/http-errors/conflict.error.js';
@@ -27,6 +27,8 @@ const DAILY_LIMIT = 100;
 const IDLE_MS = 30 * 60 * 1000;
 
 const STOPPED = 'Sorry, I could not answer that. Try saying it another way.';
+/** How long one health answer is reused, so opening the chat is free. */
+const HEALTH_TTL_MS = 60 * 1000;
 
 interface Pause {
   toolUseId: string;
@@ -91,6 +93,8 @@ const allSaved = (session: AssistantSession) => session.state === 'accepted'
   && session.plan?.every((item) => item.createdId !== undefined) === true;
 
 export class AssistantService implements IAssistantService {
+  private lastHealth: { at: number; available: boolean } | null = null;
+
   constructor(
     private readonly sessions: IAssistantSessionsRepository,
     private readonly usage: IAssistantUsageRepository,
@@ -101,6 +105,29 @@ export class AssistantService implements IAssistantService {
 
   templates(): TemplateSummary[] {
     return templateSummaries();
+  }
+
+  /**
+   * Pings the model once a minute at most. Any failure — expired key, no
+   * credit, an outage — reads as "not available"; the reason goes to the log
+   * for us, never to the app.
+   */
+  async health(): Promise<AssistantHealth> {
+    const now = this.now().getTime();
+    if (this.lastHealth !== null && now - this.lastHealth.at < HEALTH_TTL_MS) {
+      return { available: this.lastHealth.available };
+    }
+
+    let available = true;
+    try {
+      await this.client.ping();
+    } catch (error) {
+      available = false;
+      console.error('[assistant] health check failed:', error instanceof Error ? error.message : error);
+    }
+    this.lastHealth = { at: now, available };
+
+    return { available };
   }
 
   async start(userId: string, input: StartSession): Promise<AssistantReply> {
