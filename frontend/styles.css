@@ -1371,6 +1371,8 @@ select.field__input { appearance: none; background-image: none; }
 
 .assistant__options { margin-bottom: 0.6rem; }
 
+.assistant__hint { flex-basis: 100%; margin: 0.2rem 0 0; font-size: 0.78rem; color: var(--ink-soft); }
+
 .assistant__options[hidden] { display: none; }
 
 /* Stays at the bottom of the sheet while the log scrolls above it. */

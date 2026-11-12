@@ -116,11 +116,36 @@ function optionButton(label, onClick) {
   return button;
 }
 
-/** Buttons for a choice (tap sends) or a list (tap toggles, Done sends). */
+/** The options picked so far on a multi-select question. */
+const pickedOptions = () => [...options.querySelectorAll('.toggle[aria-pressed="true"]')]
+  .map((button) => button.textContent);
+
+/** Send shows how many are picked, so it is clear that Send is the next step. */
+function syncSendLabel() {
+  const count = pickedOptions().length;
+  sendButton.textContent = count === 0 ? 'Send' : `Send (${String(count)})`;
+}
+
+function hint(text) {
+  const element = document.createElement('p');
+  element.className = 'assistant__hint';
+  element.textContent = text;
+
+  return element;
+}
+
+/**
+ * Buttons for a choice (one tap sends it) or a list (taps mark, Send sends).
+ *
+ * A list used to end in a small "Done ✓" chip, and on a phone a marked
+ * button next to it read as "nothing happened". Now the row says what to do,
+ * and Send — which is always in the same place — carries the count.
+ */
 function showOptions(ask) {
   const choices = ask.options ?? [];
   options.replaceChildren();
   options.hidden = choices.length === 0 || !['choice', 'list'].includes(ask.input);
+  syncSendLabel();
   if (options.hidden) return;
 
   if (ask.input === 'choice') {
@@ -131,11 +156,9 @@ function showOptions(ask) {
 
   options.append(...choices.map((label) => optionButton(label, (button) => {
     button.setAttribute('aria-pressed', String(button.getAttribute('aria-pressed') !== 'true'));
+    syncSendLabel();
   })));
-  options.append(optionButton('Done ✓', () => {
-    const picked = [...options.querySelectorAll('[aria-pressed="true"]')].map((b) => b.textContent);
-    if (picked.length > 0) void say(picked.join(', '));
-  }));
+  options.append(hint('Tap all that apply, then tap Send. You can also type others.'));
 }
 
 function showReply(reply) {
@@ -235,13 +258,15 @@ export function openAssistant(options) {
   onCreated = options.onCreated;
   reset();
   dialog.showModal();
-  textBox.focus();
+  // No focus on purpose: on iOS that opens the keyboard, and the first tap on
+  // a chip or an option then only closes the keyboard and is lost.
 }
 
+// Send carries whatever is marked on a multi-select question, plus anything typed.
 form.addEventListener('submit', (event) => {
   event.preventDefault();
   const box = textBox.hidden ? valueBox : textBox;
-  const message = box.value;
+  const message = [...pickedOptions(), box.value.trim()].filter(Boolean).join(', ');
   box.value = '';
   void say(message);
 });
