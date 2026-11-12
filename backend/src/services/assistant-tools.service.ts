@@ -186,8 +186,23 @@ export class AssistantToolsService {
     private readonly repeatedTasksService: IRepeatedTasksService,
   ) {}
 
-  /** Runs one tool call. Never throws for a bad call — that is a tool error. */
+  /**
+   * Runs one tool call. Never throws for a bad call — that is a tool error the
+   * model can read and fix. The item tools are not strict (see
+   * `assistant-tools.util.ts`), so a call may arrive in a shape the code did
+   * not expect; that must reach the model, not the person as a 500.
+   */
   async run(use: ToolUseBlock, context: ToolContext): Promise<ToolOutcome> {
+    try {
+      return await this.dispatch(use, context);
+    } catch (caught) {
+      const reason = caught instanceof Error ? caught.message : 'unknown error';
+
+      return error(`This call could not be used: ${reason}. Check the input shape and try again.`);
+    }
+  }
+
+  private async dispatch(use: ToolUseBlock, context: ToolContext): Promise<ToolOutcome> {
     const input = asRecord(use.input);
     switch (use.name) {
       case TOOL.ASK: return askOf(input);

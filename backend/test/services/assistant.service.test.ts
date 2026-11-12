@@ -186,3 +186,16 @@ describe('AssistantService — limits and privacy', () => {
     await assert.rejects(service.send('someone-else', first.sessionId, { message: 'x', ...offset }), /ended/);
   });
 });
+
+describe('AssistantService — odd tool input', () => {
+  it('turns a malformed plan item into a tool error, not a 500', async () => {
+    const { service, client } = setup([
+      reply(toolUse('plan-1', 'propose_plan', { items: [{ kind: TaskType.BASIC, name: 'x', steps: 'not a list' }] })),
+      reply(text('Let me fix that.')),
+    ]);
+    const answer = await service.start(TEST_USER_ID, { message: 'shopping', ...offset });
+
+    assert.equal(answer.text, 'Let me fix that.');
+    assert.match(JSON.stringify(client.seen[1]?.at(-1)), /"is_error":true/);
+  });
+});

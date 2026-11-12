@@ -12,7 +12,13 @@ import { TaskType } from '../enum/task-type.enum.js';
  * move. They are deliberately **shaped** like the Joi schemas (same names,
  * same enums) but carry none of the numeric limits — Joi decides, and a
  * refusal goes back to the model as an error it can fix.
+ *
+ * `strict: true` only on the small tools. The API allows at most 24 optional
+ * parameters across all strict tools together, and one plan item alone has 15
+ * — in three tools. The item tools are therefore not strict: Joi checks every
+ * item fully anyway, and the handlers turn any odd shape into a tool error.
  */
+export const MAX_STRICT_OPTIONAL_PARAMS = 24;
 
 export const TOOL = {
   ASK: 'ask_user',
@@ -112,7 +118,6 @@ const PROPOSE_PLAN: Anthropic.Beta.BetaTool = {
   description: 'Validate the items and show the person the compact plan with Change and Accept '
     + 'buttons. Saves nothing. If an item is refused you get the reason; fix it and call again. '
     + 'A new call replaces the previous plan.',
-  strict: true,
   input_schema: {
     type: 'object',
     additionalProperties: false,
@@ -141,7 +146,6 @@ const CREATE_TASK: Anthropic.Beta.BetaTool = {
   name: TOOL.CREATE_TASK,
   description: 'Save one BASIC or EVENT plan item. Works only after the person tapped Accept, '
     + 'and only with the item exactly as it was in the accepted plan.',
-  strict: true,
   input_schema: createSchema,
 };
 
@@ -149,7 +153,6 @@ const CREATE_REPEATED_TASK: Anthropic.Beta.BetaTool = {
   name: TOOL.CREATE_REPEAT,
   description: 'Save one DAILY, REPEATED_WEEKLY or REPEATED_MONTHLY plan item. Works only after '
     + 'the person tapped Accept, and only with the item exactly as it was in the accepted plan.',
-  strict: true,
   input_schema: createSchema,
 };
 
