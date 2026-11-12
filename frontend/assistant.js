@@ -55,7 +55,8 @@ function bubble(kind, text) {
   element.className = `bubble bubble--${kind}`;
   element.textContent = text;
   log.append(element);
-  element.scrollIntoView({ block: 'end', behavior: 'smooth' });
+  // Only the message list scrolls; scrollIntoView would move the sheet too.
+  log.scrollTo({ top: log.scrollHeight, behavior: 'smooth' });
 
   return element;
 }

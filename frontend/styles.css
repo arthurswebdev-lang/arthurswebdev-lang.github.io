@@ -1322,17 +1322,40 @@ select.field__input { appearance: none; background-image: none; }
 
 /* --- ✨ Ask AI ------------------------------------------------------------- */
 
-/* The same width as the task composer: it is the fourth way into it. */
-#assistant { width: min(45rem, calc(100vw - 2 * var(--app-pad))); }
+/* The same width as the task composer: it is the fourth way into it.
+
+   A chat layout: header on top, answer bar at the bottom, and only the
+   messages scroll between them. The bar used to be `position: sticky` over a
+   scrolling sheet, and the theme's surfaces are see-through, so messages
+   showed through the input. Nothing scrolls under anything now.
+
+   `display: flex` only while open — on a closed dialog it would override the
+   user agent's `display: none`. And no `position` here: see the rule about
+   modal dialogs in CLAUDE.md. */
+#assistant {
+  width: min(45rem, calc(100vw - 2 * var(--app-pad)));
+  height: calc(100dvh - 1rem - env(safe-area-inset-top));
+  overflow: hidden;
+}
+
+#assistant[open] { display: flex; flex-direction: column; }
+
+#assistant > * { flex: none; }
+
+#assistant > .assistant__log { flex: 1 1 auto; }
 
 .choice--ai { border-style: dashed; }
 
 .assistant__log {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 0.5rem;
-  min-height: 6rem;
-  margin-bottom: 0.75rem;
+  min-height: 0;
+  margin: 0 -0.25rem 0.75rem;
+  padding: 0 0.25rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .bubble {
@@ -1365,7 +1388,14 @@ select.field__input { appearance: none; background-image: none; }
 
 .plan__actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.75rem; }
 
-.assistant__chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.75rem; }
+.assistant__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  max-height: 40%;
+  margin-bottom: 0.75rem;
+  overflow-y: auto;
+}
 
 .assistant__chips[hidden] { display: none; }
 
@@ -1375,17 +1405,41 @@ select.field__input { appearance: none; background-image: none; }
 
 .assistant__options[hidden] { display: none; }
 
-/* Stays at the bottom of the sheet while the log scrolls above it. */
+/* The answer bar is its own panel, not part of the conversation: it runs
+   edge to edge across the sheet (the negative margins undo the sheet's
+   padding), has a solid background and a line above it, and carries the
+   safe-area inset itself so it sits above the iPhone home bar. */
 .assistant__form {
-  position: sticky;
-  bottom: 0;
   display: flex;
   gap: 0.4rem;
   align-items: flex-end;
-  padding-top: 0.5rem;
-  background: var(--surface);
+  margin: 0 -1.25rem calc(-1.25rem - env(safe-area-inset-bottom));
+  padding: 0.75rem 1.25rem calc(0.75rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line-strong);
+  background: var(--surface-solid, var(--ground));
 }
 
 .assistant__box { flex: 1; min-width: 0; resize: none; }
 
 .assistant__box[hidden] { display: none; }
+
+/* On a phone the chat takes the whole width and height: it is a full-screen
+   conversation, not a sheet over the list. The user agent caps a dialog's
+   max-width, so that is reset too. */
+@media (max-width: 40rem) {
+  #assistant {
+    width: 100vw;
+    max-width: 100vw;
+    height: calc(100dvh - env(safe-area-inset-top));
+    max-height: calc(100dvh - env(safe-area-inset-top));
+    margin: auto 0 0;
+    padding-inline: 1rem;
+    border-inline: none;
+  }
+
+  #assistant .assistant__form { margin-inline: -1rem; padding-inline: 1rem; }
+
+  #assistant .bubble { max-width: 90%; }
+
+  #assistant .bubble--plan { max-width: none; }
+}
