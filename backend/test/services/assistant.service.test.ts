@@ -11,6 +11,7 @@ import { TaskGeneratorService } from '../../src/services/task-generator.service.
 import { TasksService } from '../../src/services/tasks.service.js';
 import type { PlanDraft } from '../../src/types/assistant.types.js';
 import { ConflictError } from '../../src/utils/http-errors/conflict.error.js';
+import { ServiceUnavailableError } from '../../src/utils/http-errors/service-unavailable.error.js';
 import { TooManyRequestsError } from '../../src/utils/http-errors/too-many-requests.error.js';
 import { InMemoryRepeatedTasksRepository } from '../support/in-memory-repeated-repository.js';
 import { InMemoryTasksRepository } from '../support/in-memory-repository.js';
@@ -38,7 +39,7 @@ const bills: PlanDraft = {
 const propose = (id: string, items: PlanDraft[]) =>
   toolUse(id, 'propose_plan', { items, assumptions: [] });
 
-function setup(script: AssistantModelReply[]) {
+function setup(script: (AssistantModelReply | Error)[]) {
   const tasks = new InMemoryTasksRepository([]);
   const configs = new InMemoryRepeatedTasksRepository([]);
   const generator = new TaskGeneratorService(tasks, configs);
@@ -214,5 +215,61 @@ describe('AssistantService — health check', () => {
     client.pingError = new Error('400 Your credit balance is too low');
 
     assert.deepEqual(await service.health(), { available: false });
+  });
+});
+
+describe('AssistantService — a failed API call mid-way', () => {
+  it('keeps what was already saved, so a retry cannot save it twice', async () => {
+    const second: PlanDraft = { ...bills, name: '💧 Pay water', steps: [{ name: 'Water' }] };
+    const { service, sessions, configs } = setup([
+      reply(propose('plan-1', [bills, second])),
+      reply(toolUse('create-1', 'create_repeated_task', { planItem: 1, item: bills })),
+      new ServiceUnavailableError('down'),
+    ]);
+    const shown = await service.start(TEST_USER_ID, { message: 'bills', ...offset });
+
+    await assert.rejects(service.accept(TEST_USER_ID, shown.sessionId, offset), ServiceUnavailableError);
+    const stored = sessions.sessions.get(shown.sessionId);
+    assert.ok(stored !== undefined);
+    assert.deepEqual([stored.state, stored.plan?.[0]?.createdId !== undefined], ['accepted', true]);
+    assert.equal((await configs.list(TEST_USER_ID)).length, 1);
+  });
+
+});
+
+describe('AssistantService — a failed API call before anything was saved', () => {
+  it('puts the plan back to waiting for Accept when nothing was saved', async () => {
+    const { service, sessions } = setup([reply(propose('plan-1', [bills])), new ServiceUnavailableError('down')]);
+    const shown = await service.start(TEST_USER_ID, { message: 'bills', ...offset });
+    const messagesBefore = sessions.sessions.get(shown.sessionId)?.messages.length;
+
+    await assert.rejects(service.accept(TEST_USER_ID, shown.sessionId, offset), ServiceUnavailableError);
+    const stored = sessions.sessions.get(shown.sessionId);
+    assert.ok(stored !== undefined);
+    assert.deepEqual([stored.state, stored.messages.length], ['proposed', messagesBefore]);
+  });
+
+  it('deletes a new chat whose first message failed', async () => {
+    const { service, sessions } = setup([new ServiceUnavailableError('down')]);
+
+    await assert.rejects(service.start(TEST_USER_ID, { message: 'hi', ...offset }), ServiceUnavailableError);
+    assert.equal(sessions.sessions.size, 0);
+  });
+});
+
+describe('AssistantService — two calls for the same item', () => {
+  it('saves it once when the model sends the same create twice in one response', async () => {
+    const { service, configs } = setup([
+      reply(propose('plan-1', [bills])),
+      reply(
+        toolUse('create-1', 'create_repeated_task', { planItem: 1, item: bills }),
+        toolUse('create-2', 'create_repeated_task', { planItem: 1, item: bills }),
+      ),
+      reply(text('Saved.')),
+    ]);
+    const shown = await service.start(TEST_USER_ID, { message: 'bills', ...offset });
+    await service.accept(TEST_USER_ID, shown.sessionId, offset);
+
+    assert.equal((await configs.list(TEST_USER_ID)).length, 1);
   });
 });

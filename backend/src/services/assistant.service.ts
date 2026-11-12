@@ -93,6 +93,23 @@ function summaryOf(session: AssistantSession): string {
   return lines.join('\n');
 }
 
+/** What a failed request puts back: the chat as it was before this message. */
+type Snapshot = Pick<
+  AssistantSession,
+  'messages' | 'pendingResults' | 'awaiting' | 'answers' | 'state' | 'plan' | 'changes'
+>;
+
+function snapshotOf(session: AssistantSession): Snapshot {
+  const { messages, pendingResults, awaiting, answers, state, plan, changes } = session;
+
+  return structuredClone({ messages, pendingResults, awaiting, answers, state, plan, changes: changes ?? null });
+}
+
+/** How many plan items are saved or applied — what a rollback must never undo. */
+const savedCount = (source: Pick<AssistantSession, 'plan' | 'changes'>) =>
+  (source.plan ?? []).filter((item) => item.createdId !== undefined).length
+  + (source.changes ?? []).filter((change) => change.appliedAt !== undefined).length;
+
 /** Every new item created and every change applied: the session's work is done. */
 function allSaved(session: AssistantSession): boolean {
   const items = session.plan ?? [];
@@ -155,7 +172,7 @@ export class AssistantService implements IAssistantService {
     session.messages.push({ role: 'user', content: opening.join('\n\n') });
     await this.sessions.create(session);
 
-    return this.runAndSave(session);
+    return this.runAndSave(session, null);
   }
 
   async send(userId: string, sessionId: string, input: SendMessage): Promise<AssistantReply> {
@@ -163,6 +180,7 @@ export class AssistantService implements IAssistantService {
     await this.spend(userId);
 
     session.offsetMinutes = input.timezoneOffsetMinutes;
+    const before = snapshotOf(session);
     // Typing instead of tapping Accept means "change it": the shown plan can
     // no longer be accepted, and the model proposes a new one.
     if (session.state === 'proposed') {
@@ -172,7 +190,7 @@ export class AssistantService implements IAssistantService {
     }
     this.addPersonTurn(session, input.message);
 
-    return this.runAndSave(session);
+    return this.runAndSave(session, before);
   }
 
   async accept(userId: string, sessionId: string, _input: AcceptPlan): Promise<AssistantReply> {
@@ -182,6 +200,9 @@ export class AssistantService implements IAssistantService {
       throw new ConflictError('There is no plan waiting to be accepted.');
     }
     const session = await this.load(userId, sessionId);
+    // If this request fails before saving anything, the plan goes back to
+    // waiting for Accept, so the button works again.
+    const before = { ...snapshotOf(session), state: 'proposed' as const };
     await this.spend(userId);
 
     const creates = (session.plan ?? []).map((item) => String(item.number));
@@ -192,7 +213,7 @@ export class AssistantService implements IAssistantService {
     ].filter(Boolean).join(' and ');
     this.addPersonTurn(session, `The person tapped Accept. Now ${todo}.`);
 
-    return this.runAndSave(session);
+    return this.runAndSave(session, before);
   }
 
   async close(userId: string, sessionId: string): Promise<void> {
@@ -258,16 +279,47 @@ export class AssistantService implements IAssistantService {
     session.awaiting = null;
   }
 
-  private async runAndSave(session: AssistantSession): Promise<AssistantReply> {
+  private async runAndSave(session: AssistantSession, before: Snapshot | null): Promise<AssistantReply> {
     session.expiresAt = new Date(this.now().getTime() + IDLE_MS);
-    const context: ToolContext = { session, rejections: 0 };
-    const end = await this.runTurn(context, 1, { texts: [], pause: null, created: [] });
+    const context: ToolContext = { session, rejections: 0, claimed: new Set() };
+    const end = await this.runTurn(context, 1, { texts: [], pause: null, created: [] })
+      .catch(async (error: unknown) => {
+        await this.recover(session, before);
+        throw error;
+      });
 
     const done = allSaved(session);
     if (done) await this.sessions.delete(session.id, session.userId);
     else await this.sessions.save(session);
 
     return this.replyOf(session, end, done);
+  }
+
+  /**
+   * A request failed half-way — the Claude API went down, or a bug. The chat
+   * goes back to how it was before this message, so it can simply be sent
+   * again; a history cut off mid-turn would make every later call fail.
+   *
+   * What it never undoes is a save: items already created or changed in this
+   * request keep their marks, so a retry cannot save them twice. A new chat
+   * that failed on its first message is deleted — there is nothing to keep.
+   */
+  private async recover(session: AssistantSession, before: Snapshot | null): Promise<void> {
+    if (before === null) {
+      await this.sessions.delete(session.id, session.userId);
+
+      return;
+    }
+
+    const saved = savedCount(session) > savedCount(before);
+    Object.assign(session, {
+      messages: before.messages,
+      pendingResults: before.pendingResults,
+      awaiting: before.awaiting,
+      answers: before.answers,
+    });
+    if (!saved) Object.assign(session, { state: before.state, plan: before.plan, changes: before.changes });
+    await this.sessions.save(session);
   }
 
   /**

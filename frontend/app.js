@@ -18,7 +18,7 @@ import {
   enableNotifications, notificationState, refreshRegistration,
 } from './notifications.js?v=32';
 import { openThemePicker } from './theme.js?v=1';
-import { assistantAvailable, openAssistant } from './assistant.js?v=5';
+import { assistantAvailable, openAssistant } from './assistant.js?v=6';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -1902,11 +1902,9 @@ const timesWindow = document.getElementById('times-window');
 const timesHint = document.getElementById('times-hint');
 
 /**
- * Hides the ✕ once a single time is left.
- *
- * A schedule with no times at all can never come round, and on weekly and
- * monthly there is no "+ Time" to put one back with — so the last row is not
- * removable rather than removable-and-then-an-error.
+ * Hides the ✕ once a single time is left: a schedule with no times at all can
+ * never come round, so the last row is not removable rather than
+ * removable-and-then-an-error.
  */
 function syncTimeRowControls() {
   timeRows.classList.toggle('rows--locked', timeRows.querySelectorAll('.row').length <= 1);
@@ -2033,15 +2031,10 @@ function showStep(name) {
     // The steps field is shared, so its note has to be switched on separately.
     document.getElementById('steps-hint').hidden = draft.kind !== 'REPEATED';
 
-    // Weekly and monthly name one moment, so their list is one row long and
-    // the legend has no business being plural.
-    timesLegend.textContent = shownFor === 'DAILY' ? 'Times' : 'Time';
-
-    // The mode toggle is hidden for everything but daily by the loop above, so
-    // the window mode has to be put away with it — otherwise switching to
-    // weekly while it was showing would leave those three controls on screen
-    // and `chosenClocks` would still read the times out of them.
-    if (shownFor !== 'DAILY') showTimesMode('list');
+    // Every schedule can fire several times on its days, so the legend is
+    // plural for all of them, and "+ Time" and the window mode are shown for
+    // all of them by the loop above.
+    timesLegend.textContent = 'Times';
   }
 
   const editing = draft.editing !== null || draft.editingConfig !== null;

@@ -38,6 +38,21 @@ export interface ToolContext {
   session: AssistantSession;
   /** Rejected plans this request — the second one tells the model to stop. */
   rejections: number;
+  /**
+   * Plan numbers a create or update call has already taken in this request.
+   * The calls of one response run together, so two calls for the same item
+   * would both pass the "already saved?" check before either had saved —
+   * claiming the number first is what stops the second one.
+   */
+  claimed: Set<number>;
+}
+
+/** Takes a plan number for this request, or says it is already taken. */
+function claim(context: ToolContext, number: number): string | null {
+  if (context.claimed.has(number)) return `Plan item ${String(number)} is already being saved by another call.`;
+  context.claimed.add(number);
+
+  return null;
 }
 
 const MAX_ROWS = 20;
@@ -227,9 +242,9 @@ export class AssistantToolsService {
       case TOOL.FIND_REPEATS: return this.findRepeats(input, context.session);
       case TOOL.PROPOSE: return this.propose(input, context);
       case TOOL.CREATE_TASK:
-      case TOOL.CREATE_REPEAT: return this.create(use.name, input, context.session);
+      case TOOL.CREATE_REPEAT: return this.create(use.name, input, context);
       case TOOL.UPDATE_TASK:
-      case TOOL.UPDATE_REPEAT: return this.update(use.name, input, context.session);
+      case TOOL.UPDATE_REPEAT: return this.update(use.name, input, context);
       default: return error(`Unknown tool "${use.name}".`);
     }
   }
@@ -259,9 +274,12 @@ export class AssistantToolsService {
     return { kind: 'plan', text: renderPlan(items, assumptions, changes) };
   }
 
-  private async update(name: string, input: Record<string, unknown>, session: AssistantSession) {
+  private async update(name: string, input: Record<string, unknown>, context: ToolContext) {
+    const { session } = context;
     const change = checkUpdate(name, input, session);
     if (typeof change === 'string') return error(change);
+    const taken = claim(context, change.number);
+    if (taken !== null) return error(taken);
 
     const updated = await this.changes.apply(change, session.userId);
     change.appliedAt = new Date();
@@ -295,8 +313,9 @@ export class AssistantToolsService {
   private async create(
     name: string,
     input: Record<string, unknown>,
-    session: AssistantSession,
+    context: ToolContext,
   ): Promise<ToolOutcome> {
+    const { session } = context;
     const check = checkCreate(name, input, session);
     if (typeof check === 'string') return error(check);
 
@@ -305,6 +324,8 @@ export class AssistantToolsService {
       return error(`This does not match accepted plan item ${String(item.number)}. `
         + `Send exactly: ${JSON.stringify(item.draft)}`);
     }
+    const taken = claim(context, item.number);
+    if (taken !== null) return error(taken);
 
     return this.save(item, repeat, session.userId);
   }

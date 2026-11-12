@@ -106,3 +106,11 @@ describe('canonical', () => {
     assert.equal(canonical({ b: 1, a: { d: 2, c: 3 } }), canonical({ a: { c: 3, d: 2 }, b: 1 }));
   });
 });
+
+describe('buildPayload — names', () => {
+  it('refuses a name or a step name that is only spaces, and trims the rest', () => {
+    assert.throws(() => buildPayload({ kind: TaskType.BASIC, name: '   ' }, YEREVAN), InputValidationError);
+    assert.throws(() => buildPayload({ kind: TaskType.BASIC, name: 'x', steps: [{ name: ' ' }] }, YEREVAN), InputValidationError);
+    assert.equal(buildPayload({ kind: TaskType.BASIC, name: '  Shopping ' }, YEREVAN).name, 'Shopping');
+  });
+});

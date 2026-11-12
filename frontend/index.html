@@ -260,12 +260,12 @@
         <button type="button" class="choice" data-schedule="REPEATED_WEEKLY">
           <span class="choice__icon" aria-hidden="true">🗓️</span>
           <span class="choice__name">Weekly</span>
-          <span class="choice__hint">Once a day, on the days you pick</span>
+          <span class="choice__hint">On the days of the week you pick</span>
         </button>
         <button type="button" class="choice" data-schedule="REPEATED_MONTHLY">
           <span class="choice__icon" aria-hidden="true">🌙</span>
           <span class="choice__name">Monthly</span>
-          <span class="choice__hint">Once a day, on one date each month</span>
+          <span class="choice__hint">On one date each month</span>
         </button>
       </div>
     </section>
@@ -390,19 +390,20 @@
       <fieldset class="field" data-for="DAILY REPEATED_WEEKLY REPEATED_MONTHLY" hidden>
         <legend class="field__label" id="times-legend">Times</legend>
 
-        <!-- Daily only. "Fill a day" describes exactly that, which is what a
-             daily repeat is; on a weekly or monthly one you are naming the
-             moment it happens, so the list is the only sensible way in. -->
-        <div class="toggles toggles--modes" id="times-modes" data-for="DAILY">
+        <!-- Every schedule: any repeat can fire several times on the days it
+             runs (a weekly push-up set at 07:00, 11:00, 15:00), and the server
+             has always stored that. These used to be daily-only, so a weekly
+             repeat with several times — which the AI assistant can make — could
+             not get a time added in the composer. -->
+        <div class="toggles toggles--modes" id="times-modes" data-for="DAILY REPEATED_WEEKLY REPEATED_MONTHLY">
           <button type="button" class="toggle" data-mode="list" aria-pressed="true">Set times</button>
           <button type="button" class="toggle" data-mode="window" aria-pressed="false">Fill a day</button>
         </div>
 
         <div id="times-list">
           <div class="rows" id="time-rows"></div>
-          <!-- Daily only. A weekly or monthly repeat names one moment, so the
-               list is exactly one row long and there is nothing to add to. -->
-          <button type="button" class="btn btn--small" id="add-time" data-for="DAILY">+ Time</button>
+          <button type="button" class="btn btn--small" id="add-time"
+                  data-for="DAILY REPEATED_WEEKLY REPEATED_MONTHLY">+ Time</button>
         </div>
 
         <div class="field-row field-row--times" id="times-window" hidden>
@@ -458,6 +459,6 @@
 <script src="./firebase-config.js?v=30"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
-<script type="module" src="./app.js?v=55"></script>
+<script type="module" src="./app.js?v=57"></script>
 </body>
 </html>

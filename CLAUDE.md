@@ -215,6 +215,9 @@ one blank line before a `return` that follows logic.
   "daily" and "weekly" are what the person choosing them means, not because the generator needs
   to tell them apart — `draftPayload` sends `type: draft.schedule` for both. Migrated for
   `weekdays` by `backend/scripts/2026-09-03-daily-weekdays.ts`.
+- **`+ Time` and the times-mode toggle show for every repeat schedule**, not only daily: any
+  config can fire several times on its days, and the AI assistant makes such weekly repeats, so
+  a daily-only `+ Time` left them uneditable.
 - **The midnight-crossing limitation is gone with the window.** A daily window had to satisfy
   `startsAt <= endsAt` in UTC, so a 21:00–01:00 routine could not be stored and the composer
   refused it. Discrete times have no such constraint — 21:00 and 01:00 are just two entries. The
@@ -314,7 +317,11 @@ one blank line before a `return` that follows logic.
   Never put a date, a name or anything per-request into them; the date goes in the first user
   turn. A chat is one `assistantSessions` document, deleted on Accept, on close, or by its TTL
   index after 30 idle minutes; a long one is restarted from a summary built from `answers` and
-  `plan`, never trimmed from the middle. `ANTHROPIC_API_KEY` unset → routes answer 503 and the
+  `plan`, never trimmed from the middle. **A request that fails half-way** (the Claude API is
+  down → 503, or a bug) rolls the chat back to before that message (`recover`) but never undoes a
+  save: items already created or changed keep their marks, so a retry cannot save them twice. The
+  create and update calls of one response run together, so each claims its plan number first
+  (`claim`) — two calls for the same item cannot both pass the "already saved?" check. `ANTHROPIC_API_KEY` unset → routes answer 503 and the
   button is hidden, the same shape as push without Firebase. **`FEATURE_ASSISTANT=off`** does the
   same on purpose, key or no key (`readFlag` in `config.ts` refuses a value that is not a clear
   on/off word, rather than guessing). Opening the chat first calls **`GET /assistant/health`**,

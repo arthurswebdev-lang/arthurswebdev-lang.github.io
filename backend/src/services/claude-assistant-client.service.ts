@@ -1,4 +1,4 @@
-import type Anthropic from '@anthropic-ai/sdk';
+import Anthropic from '@anthropic-ai/sdk';
 
 import type {
   AssistantModelReply, IAssistantClient,
@@ -6,6 +6,16 @@ import type {
 import { ASSISTANT_SYSTEM_PROMPT } from '../prompts/assistant.prompt.js';
 import type { MessageParam } from '../types/assistant.types.js';
 import { ASSISTANT_TOOLS } from '../utils/assistant-tools.util.js';
+import { ServiceUnavailableError } from '../utils/http-errors/service-unavailable.error.js';
+
+/**
+ * What the person is told when the Claude API fails — whatever the reason (a
+ * rate limit, an outage, an expired key, no credit). The reason itself goes to
+ * the log; the service rolls the chat back, so it is true that nothing from
+ * this message was half-done.
+ */
+export const AI_UNAVAILABLE = 'The AI assistant is not available right now. Your chat is kept as it '
+  + 'was — try again in a moment.';
 
 /**
  * The real assistant client: one Messages API call per model turn.
@@ -43,6 +53,16 @@ export class ClaudeAssistantClient implements IAssistantClient {
   }
 
   async send(messages: MessageParam[]): Promise<AssistantModelReply> {
+    try {
+      return await this.call(messages);
+    } catch (error) {
+      if (!(error instanceof Anthropic.APIError)) throw error;
+      console.error(`[assistant] Claude API failed (${String(error.status ?? 'no status')}): ${error.message}`);
+      throw new ServiceUnavailableError(AI_UNAVAILABLE);
+    }
+  }
+
+  private async call(messages: MessageParam[]): Promise<AssistantModelReply> {
     const response = await this.client.beta.messages.create({
       model: this.model,
       max_tokens: 16000,

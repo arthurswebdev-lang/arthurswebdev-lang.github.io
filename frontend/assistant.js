@@ -188,9 +188,13 @@ async function exchange(request) {
   const typing = bubble('ai bubble--typing', '…');
   try {
     showReply(await request());
+
+    return true;
   } catch (error) {
     if (/ended/i.test(error.message)) sessionId = null;
     bubble('error', error.message === 'UNAUTHORIZED' ? 'Please sign in again.' : error.message);
+
+    return false;
   } finally {
     typing.remove();
     busy = false;
@@ -217,14 +221,26 @@ async function startWith(template) {
   await exchange(() => startAssistantSession(token, { templateId: template.id }));
 }
 
+/**
+ * A failed Accept leaves the plan acceptable: the server puts it back to
+ * waiting when nothing was saved, so the buttons come back too. Anything that
+ * was saved before the failure stays saved and is never saved twice.
+ */
 async function acceptPlan(accept, change) {
   if (busy || sessionId === null) return;
 
   accept.disabled = true;
   change.disabled = true;
   accept.textContent = 'Saving…';
-  await exchange(() => acceptAssistantPlan(token, sessionId));
-  retirePlans();
+  const ok = await exchange(() => acceptAssistantPlan(token, sessionId));
+  if (ok) {
+    retirePlans();
+
+    return;
+  }
+  accept.disabled = false;
+  change.disabled = false;
+  accept.textContent = 'Accept';
 }
 
 function chip(template) {

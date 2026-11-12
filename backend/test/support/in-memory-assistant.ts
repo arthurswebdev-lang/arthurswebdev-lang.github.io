@@ -80,13 +80,17 @@ export class ScriptedClient implements IAssistantClient {
 
   pings = 0;
 
-  /** Public so a test can script replies after it has made its data. */
-  constructor(readonly replies: AssistantModelReply[]) {}
+  /**
+   * Public so a test can script replies after it has made its data. An Error
+   * in the script is thrown at that call, the way a failed API call would.
+   */
+  constructor(readonly replies: (AssistantModelReply | Error)[]) {}
 
   async send(messages: MessageParam[]): Promise<AssistantModelReply> {
     this.seen.push(structuredClone(messages));
     const reply = this.replies.shift();
     if (reply === undefined) throw new Error('The script ran out of replies.');
+    if (reply instanceof Error) throw reply;
 
     return Promise.resolve(reply);
   }

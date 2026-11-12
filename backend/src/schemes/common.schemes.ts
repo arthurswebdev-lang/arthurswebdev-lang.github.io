@@ -80,8 +80,14 @@ export const TimeOfDaySchema = JoiObject<TimeOfDay>({
   minute: Joi.number().integer().min(0).max(59).required(),
 });
 
+/**
+ * Names are trimmed, so "   " is refused rather than stored as a task or step
+ * nobody can read.
+ */
+const name = varchar(1, 255).trim();
+
 export const SubtaskSchema = JoiObject<SubtaskDraft>({
-  name: varchar(1, 255).required(),
+  name: name.required(),
   status: Joi.string().valid(TaskStatus.DONE, TaskStatus.TODO).default(TaskStatus.TODO),
   link,
 });
@@ -92,7 +98,7 @@ export const SubtaskSchema = JoiObject<SubtaskDraft>({
  * dropped, so nobody believes they have pre-completed next week's session.
  */
 export const RepeatedSubtaskSchema = JoiObject<RepeatedSubtaskDraft>({
-  name: varchar(1, 255).required(),
+  name: name.required(),
   link,
 });
 
@@ -102,7 +108,7 @@ export const RepeatedSubtaskSchema = JoiObject<RepeatedSubtaskDraft>({
  * its own expectations.
  */
 export const fields = {
-  name: varchar(1, 255),
+  name,
   category: Joi.string().valid(...Object.values(TaskCategory)),
   link,
   links: Joi.array().items(link).max(20).unique(),
