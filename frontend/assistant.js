@@ -237,9 +237,34 @@ function chip(template) {
   return button;
 }
 
+/**
+ * The templates people reach for most. Fifteen chips filled half the screen,
+ * so the chat shows only a few, picked at random from these on each open —
+ * with a small chance that one of the others takes the last slot, so they
+ * still get seen. Any template is still one typed sentence away.
+ */
+const EVERYDAY = ['birthday', 'bills', 'water', 'medicine', 'gym', 'interview', 'list', 'routine'];
+
+const shuffled = (items) => items
+  .map((item) => ({ item, key: Math.random() }))
+  .sort((left, right) => left.key - right.key)
+  .map(({ item }) => item);
+
+/** 3 or 4 suggestions, mostly everyday ones, in a new order each time. */
+function suggestions(all) {
+  const count = 3 + Math.floor(Math.random() * 2);
+  const everyday = shuffled(all.filter((template) => EVERYDAY.includes(template.id)));
+  const others = shuffled(all.filter((template) => !EVERYDAY.includes(template.id)));
+  const picked = everyday.slice(0, count);
+  const other = others[0];
+  if (other !== undefined && Math.random() < 0.3) picked[picked.length - 1] = other;
+
+  return picked;
+}
+
 function reset() {
   log.replaceChildren();
-  chips.replaceChildren(...(templates || []).map(chip));
+  chips.replaceChildren(...suggestions(templates || []).map(chip));
   chips.hidden = false;
   sessionId = null;
   showControl({ input: 'text' });
