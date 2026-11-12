@@ -2103,7 +2103,8 @@ askAiButton.addEventListener('click', () => {
     onCreated: (created) => {
       void load();
       const count = created.length;
-      report(`Created ${String(count)} ${count === 1 ? 'item' : 'items'}.`, { ok: true });
+      const verb = created.every((item) => item.action === 'updated') ? 'Updated' : 'Saved';
+      report(`${verb} ${String(count)} ${count === 1 ? 'item' : 'items'}.`, { ok: true });
     },
   });
 });

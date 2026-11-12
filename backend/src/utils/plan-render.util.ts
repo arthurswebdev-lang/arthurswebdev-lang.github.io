@@ -1,8 +1,13 @@
 import { TaskCategory } from '../enum/task-category.enum.js';
 import { TaskType } from '../enum/task-type.enum.js';
-import type { CreatePayload, PlanItem } from '../types/assistant.types.js';
+import { TaskStatus } from '../enum/task-status.enum.js';
+import type {
+  CreatePayload, PlanChange, PlanDraft, PlanItem,
+} from '../types/assistant.types.js';
 import { formatClock, parseClock } from './local-time.util.js';
-import { canonical, isRepeatKind, localTimesOf } from './plan-payload.util.js';
+import {
+  buildPayload, canonical, isRepeatKind, localTimesOf,
+} from './plan-payload.util.js';
 
 /**
  * The compact plan the person reads before tapping Accept.
@@ -214,19 +219,80 @@ function blocksOf(items: PlanItem[]): string[] {
   return blocks;
 }
 
-const countText = (items: PlanItem[]) => {
+/** A draft's details as the plan would print them, or null if they cannot be read. */
+function viewOf(draft: PlanDraft) {
+  try {
+    const item: PlanItem = { number: 0, draft, payload: buildPayload(draft, 0) };
+
+    return {
+      when: whenText(item),
+      steps: stepsText(item.payload) ?? 'no steps',
+      details: detailsText(item.payload),
+      extras: extrasText(item.payload) ?? 'no links',
+    };
+  } catch {
+    return null;
+  }
+}
+
+function pauseLine(change: PlanChange): string | null {
+  const { before, after } = change;
+  if (after.enabled === undefined || after.enabled === before.enabled) return null;
+
+  return after.enabled ? '▶ Resume it' : '⏸ Pause it — it keeps everything and can be resumed';
+}
+
+const statusLine = (change: PlanChange) => (change.status === undefined
+  ? null
+  : `Mark as ${change.status === TaskStatus.DONE ? 'done' : 'not done'}`);
+
+/** Only what changes, as "before → after", one line each. */
+function changeLines(change: PlanChange): string[] {
+  if (change.statusOnly) return [statusLine(change) ?? 'No visible change'];
+
+  const lines: string[] = [];
+  if (change.before.name !== change.after.name) lines.push(`Name: ${change.before.name} → ${change.after.name}`);
+  const before = viewOf(change.before);
+  const after = viewOf(change.after);
+  if (before !== null && after !== null) {
+    for (const key of ['when', 'steps', 'details', 'extras'] as const) {
+      if (before[key] !== after[key]) lines.push(`${before[key]} → ${after[key]}`);
+    }
+  }
+  for (const line of [pauseLine(change), statusLine(change)]) if (line !== null) lines.push(line);
+
+  return lines.length === 0 ? ['No visible change'] : lines;
+}
+
+function changeBlock(change: PlanChange): string {
+  const what = change.target === 'repeat' ? 'repeat' : 'task';
+  const title = `${String(change.number)}. ✏️ ${change.before.name} (${what})`;
+
+  return [title, ...changeLines(change).map((line) => `   ${line}`)].join('\n');
+}
+
+const plural = (count: number, one: string, many: string) =>
+  `${String(count)} ${count === 1 ? one : many}`;
+
+const countText = (items: PlanItem[], changes: PlanChange[]) => {
   const repeats = items.filter((item) => isRepeatKind(item.draft.kind)).length;
   const others = items.length - repeats;
   const parts = [];
-  if (others > 0) parts.push(`${String(others)} ${others === 1 ? 'task' : 'tasks'}`);
-  if (repeats > 0) parts.push(`${String(repeats)} ${repeats === 1 ? 'repeat' : 'repeats'}`);
+  if (others > 0) parts.push(plural(others, 'task', 'tasks'));
+  if (repeats > 0) parts.push(plural(repeats, 'repeat', 'repeats'));
+  if (changes.length > 0) parts.push(plural(changes.length, 'change', 'changes'));
 
   return parts.join(' + ');
 };
 
-/** The whole plan, as the person will read it. */
-export function renderPlan(items: PlanItem[], assumptions: string[]): string {
-  const lines = [`📋 Plan — ${countText(items)}`, '', blocksOf(items).join('\n\n')];
+/** The whole plan, as the person will read it: new items first, then changes. */
+export function renderPlan(
+  items: PlanItem[],
+  assumptions: string[],
+  changes: PlanChange[] = [],
+): string {
+  const blocks = [...blocksOf(items), ...changes.map(changeBlock)];
+  const lines = [`📋 Plan — ${countText(items, changes)}`, '', blocks.join('\n\n')];
   if (assumptions.length > 0) {
     lines.push('', 'I decided myself:', ...assumptions.map((note) => `• ${note}`));
   }

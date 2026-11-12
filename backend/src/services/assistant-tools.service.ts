@@ -3,7 +3,8 @@ import { TaskType } from '../enum/task-type.enum.js';
 import type { IRepeatedTasksService } from '../interfaces/repeated-tasks-service.interface.js';
 import type { ITasksService } from '../interfaces/tasks-service.interface.js';
 import type {
-  AnswerInput, AskControl, AssistantSession, CreatedItem, PlanDraft, PlanItem, ToolUseBlock,
+  AnswerInput, AskControl, AssistantSession, CreatedItem, PlanChange, PlanDraft, PlanItem,
+  ToolUseBlock,
 } from '../types/assistant.types.js';
 import type { CreateRepeatedTask, RepeatedTask } from '../types/repeated-tasks.types.js';
 import type { CreateTask, Task } from '../types/tasks.types.js';
@@ -12,6 +13,7 @@ import { InputValidationError } from '../utils/http-errors/input-validation.erro
 import { formatClock } from '../utils/local-time.util.js';
 import { buildPayload, canonical, isRepeatKind } from '../utils/plan-payload.util.js';
 import { renderPlan } from '../utils/plan-render.util.js';
+import { AssistantChangesService } from './assistant-changes.service.js';
 
 /**
  * The handlers behind the assistant's tools: the existing services, called
@@ -71,7 +73,11 @@ function taskRow(task: Task, offsetMinutes: number): string {
   const when = task.type === TaskType.EVENT ? ` · ${localStamp(task.date, offsetMinutes)}` : '';
   const origin = task.type === TaskType.EVENT && task.configTaskId !== null ? ' · from a repeat' : '';
 
-  return `${task.name} · ${task.type} · ${task.category} · ${task.status}${when}${origin}`;
+  const repeat = task.type === TaskType.EVENT && task.configTaskId !== null
+    ? ` (repeat id ${task.configTaskId})`
+    : '';
+
+  return `[${task.id}] ${task.name} · ${task.type} · ${task.category} · ${task.status}${when}${origin}${repeat}`;
 }
 
 function repeatRow(config: RepeatedTask, offsetMinutes: number): string {
@@ -82,7 +88,7 @@ function repeatRow(config: RepeatedTask, offsetMinutes: number): string {
     : `weekdays ${config.weekdays.join(',')}`;
   const paused = config.enabled ? '' : ' · paused';
 
-  return `${config.name} · ${config.type} · ${config.category} · ${days} · ${times}${paused}`;
+  return `[${config.id}] ${config.name} · ${config.type} · ${config.category} · ${days} · ${times}${paused}`;
 }
 
 const rowsResult = (rows: string[]): ToolOutcome => ({
@@ -121,31 +127,38 @@ function planItems(drafts: PlanDraft[], offsetMinutes: number) {
   return { items, problems };
 }
 
-function proposeOutcome(input: Record<string, unknown>, context: ToolContext): ToolOutcome {
-  const { session } = context;
-  const drafts = draftsOf(input['items']);
-  if (drafts.length === 0) return error('A plan needs at least one item.');
+function refusal(problems: string[], context: ToolContext): ToolOutcome {
+  context.rejections += 1;
+  const stop = context.rejections >= 2
+    ? ' Do not call propose_plan again now; tell the person in plain words what was refused.'
+    : ' Fix these and call propose_plan again.';
 
-  const { items, problems } = planItems(drafts, session.offsetMinutes);
-  if (problems.length > 0) {
-    context.rejections += 1;
-    const stop = context.rejections >= 2
-      ? ' Do not call propose_plan again now; tell the person in plain words what was refused.'
-      : ' Fix these items and call propose_plan again.';
-
-    return error(`Refused. ${problems.join(' | ')}.${stop}`);
-  }
-
-  session.plan = items;
-  session.state = 'proposed';
-  const assumptions = Array.isArray(input['assumptions']) ? input['assumptions'].map(String) : [];
-
-  return { kind: 'plan', text: renderPlan(items, assumptions) };
+  return error(`Refused. ${problems.join(' | ')}.${stop}`);
 }
+
+const changeInputsOf = (value: unknown): Record<string, unknown>[] =>
+  (Array.isArray(value) ? value.map(asRecord) : []);
+
+const isChange = (value: PlanChange | string): value is PlanChange => typeof value !== 'string';
 
 interface CreateCheck {
   item: PlanItem;
   repeat: boolean;
+}
+
+/** Every reason an update call may not apply, in the order they are checked. */
+function checkUpdate(name: string, input: Record<string, unknown>, session: AssistantSession) {
+  if (session.state !== 'accepted') {
+    return 'Not accepted yet. Show the plan with propose_plan and ask the person to tap Accept.';
+  }
+  const number = Number(input['planItem']);
+  const change = session.changes?.find((candidate) => candidate.number === number);
+  if (change === undefined) return `There is no change ${String(number)} in the plan.`;
+  if (change.appliedAt !== undefined) return `Change ${String(number)} is already applied.`;
+
+  const needs = change.target === 'repeat' ? TOOL.UPDATE_REPEAT : TOOL.UPDATE_TASK;
+
+  return name === needs ? change : `Change ${String(number)} needs ${needs}.`;
 }
 
 /** Every reason a create call may not save, in the order they are checked. */
@@ -181,10 +194,14 @@ function sameAsAccepted(item: PlanItem, sent: unknown, offsetMinutes: number): b
 }
 
 export class AssistantToolsService {
+  private readonly changes: AssistantChangesService;
+
   constructor(
     private readonly tasksService: ITasksService,
     private readonly repeatedTasksService: IRepeatedTasksService,
-  ) {}
+  ) {
+    this.changes = new AssistantChangesService(tasksService, repeatedTasksService);
+  }
 
   /**
    * Runs one tool call. Never throws for a bad call — that is a tool error the
@@ -208,11 +225,49 @@ export class AssistantToolsService {
       case TOOL.ASK: return askOf(input);
       case TOOL.FIND_TASKS: return this.findTasks(input, context.session);
       case TOOL.FIND_REPEATS: return this.findRepeats(input, context.session);
-      case TOOL.PROPOSE: return proposeOutcome(input, context);
+      case TOOL.PROPOSE: return this.propose(input, context);
       case TOOL.CREATE_TASK:
       case TOOL.CREATE_REPEAT: return this.create(use.name, input, context.session);
+      case TOOL.UPDATE_TASK:
+      case TOOL.UPDATE_REPEAT: return this.update(use.name, input, context.session);
       default: return error(`Unknown tool "${use.name}".`);
     }
+  }
+
+  /**
+   * Validates every new item and every change, and shows the plan only when
+   * all of them pass. New items are numbered first, changes after them.
+   */
+  private async propose(input: Record<string, unknown>, context: ToolContext): Promise<ToolOutcome> {
+    const { session } = context;
+    const drafts = draftsOf(input['items']);
+    const changeInputs = changeInputsOf(input['changes']);
+    if (drafts.length === 0 && changeInputs.length === 0) return error('A plan needs at least one item or change.');
+
+    const { items, problems } = planItems(drafts, session.offsetMinutes);
+    const prepared = await Promise.all(changeInputs.map((change, index) =>
+      this.changes.prepare(change, drafts.length + index + 1, session)));
+    const changes = prepared.filter(isChange);
+    problems.push(...prepared.filter((result): result is string => typeof result === 'string'));
+    if (problems.length > 0) return refusal(problems, context);
+
+    session.plan = items;
+    session.changes = changes;
+    session.state = 'proposed';
+    const assumptions = Array.isArray(input['assumptions']) ? input['assumptions'].map(String) : [];
+
+    return { kind: 'plan', text: renderPlan(items, assumptions, changes) };
+  }
+
+  private async update(name: string, input: Record<string, unknown>, session: AssistantSession) {
+    const change = checkUpdate(name, input, session);
+    if (typeof change === 'string') return error(change);
+
+    const updated = await this.changes.apply(change, session.userId);
+    change.appliedAt = new Date();
+    const outcome: ToolOutcome = { kind: 'created', content: `Applied change ${String(change.number)}.`, created: updated };
+
+    return outcome;
   }
 
   private async findTasks(input: Record<string, unknown>, session: AssistantSession) {
@@ -261,6 +316,7 @@ export class AssistantToolsService {
       : await this.tasksService.create(payload as CreateTask, userId);
     item.createdId = stored.id;
     const created: CreatedItem = {
+      action: 'created',
       resource: repeat ? 'repeated-task' : 'task', id: stored.id, name: stored.name,
     };
 

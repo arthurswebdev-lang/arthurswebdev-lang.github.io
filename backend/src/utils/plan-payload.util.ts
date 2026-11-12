@@ -35,6 +35,7 @@ function sharedFields(draft: PlanDraft): Body {
   if (draft.category !== undefined) body['category'] = draft.category;
   if (draft.links !== undefined) body['links'] = draft.links;
   if (draft.photoUrl !== undefined) body['photoUrl'] = draft.photoUrl;
+  if (draft.enabled !== undefined && isRepeatKind(draft.kind)) body['enabled'] = draft.enabled;
   if (draft.steps !== undefined) {
     body['subtasks'] = draft.steps.map((step) => (step.link === undefined
       ? { name: step.name }

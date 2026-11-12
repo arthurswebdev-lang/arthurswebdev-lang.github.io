@@ -296,8 +296,13 @@ one blank line before a `return` that follows logic.
   `next(error)` from a `catch`. Existence checks belong in the service, which throws
   `ResourceNotFoundError`; the error handler middleware turns exceptions into JSON responses.
 - Errors extend `HttpException` and carry an `HttpStatusCodes` value.
-- **The chat assistant ("✨ Ask AI") creates through the same services and Joi schemas as the
-  API**, so it can store nothing the API would refuse. Plan and reasons: `docs/ai-assistant-plan.md`.
+- **The chat assistant ("✨ Ask AI") creates and edits through the same services and Joi schemas
+  as the API**, so it can store nothing the API would refuse. It never deletes. An edit is a
+  `change` in `propose_plan`: the stored item is read back onto the person's clock
+  (`plan-draft.util.ts`), the named fields are merged onto it, and the result is validated like a
+  new item; `update_task` / `update_repeated_task` then apply exactly that through PATCH (repeat),
+  PUT (hand-made task, ticks kept by step name) or the status route. A task made by a repeat
+  accepts only a status change — the agent is told to change the repeat instead. Plan and reasons: `docs/ai-assistant-plan.md`.
   Four rules hold it together. **(1) The model speaks local time only**; `plan-payload.util.ts`
   converts, and a time that crosses UTC midnight moves the weekdays (or the day of month) with
   it. **(2) The model never writes without Accept**: `propose_plan` validates and stores the plan,

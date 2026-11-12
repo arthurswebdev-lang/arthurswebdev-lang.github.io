@@ -1,5 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 
+import type { TaskStatus } from '../enum/task-status.enum.js';
 import type { TaskType } from '../enum/task-type.enum.js';
 import type { CreateRepeatedTask } from './repeated-tasks.types.js';
 import type { CreateTask } from './tasks.types.js';
@@ -47,6 +48,8 @@ export interface PlanDraft {
   remindBeforeMins?: number;
   activeBeforeMins?: number;
   activeForMins?: number;
+  /** Repeats only. false pauses the repeat, true resumes it. */
+  enabled?: boolean;
 }
 
 export type CreatePayload = CreateTask | CreateRepeatedTask;
@@ -58,6 +61,27 @@ export interface PlanItem {
   payload: CreatePayload;
   /** Set once the create tool call for this item has succeeded. */
   createdId?: string;
+}
+
+/**
+ * A change to something that already exists, as accepted. Stored with both
+ * sides so the plan can show "before → after", and with the full validated
+ * body, so Accept applies exactly what was shown.
+ */
+export interface PlanChange {
+  number: number;
+  target: 'task' | 'repeat';
+  id: string;
+  before: PlanDraft;
+  after: PlanDraft;
+  /** The body the update sends: PATCH for a repeat, PUT for a task. */
+  payload: CreatePayload;
+  /** A task's new status, when the change sets one. */
+  status?: TaskStatus;
+  /** Only the status changes: a generated occurrence allows nothing else. */
+  statusOnly: boolean;
+  /** Set once the update tool call for this change has succeeded. */
+  appliedAt?: Date;
 }
 
 /**
@@ -85,6 +109,8 @@ export interface AssistantSession {
   answers: Record<string, string>;
   state: SessionState;
   plan: PlanItem[] | null;
+  /** Edits in the same plan, numbered after the new items. */
+  changes?: PlanChange[] | null;
   /** `Date#getTimezoneOffset()` of the device: minutes to add to local for UTC. */
   offsetMinutes: number;
   createdAt: Date;
@@ -100,6 +126,7 @@ export interface AskControl {
 }
 
 export interface CreatedItem {
+  action: 'created' | 'updated';
   resource: 'task' | 'repeated-task';
   id: string;
   name: string;

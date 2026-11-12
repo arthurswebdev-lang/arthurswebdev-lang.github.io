@@ -34,6 +34,7 @@ describe('assistant tools', () => {
   it('keep the same order, so the prompt cache holds', () => {
     assert.deepEqual(ASSISTANT_TOOLS.map((tool) => tool.name), [
       'ask_user', 'find_tasks', 'find_repeats', 'propose_plan', 'create_task', 'create_repeated_task',
+      'update_task', 'update_repeated_task',
     ]);
   });
 });

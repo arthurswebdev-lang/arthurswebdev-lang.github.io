@@ -80,7 +80,8 @@ export class ScriptedClient implements IAssistantClient {
 
   pings = 0;
 
-  constructor(private readonly replies: AssistantModelReply[]) {}
+  /** Public so a test can script replies after it has made its data. */
+  constructor(readonly replies: AssistantModelReply[]) {}
 
   async send(messages: MessageParam[]): Promise<AssistantModelReply> {
     this.seen.push(structuredClone(messages));

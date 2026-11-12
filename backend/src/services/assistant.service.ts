@@ -85,12 +85,23 @@ function summaryOf(session: AssistantSession): string {
     const drafts = session.plan.map((item) => ({ planItem: item.number, saved: item.createdId !== undefined, item: item.draft }));
     lines.push(`Plan (${session.state}): ${JSON.stringify(drafts)}`);
   }
+  for (const change of session.changes ?? []) {
+    const applied = change.appliedAt !== undefined;
+    lines.push(`Change ${String(change.number)} (${change.target} ${change.id}, applied: ${String(applied)}): ${JSON.stringify(change.after)}`);
+  }
 
   return lines.join('\n');
 }
 
-const allSaved = (session: AssistantSession) => session.state === 'accepted'
-  && session.plan?.every((item) => item.createdId !== undefined) === true;
+/** Every new item created and every change applied: the session's work is done. */
+function allSaved(session: AssistantSession): boolean {
+  const items = session.plan ?? [];
+  const changes = session.changes ?? [];
+
+  return session.state === 'accepted' && items.length + changes.length > 0
+    && items.every((item) => item.createdId !== undefined)
+    && changes.every((change) => change.appliedAt !== undefined);
+}
 
 export class AssistantService implements IAssistantService {
   private lastHealth: { at: number; available: boolean } | null = null;
@@ -157,6 +168,7 @@ export class AssistantService implements IAssistantService {
     if (session.state === 'proposed') {
       session.state = 'asking';
       session.plan = null;
+      session.changes = null;
     }
     this.addPersonTurn(session, input.message);
 
@@ -172,8 +184,13 @@ export class AssistantService implements IAssistantService {
     const session = await this.load(userId, sessionId);
     await this.spend(userId);
 
-    const numbers = (session.plan ?? []).map((item) => String(item.number)).join(', ');
-    this.addPersonTurn(session, `The person tapped Accept. Create plan items ${numbers} now.`);
+    const creates = (session.plan ?? []).map((item) => String(item.number));
+    const updates = (session.changes ?? []).map((change) => String(change.number));
+    const todo = [
+      creates.length > 0 ? `create plan items ${creates.join(', ')}` : '',
+      updates.length > 0 ? `apply changes ${updates.join(', ')}` : '',
+    ].filter(Boolean).join(' and ');
+    this.addPersonTurn(session, `The person tapped Accept. Now ${todo}.`);
 
     return this.runAndSave(session);
   }
@@ -194,6 +211,7 @@ export class AssistantService implements IAssistantService {
       answers: {},
       state: 'asking',
       plan: null,
+      changes: null,
       offsetMinutes,
       createdAt: now,
       expiresAt: new Date(now.getTime() + IDLE_MS),

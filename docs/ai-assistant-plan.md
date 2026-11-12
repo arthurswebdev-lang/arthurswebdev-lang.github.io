@@ -530,5 +530,11 @@ Health check: when the chat opens, `GET /assistant/health` pings the health mode
 token. Any failure (expired key, no credit, outage) shows "The AI assistant is not available
 right now" and keeps the input locked. The answer is cached for one minute.
 
+Editing (phase 9) is done, without delete: the agent finds an item (`find_*` rows carry ids),
+proposes a `change` with only the fields that move, the plan shows "before → after", and after
+Accept `update_task` / `update_repeated_task` apply it (`assistant-changes.service.ts`). Pause and
+resume are `enabled: false/true` on a repeat; "mark done" is `status` on a task. A task made by a
+repeat accepts only a status change.
+
 Not done yet from the build order: the eval file (phase 8). The RAG question is answered in
 `docs/RAG-choice.md`.
