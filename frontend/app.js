@@ -1272,7 +1272,11 @@ function timesSummary(config) {
   if (clocks.length === 0) return 'no times';
   if (clocks.length <= 4) return clocks.join(', ');
 
-  // A twelve-entry list swamps the row it sits in; the ends say enough.
+  // A twelve-entry list swamps the row it sits in; the window, or the ends,
+  // say enough.
+  const window = windowOf(clocks);
+  if (window !== null) return `every ${stepLabel(window.every)}, ${window.from}–${window.until}`;
+
   return `${clocks.length} a day, ${clocks[0]}–${clocks[clocks.length - 1]}`;
 }
 
@@ -1972,6 +1976,35 @@ function expandWindow(from, until, every) {
   return times;
 }
 
+/**
+ * The window that evenly spaced times came from — 07:00, 08:00 … 23:00 is
+ * "from 07:00 until 23:00, every 1:00" — or null when the gaps differ or the
+ * list wraps past midnight, which the window cannot express.
+ *
+ * Only the times are stored, never the window, so this is how an edit gets
+ * back to the way it was entered — by the composer's "Fill a day" or by the
+ * assistant, whose grids the server expands the same way. Three times at
+ * least: two are just two times, and reading a "window" into them would be a
+ * guess.
+ */
+function windowOf(clocks) {
+  if (clocks.length < 3) return null;
+
+  const minutes = clocks.map(clockToMinutes);
+  const step = minutes[1] - minutes[0];
+  if (step <= 0) return null;
+  if (minutes.some((value, index) => index > 0 && value - minutes[index - 1] !== step)) return null;
+
+  return { from: clocks[0], until: clocks[clocks.length - 1], every: minutesToClock(step) };
+}
+
+/** "1 h", "90 min" — a window step as it reads in a sentence. */
+function stepLabel(clock) {
+  const minutes = clockToMinutes(clock);
+
+  return minutes % 60 === 0 ? `${String(minutes / 60)} h` : `${String(minutes)} min`;
+}
+
 /** The chosen times as local clock strings, whichever mode is showing. */
 function chosenClocks(data) {
   if (timesWindow.hidden) {
@@ -2197,14 +2230,23 @@ function openConfigEditor(config) {
   for (const url of config.links ?? []) addLinkRow(url);
   for (const step of config.subtasks ?? []) addSubtaskRow(step);
 
-  // Always the list, whichever way the times were first entered: only the times
-  // themselves are stored, so there is no window to reopen on.
+  // The list is always filled in, so switching to "Set times" shows every
+  // time. Evenly spaced times reopen on "Fill a day" instead, with the window
+  // they came from — 17 rows for "every hour from 07:00 to 23:00" is the same
+  // schedule, but not the way anyone thinks of it.
   timeRows.replaceChildren();
-  showTimesMode('list');
-  for (const time of config.timesOfDay ?? []) addTimeRow(clockFromUtc(time));
+  const clocks = (config.timesOfDay ?? []).map(clockFromUtc);
+  for (const clock of clocks) addTimeRow(clock);
   // Belt and braces: a config that somehow stored no times would leave the
   // list empty, and the ✕ state is derived from how many rows there are.
   syncTimeRowControls();
+  const window = windowOf(clocks);
+  if (window !== null) {
+    composerForm.elements['startsAt'].value = window.from;
+    composerForm.elements['endsAt'].value = window.until;
+    composerForm.elements['repeatEach'].value = window.every;
+  }
+  showTimesMode(window === null ? 'list' : 'window');
 
   if (config.type === 'REPEATED_MONTHLY') {
     composerForm.elements['fromDay'].value = String(config.fromDay);

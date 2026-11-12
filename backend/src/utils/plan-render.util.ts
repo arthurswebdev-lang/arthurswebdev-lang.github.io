@@ -57,9 +57,29 @@ const ordinal = (day: number) => {
   return `${String(day)}${['th', 'st', 'nd', 'rd'][day % 10] ?? 'th'}`;
 };
 
-/** Long lists are shortened: "09:00, 11:00 … 21:00 (7 times)". */
+/** The even step between times, or null when the gaps differ. Three times at least. */
+function evenStep(minutes: number[]): number | null {
+  const [first, second] = minutes;
+  if (minutes.length < 3 || first === undefined || second === undefined) return null;
+
+  const step = second - first;
+
+  return minutes.every((value, index) => index === 0 || value - (minutes[index - 1] ?? 0) === step)
+    ? step
+    : null;
+}
+
+/**
+ * Evenly spaced times read as the window they are — "every 1 h, 07:00–23:00",
+ * the way the composer's "Fill a day" reopens them; other long lists are
+ * shortened: "09:00, 11:00 … 21:00 (7 times)".
+ */
 function timesText(minutes: number[]): string {
   const clocks = minutes.map(formatClock);
+  const step = evenStep(minutes);
+  if (step !== null) {
+    return `every ${formatDuration(step)}, ${clocks[0] ?? ''}–${clocks.at(-1) ?? ''} (${String(clocks.length)} times)`;
+  }
   if (clocks.length <= 4) return clocks.join(', ');
 
   return `${clocks[0] ?? ''}, ${clocks[1] ?? ''} … ${clocks.at(-1) ?? ''} (${String(clocks.length)} times)`;
@@ -101,8 +121,10 @@ export function whenText(item: PlanItem): string {
   if (draft.kind === TaskType.REPEATED_MONTHLY) return monthlyText(item, at);
 
   const days = draft.weekdays ?? [0, 1, 2, 3, 4, 5, 6];
+  // "Mon at 06:00", but "Mon, every 2 h, 09:00–21:00".
+  const joiner = at.startsWith('every') ? ', ' : ' at ';
 
-  return days.length === 7 ? `Every day at ${at}` : `${daysText(days)} at ${at}`;
+  return days.length === 7 ? `Every day${joiner}${at}` : `${daysText(days)}${joiner}${at}`;
 }
 
 interface WindowView {

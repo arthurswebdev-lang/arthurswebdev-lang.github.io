@@ -52,7 +52,7 @@ describe('renderPlan — schedules in words', () => {
     assert.match(text, /Every year on 4 August, 10:00/);
   });
 
-  it('shortens a long list of times', () => {
+  it('reads evenly spaced times as the window they are', () => {
     const text = renderPlan(itemsOf([{
       kind: TaskType.REPEATED_DAILY,
       name: '💧 Drink water',
@@ -60,7 +60,7 @@ describe('renderPlan — schedules in words', () => {
       activeBeforeMins: 0,
       activeForMins: 120,
     }]), []);
-    assert.match(text, /Every day at 09:00, 11:00 … 21:00 \(7 times\)/);
+    assert.match(text, /Every day, every 2 h, 09:00–21:00 \(7 times\)/);
   });
 
 });
