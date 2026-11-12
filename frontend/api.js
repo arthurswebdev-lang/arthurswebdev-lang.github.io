@@ -184,3 +184,38 @@ export const deleteTask = (token, id) => send("DELETE", `/tasks/${id}`, token);
  * deleteTask, which takes the whole rule when given one of its events.
  */
 export const clearTasks = (token, ids) => send("POST", "/tasks/clear", token, { ids });
+
+/* --- assistant ------------------------------------------------------------ */
+
+/**
+ * The chat assistant. The server keeps the conversation; the app sends one
+ * message and gets one reply back. `timezoneOffsetMinutes` goes with every
+ * call so the server can read "19:00" on this device's clock, wherever it is.
+ */
+const timezoneOffsetMinutes = () => new Date().getTimezoneOffset();
+
+/** The quick-start templates. Fails (503) when the server has no Claude key. */
+export const fetchAssistantTemplates = (token) => get("/assistant/templates", token);
+
+/** Starts a chat from a template, a first message, or both. */
+export const startAssistantSession = (token, { templateId, message }) =>
+  send("POST", "/assistant/sessions", token, {
+    ...(templateId === undefined ? {} : { templateId }),
+    ...(message === undefined ? {} : { message }),
+    timezoneOffsetMinutes: timezoneOffsetMinutes(),
+  });
+
+export const sendAssistantMessage = (token, sessionId, message) =>
+  send("POST", `/assistant/sessions/${sessionId}/messages`, token, {
+    message, timezoneOffsetMinutes: timezoneOffsetMinutes(),
+  });
+
+/** Accepts the plan on screen. The server then creates exactly that plan. */
+export const acceptAssistantPlan = (token, sessionId) =>
+  send("POST", `/assistant/sessions/${sessionId}/accept`, token, {
+    timezoneOffsetMinutes: timezoneOffsetMinutes(),
+  });
+
+/** Ends the chat and deletes it on the server. */
+export const closeAssistantSession = (token, sessionId) =>
+  send("DELETE", `/assistant/sessions/${sessionId}`, token);

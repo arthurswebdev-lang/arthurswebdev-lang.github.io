@@ -1,11 +1,17 @@
 import type { Db } from 'mongodb';
 
 import { config } from './config.js';
+import type { IAssistantClient } from './interfaces/assistant-client.interface.js';
 import type { INotificationService } from './interfaces/notification-service.interface.js';
+import { ClaudeAssistantClient } from './services/claude-assistant-client.service.js';
+import { createClaude } from './storage/claude.storage.js';
 import { ConsoleNotificationService } from './services/console-notification.service.js';
 import { FcmNotificationService } from './services/fcm-notification.service.js';
 import { createMessaging } from './storage/fcm.storage.js';
 
+import {
+  AssistantSessionsRepository, AssistantUsageRepository,
+} from './repositories/assistant-sessions.repository.js';
 import { DevicesRepository } from './repositories/devices.repository.js';
 import { RepeatedTasksRepository } from './repositories/repeated-tasks.repository.js';
 import { TasksRepository } from './repositories/tasks.repository.js';
@@ -25,6 +31,17 @@ export interface Container {
   readonly notifications: INotificationService;
   /** False when no Firebase key is configured and sends are only logged. */
   readonly pushConfigured: boolean;
+  readonly assistantSessionsRepository: AssistantSessionsRepository;
+  readonly assistantUsageRepository: AssistantUsageRepository;
+  /** The Claude client, or null when no key is set and the assistant is off. */
+  readonly assistantClient: IAssistantClient | null;
+}
+
+/** Same shape as push: no key means the feature is off, not a failed boot. */
+function createAssistantClient(): IAssistantClient | null {
+  const claude = createClaude(config.anthropicApiKey);
+
+  return claude === null ? null : new ClaudeAssistantClient(claude, config.assistantModel);
 }
 
 /**
@@ -56,6 +73,9 @@ export function createContainer(db: Db): Container {
     devicesService: new DevicesService(devicesRepository, notifications),
     notifications,
     pushConfigured: messaging !== null,
+    assistantSessionsRepository: new AssistantSessionsRepository(db),
+    assistantUsageRepository: new AssistantUsageRepository(db),
+    assistantClient: createAssistantClient(),
   };
 }
 
@@ -66,5 +86,7 @@ export async function ensureIndexes(container: Container): Promise<void> {
     container.repeatedTasksRepository.ensureIndexes(),
     container.usersRepository.ensureIndexes(),
     container.devicesRepository.ensureIndexes(),
+    container.assistantSessionsRepository.ensureIndexes(),
+    container.assistantUsageRepository.ensureIndexes(),
   ]);
 }

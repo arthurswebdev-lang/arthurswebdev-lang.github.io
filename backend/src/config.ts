@@ -23,6 +23,13 @@ export interface Config {
   readonly firebaseServiceAccount: string | undefined;
   /** Where a tapped notification opens — the GitHub Pages URL of the app. */
   readonly appUrl: string | undefined;
+  /**
+   * Key for the Claude API, which runs the chat assistant. Absent means the
+   * assistant is off: its routes answer 503 and the app hides the button.
+   */
+  readonly anthropicApiKey: string | undefined;
+  /** The model the assistant talks to, so it can change without a deploy. */
+  readonly assistantModel: string;
 }
 
 function readPort(raw: string | undefined): number {
@@ -56,4 +63,6 @@ export const config: Config = {
   pollIntervalMs: readPollInterval(process.env['POLL_INTERVAL_MS']),
   firebaseServiceAccount: process.env['FIREBASE_SERVICE_ACCOUNT'],
   appUrl: process.env['APP_URL'],
+  anthropicApiKey: process.env['ANTHROPIC_API_KEY'],
+  assistantModel: process.env['ASSISTANT_MODEL'] ?? 'claude-opus-5-5',
 };

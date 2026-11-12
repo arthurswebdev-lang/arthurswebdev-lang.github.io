@@ -13,11 +13,12 @@ import {
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, setRepeatEnabled,
   updateRepeatedTask,
   replaceTask, saveCredentials, sendTestNotification, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=30';
+} from './api.js?v=31';
 import {
   enableNotifications, notificationState, refreshRegistration,
-} from './notifications.js?v=30';
+} from './notifications.js?v=31';
 import { openThemePicker } from './theme.js?v=1';
+import { assistantAvailable, openAssistant } from './assistant.js?v=1';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match
@@ -1016,6 +1017,7 @@ async function load() {
     // Fire and forget: a rotated token is worth fixing, but never worth
     // holding the list up for.
     void refreshRegistration(credentials.token);
+    void showAskAi(credentials.token);
   } catch (error) {
     if (number !== loadNumber) return;
 
@@ -2083,6 +2085,27 @@ backButton.addEventListener('click', () => {
   const step = composer.dataset.step;
   if (step === 'details' && draft.kind === 'REPEATED') showStep('schedule');
   else showStep('kind');
+});
+
+/* --- ✨ Ask AI ------------------------------------------------------------ */
+
+const askAiButton = document.getElementById('ask-ai');
+
+/** The fourth choice appears only when the server runs an assistant. */
+async function showAskAi(token) {
+  askAiButton.hidden = !(await assistantAvailable(token));
+}
+
+askAiButton.addEventListener('click', () => {
+  composer.close();
+  openAssistant({
+    token: credentials.token,
+    onCreated: (created) => {
+      void load();
+      const count = created.length;
+      report(`Created ${String(count)} ${count === 1 ? 'item' : 'items'}.`, { ok: true });
+    },
+  });
 });
 
 document.getElementById('wizard-close').addEventListener('click', () => { composer.close(); });

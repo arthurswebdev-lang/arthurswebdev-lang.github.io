@@ -17,6 +17,7 @@
     "test:watch": "TZ=Asia/Kathmandu node --import tsx --test --watch \"test/**/*.test.ts\""
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "firebase-admin": "^14.3.0",

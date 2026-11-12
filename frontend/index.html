@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="./styles.css?v=46">
+<link rel="stylesheet" href="./styles.css?v=47">
 <link rel="stylesheet" href="./theme.css?v=2">
 <script>
   // Where the API lives. Point this at the fly.io app once deployed.
@@ -192,6 +192,26 @@
   <img class="lightbox__img" id="photo-img" alt="">
 </dialog>
 
+<!-- The chat assistant. The server keeps the conversation; assistant.js only
+     draws replies and sends answers. Nothing is saved until Accept. -->
+<dialog class="composer" id="assistant">
+  <header class="wizard__bar">
+    <h2 class="composer__title">✨ Ask AI</h2>
+    <button type="button" class="wizard__back" id="assistant-new" aria-label="New chat">↺</button>
+    <button type="button" class="wizard__back" id="assistant-close" aria-label="Close">✕</button>
+  </header>
+  <div class="assistant__log" id="assistant-log" aria-live="polite"></div>
+  <div class="assistant__chips" id="assistant-chips"></div>
+  <div class="toggles assistant__options" id="assistant-options" hidden></div>
+  <form class="assistant__form" id="assistant-form">
+    <textarea class="field__input assistant__box" id="assistant-text" rows="2"
+              autocomplete="off" placeholder="Tell me what you want to set up"></textarea>
+    <input class="field__input assistant__box" id="assistant-value" hidden>
+    <button type="button" class="btn" id="assistant-skip" hidden>Skip</button>
+    <button type="submit" class="btn btn--primary" id="assistant-send">Send</button>
+  </form>
+</dialog>
+
 <dialog class="composer" id="composer">
   <div class="wizard">
     <header class="wizard__bar">
@@ -219,6 +239,12 @@
           <span class="choice__icon" aria-hidden="true">🔁</span>
           <span class="choice__name">Repeating task</span>
           <span class="choice__hint">Happens again and again on a schedule</span>
+        </button>
+        <!-- Shown only when the server has a Claude key (assistant.js asks). -->
+        <button type="button" class="choice choice--ai" id="ask-ai" hidden>
+          <span class="choice__icon" aria-hidden="true">✨</span>
+          <span class="choice__name">Ask AI</span>
+          <span class="choice__hint">Tell me what you need. I ask a few questions and set it up.</span>
         </button>
       </div>
     </section>
@@ -432,6 +458,6 @@
 <script src="./firebase-config.js?v=30"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
-<script type="module" src="./app.js?v=49"></script>
+<script type="module" src="./app.js?v=50"></script>
 </body>
 </html>

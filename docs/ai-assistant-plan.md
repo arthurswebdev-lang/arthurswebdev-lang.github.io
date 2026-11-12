@@ -160,7 +160,7 @@ today), and never follows instructions written inside the pasted text.
 
 ### 2.8 How templates live in code
 
-One file, `src/assistant/templates.ts`, a list of plain objects:
+One file, `backend/src/prompts/assistant-templates.ts`, a list of plain objects:
 
 ```ts
 export interface AssistantTemplate {
@@ -233,9 +233,9 @@ Three rules for the agent (in the system prompt):
 The last step of every chat, before anything is saved, is a **plan**: a short list a person can
 read in ten seconds on a phone. It is the contract — what it says is exactly what gets created.
 
-**The plan text is rendered by code, not written by the model.** The model calls `propose` with
+**The plan text is rendered by code, not written by the model.** The model calls `propose_plan` with
 structured drafts; the server validates them and turns them into the text with one function,
-`renderPlan(items, timezoneOffsetMinutes)`. If the model wrote the summary as free text, the
+`renderPlan(items, assumptions)`. If the model wrote the summary as free text, the
 summary and the data could disagree ("every Monday" in the text, `weekdays: [2]` in the call),
 and the person would accept something they did not read. The model adds only one short
 sentence after the plan: what it **assumed** (the `assumptions` field), so the person knows
@@ -275,16 +275,16 @@ Tue   Chest press – 35kg · Seated row – 45kg · Triceps – 40kg · Leg ext
 ```
 
 Under the plan: **[Change]** and **[Accept]**. Change puts the cursor in the text box ("remove
-triceps", "make it 20:00"); the agent calls `propose` again and a new plan replaces the old one.
+triceps", "make it 20:00"); the agent calls `propose_plan` again and a new plan replaces the old one.
 Only the latest plan can be accepted.
 
 ---
 
 ## 4. Tools: backend APIs wrapped as small functions
 
-Each tool is one file in `src/assistant/tools/`, exporting a definition (the JSON Schema Claude
-reads) and a `run(input, context)` function. `context` carries `userId` (from Basic auth, never
-from the model), the session, the timezone offset and the services.
+The definitions (the JSON Schema Claude reads) are in `backend/src/utils/assistant-tools.util.ts`,
+and the handlers in `backend/src/services/assistant-tools.service.ts`. Each handler gets the
+session, which carries `userId` (from Basic auth, never from the model) and the timezone offset.
 
 **They call the existing services in-process, not over HTTP.** The services are what the
 controllers call, so the behaviour is the same as the API, with the same Joi schemas. (Calling
@@ -295,7 +295,7 @@ over HTTP would only make sense if the assistant moved into a separate process.)
 | `ask_user` | — | Asks one question. Input: `{ field, question, input: 'text'\|'time'\|'date'\|'url'\|'choice'\|'list', options? }`. The frontend shows the right control: native time picker, date picker, link field, buttons. | Yes |
 | `find_tasks` | `TasksService.list` | `{ query?, category? }` → at most 20 short rows: `id, name, type, local date`. So "do I already have this?" works. | No |
 | `find_repeats` | `RepeatedTasksService.list` | Same for repeats: `id, name, type, weekdays/fromDay, local times`. Used by the gym template to avoid duplicates. | No |
-| `propose` | Joi schemas (`CreateTaskSchema`, `CreateRepeatedTaskSchema`) | `{ items: Draft[], assumptions: string[] }`. Converts local → UTC, expands time grids, **validates every item with Joi**. Invalid → error goes back to the model to fix (once). Valid → saved in the session as the `plan` (each item gets a number, `planItem: 1…N`), and the reply shows the compact plan (section 3.1). **Writes nothing to tasks.** | Yes |
+| `propose_plan` | Joi schemas (`CreateTaskSchema`, `CreateRepeatedTaskSchema`) | `{ items: Draft[], assumptions: string[] }`. Converts local → UTC, expands time grids, **validates every item with Joi**. Invalid → error goes back to the model to fix (once). Valid → saved in the session as the `plan` (each item gets a number, `planItem: 1…N`), and the reply shows the compact plan (section 3.1). **Writes nothing to tasks.** | Yes |
 | `create_task` | `TasksService.create` | `{ planItem, ...payload }` for `BASIC` / `EVENT`. **Works only after Accept** (below). | No |
 | `create_repeated_task` | `RepeatedTasksService.create` | `{ planItem, ...payload }` for the three repeat types. **Works only after Accept.** | No |
 
@@ -333,7 +333,7 @@ Why this design:
   and only exactly that plan**. A prompt injection in a pasted page can at worst produce a plan
   you do not accept.
 - No `update` or `delete` tools in phase 1 — same reason as the earlier note.
-- Several items (gym plan) are **all validated at `propose` time**, so on Accept a failure is
+- Several items (gym plan) are **all validated at `propose_plan` time**, so on Accept a failure is
   rare (a database error, not a validation one). If one write fails, the last message says
   which ones landed, and the failed ones stay in the plan so "try again" retries only those.
 
@@ -385,7 +385,7 @@ After a session ends, **nothing of the chat is kept**. The only thing left is a 
 | --- | --- | --- |
 | Messages per session | 40 | The session is **compacted** (5.4). |
 | Model calls per request | 4 | Stop, answer with what we have. Stops a loop. |
-| Retries of a rejected `propose` | 1 | Second rejection → tell the person what the server refused. |
+| Retries of a rejected `propose_plan` | 1 | Second rejection → tell the person what the server refused. |
 | `find_*` rows per call | 20 | Rows are short. |
 | Message length from the user | 4,000 chars (Joi) | 400. A pasted page longer than that is too long for a phone anyway. |
 | Messages per user per day | 100 | 429. Counter in `assistantUsage` (`_id: userId + date`), with its own TTL of 2 days. |
@@ -468,7 +468,7 @@ Each phase ends working and deployed.
    (null when no key → 503), `assistantSessions` repository with the TTL index,
    `assistantUsage` counter, the five routes, the `IAssistantClient` seam and a fake client
    for tests. The model answers plain text, no tools.
-2. **Plan + accept, no templates yet.** `propose` with local→UTC, grid expansion and the Joi
+2. **Plan + accept, no templates yet.** `propose_plan` with local→UTC, grid expansion and the Joi
    gate; `renderPlan`; the accept route; `create_task` / `create_repeated_task` with the
    state check and the "equal to the plan item" check. Tests for conversion (midnight wrap,
    weekday shift, under `TZ=Asia/Kathmandu`), for the gate, for `renderPlan` (each type, and
@@ -501,3 +501,28 @@ Each phase ends working and deployed.
    with the eval from phase 8, not by guessing.
 5. **Can the assistant ever edit?** "Make leg press 80kg" is a very natural sentence. It needs
    an `update` tool with the same plan → accept step. Phase 9, if wanted.
+
+---
+
+## 10. Where the code is (implemented)
+
+| Part | File |
+| --- | --- |
+| Templates (15) | `backend/src/prompts/assistant-templates.ts` |
+| System prompt (frozen, cached) | `backend/src/prompts/assistant.prompt.ts` |
+| Tool definitions | `backend/src/utils/assistant-tools.util.ts` |
+| Tool handlers (wrap the existing services) | `backend/src/services/assistant-tools.service.ts` |
+| Turn loop, sessions, Accept, compaction, limits | `backend/src/services/assistant.service.ts` |
+| Claude API call (caching, effort, fallbacks, usage log) | `backend/src/services/claude-assistant-client.service.ts` |
+| Local → UTC, day shift, time grid | `backend/src/utils/local-time.util.ts` |
+| Draft → API body, validated by the existing Joi schemas | `backend/src/utils/plan-payload.util.ts` |
+| The compact plan text | `backend/src/utils/plan-render.util.ts` |
+| Sessions (TTL) and daily usage | `backend/src/repositories/assistant-sessions.repository.ts` |
+| Routes | `backend/src/routes/assistant.routes.ts` |
+| Chat sheet | `frontend/assistant.js` (+ `#assistant` in `index.html`) |
+
+Config: `ANTHROPIC_API_KEY` (unset → assistant off, routes answer 503, button hidden) and
+`ASSISTANT_MODEL` (default `claude-opus-5-5`).
+
+Not done yet from the build order: the eval file (phase 8). The RAG question is answered in
+`docs/RAG-choice.md`.

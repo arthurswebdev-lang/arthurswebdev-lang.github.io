@@ -1319,3 +1319,71 @@ select.field__input { appearance: none; background-image: none; }
 }
 
 .fab--clear:hover { background: var(--surface-sunk); color: var(--ink); }
+
+/* --- ✨ Ask AI ------------------------------------------------------------- */
+
+/* The same width as the task composer: it is the fourth way into it. */
+#assistant { width: min(45rem, calc(100vw - 2 * var(--app-pad))); }
+
+.choice--ai { border-style: dashed; }
+
+.assistant__log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 6rem;
+  margin-bottom: 0.75rem;
+}
+
+.bubble {
+  max-width: 85%;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-sm);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.bubble--me { align-self: flex-end; background: var(--accent); color: var(--accent-ink); }
+
+.bubble--ai { align-self: flex-start; background: var(--surface-sunk); color: var(--ink); }
+
+.bubble--error { align-self: flex-start; background: var(--overdue-bg); color: var(--overdue-ink); }
+
+.bubble--typing { color: var(--ink-faint); letter-spacing: 0.15em; }
+
+/* The plan is the contract, so it gets the full width and a border. */
+.bubble--plan {
+  align-self: stretch;
+  max-width: none;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.bubble--stale { opacity: 0.55; }
+
+.plan__actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.75rem; }
+
+.assistant__chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.75rem; }
+
+.assistant__chips[hidden] { display: none; }
+
+.assistant__options { margin-bottom: 0.6rem; }
+
+.assistant__options[hidden] { display: none; }
+
+/* Stays at the bottom of the sheet while the log scrolls above it. */
+.assistant__form {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-end;
+  padding-top: 0.5rem;
+  background: var(--surface);
+}
+
+.assistant__box { flex: 1; min-width: 0; resize: none; }
+
+.assistant__box[hidden] { display: none; }

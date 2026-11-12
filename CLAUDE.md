@@ -296,6 +296,21 @@ one blank line before a `return` that follows logic.
   `next(error)` from a `catch`. Existence checks belong in the service, which throws
   `ResourceNotFoundError`; the error handler middleware turns exceptions into JSON responses.
 - Errors extend `HttpException` and carry an `HttpStatusCodes` value.
+- **The chat assistant ("✨ Ask AI") creates through the same services and Joi schemas as the
+  API**, so it can store nothing the API would refuse. Plan and reasons: `docs/ai-assistant-plan.md`.
+  Four rules hold it together. **(1) The model speaks local time only**; `plan-payload.util.ts`
+  converts, and a time that crosses UTC midnight moves the weekdays (or the day of month) with
+  it. **(2) The model never writes without Accept**: `propose_plan` validates and stores the plan,
+  the Accept route flips the session to `accepted` atomically, and `create_task` /
+  `create_repeated_task` refuse unless the session is accepted *and* the item converts to exactly
+  the accepted payload (`canonical` compare). **(3) The plan text is rendered by code**
+  (`plan-render.util.ts`), never written by the model, so text and data cannot disagree.
+  **(4) The system prompt and tool list are frozen bytes** — they are the prompt-cache prefix.
+  Never put a date, a name or anything per-request into them; the date goes in the first user
+  turn. A chat is one `assistantSessions` document, deleted on Accept, on close, or by its TTL
+  index after 30 idle minutes; a long one is restarted from a summary built from `answers` and
+  `plan`, never trimmed from the middle. `ANTHROPIC_API_KEY` unset → routes answer 503 and the
+  button is hidden, the same shape as push without Firebase.
 
 ## Gotchas worth remembering
 

@@ -89,6 +89,15 @@ export default defineConfig(
   },
 
   {
+    files: ['src/services/claude-assistant-client.service.ts'],
+    rules: {
+      // One log line per model call: tokens in, cached and out. It is the only
+      // way to see that prompt caching works and what the assistant costs.
+      'no-console': 'off',
+    },
+  },
+
+  {
     files: ['test/**/*.ts'],
     rules: {
       // node:test's describe/it return promises that the runner itself awaits.
