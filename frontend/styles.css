@@ -1377,10 +1377,18 @@ select.field__input { appearance: none; background-image: none; }
 
    `display: flex` only while open — on a closed dialog it would override the
    user agent's `display: none`. And no `position` here: see the rule about
-   modal dialogs in CLAUDE.md. */
+   modal dialogs in CLAUDE.md.
+
+   `--kb` is how much of the screen the on-screen keyboard covers, written by
+   assistant.js from the visual viewport and 0px when there is no keyboard.
+   iOS does not shrink the page for the keyboard — `100dvh` stays the whole
+   screen — so without this the answer bar sits underneath the keys and you
+   cannot see what you are typing. The sheet takes the covered strip off its
+   height and sits that far up from the bottom. */
 #assistant {
   width: min(45rem, calc(100vw - 2 * var(--app-pad)));
-  height: calc(100dvh - 1rem - env(safe-area-inset-top));
+  height: calc(100dvh - 1rem - env(safe-area-inset-top) - var(--kb, 0px));
+  margin-bottom: var(--kb, 0px);
   overflow: hidden;
 }
 
@@ -1479,9 +1487,9 @@ select.field__input { appearance: none; background-image: none; }
   #assistant {
     width: 100vw;
     max-width: 100vw;
-    height: calc(100dvh - env(safe-area-inset-top));
-    max-height: calc(100dvh - env(safe-area-inset-top));
-    margin: auto 0 0;
+    height: calc(100dvh - env(safe-area-inset-top) - var(--kb, 0px));
+    max-height: calc(100dvh - env(safe-area-inset-top) - var(--kb, 0px));
+    margin: auto 0 var(--kb, 0px);
     padding-inline: 1rem;
     border-inline: none;
   }

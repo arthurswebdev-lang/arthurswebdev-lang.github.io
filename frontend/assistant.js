@@ -48,6 +48,56 @@ export async function assistantAvailable(authToken) {
   return templates !== false;
 }
 
+/* --- the keyboard --------------------------------------------------------- */
+
+/**
+ * iOS does not make the page smaller when the keyboard comes up. The layout
+ * viewport — and so `100dvh` — stays the whole screen, and the keys are simply
+ * drawn on top of it. The chat is a fixed-height sheet with its answer bar
+ * pinned to the bottom, so the bar ended up under the keyboard: you could type
+ * but not see what you typed.
+ *
+ * Only the *visual* viewport knows about the keyboard, so the sheet is told how
+ * much of the screen is covered and takes that off its own height. The
+ * subtraction is against `documentElement.clientHeight`, the layout viewport,
+ * because that is the one number the keyboard does not move; `offsetTop` is in
+ * it because iOS may also scroll the page up to reveal the focused field.
+ *
+ * A browser that resizes the page for its keyboard (and a desktop, which has no
+ * keyboard to resize for) reports 0 here, which is the same as not doing this.
+ */
+const viewport = window.visualViewport ?? null;
+
+/** The last value written, so a plain scroll does not re-scroll the log. */
+let covered = 0;
+
+function trackKeyboard() {
+  if (viewport === null) return;
+
+  const hidden = document.documentElement.clientHeight - viewport.height - viewport.offsetTop;
+  const next = Math.max(0, Math.round(hidden));
+  if (next === covered) return;
+
+  covered = next;
+  dialog.style.setProperty('--kb', `${String(next)}px`);
+  // The message list just got shorter: keep the newest message in view rather
+  // than leaving the conversation where it was before the keys came up.
+  log.scrollTo({ top: log.scrollHeight });
+}
+
+/** Watched only while the chat is open; closing puts the sheet back to full height. */
+function watchKeyboard(on) {
+  if (viewport === null) return;
+
+  const listen = on ? 'addEventListener' : 'removeEventListener';
+  viewport[listen]('resize', trackKeyboard);
+  viewport[listen]('scroll', trackKeyboard);
+  if (on) return;
+
+  covered = 0;
+  dialog.style.removeProperty('--kb');
+}
+
 /* --- drawing -------------------------------------------------------------- */
 
 function bubble(kind, text) {
@@ -331,6 +381,8 @@ export function openAssistant(options) {
   ({ token } = options);
   onCreated = options.onCreated;
   dialog.showModal();
+  watchKeyboard(true);
+  trackKeyboard();
   void reset();
   // No focus on purpose: on iOS that opens the keyboard, and the first tap on
   // a chip or an option then only closes the keyboard and is lost.
@@ -359,4 +411,7 @@ document.getElementById('assistant-new').addEventListener('click', () => {
   endSession();
   void reset();
 });
-dialog.addEventListener('close', endSession);
+dialog.addEventListener('close', () => {
+  watchKeyboard(false);
+  endSession();
+});

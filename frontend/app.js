@@ -18,7 +18,7 @@ import {
   enableNotifications, notificationState, refreshRegistration,
 } from './notifications.js?v=32';
 import { openThemePicker } from './theme.js?v=1';
-import { assistantAvailable, openAssistant } from './assistant.js?v=6';
+import { assistantAvailable, openAssistant } from './assistant.js?v=7';
 
 /**
  * Categories, colours and icons carried over from the previous app. Keys match

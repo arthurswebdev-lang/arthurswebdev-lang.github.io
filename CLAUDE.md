@@ -411,6 +411,18 @@ these non-negotiable:
   the same ones the header's ⌄ uses — or asks for `--surface-solid` by name. A modifier on a
   shared component (`--wide`, `--danger`) must be declared **after** the base rule: same
   specificity, so the later one wins.
+- **iOS does not shrink the page for the on-screen keyboard.** The layout viewport, and so
+  `100dvh`, stays the whole screen and the keys are drawn over it — which put the chat's answer
+  bar underneath them, so you could type into ✨ Ask AI without seeing what you typed. Only
+  `window.visualViewport` knows: `assistant.js` writes the covered strip to `--kb` on the sheet
+  (`clientHeight - visualViewport.height - visualViewport.offsetTop`, never below 0) and
+  `#assistant` takes it off its height and sits that far up from the bottom. The subtraction is
+  against `documentElement.clientHeight` because that is the one height the keyboard does not
+  move, and `offsetTop` is in it because iOS may also scroll the page to reveal the focused
+  field. It is watched only while the chat is open, and each change scrolls the log to the
+  newest message — the list just got shorter. A browser that does resize its own page, and a
+  desktop, report 0, so the rule costs them nothing.
+
 - **Never give a modal `<dialog>` `position: relative`.** The user agent lays a modal dialog out
   `fixed` and centred; overriding `position` drops it back into normal document flow, where it
   sits wherever the element happens to fall in the page. The lightbox did this so its ✕ had
