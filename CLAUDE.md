@@ -401,6 +401,16 @@ these non-negotiable:
   shape either overhangs the screen edge or lands somewhere arbitrary. Esc closes it too, free
   from the dialog element. A url that will not load closes it with a toast rather than leaving an
   empty box. There is no download control on purpose — the picture is a reference, not an asset.
+- **`theme.css` makes `--surface` a 5.5% white tint, not a surface.** It is meant to sit on
+  top of something solid; the opaque colour is `--surface-solid`, and `theme.css` restyles
+  the components that need one (`.composer`, `.menu__panel`, `.fab--clear`) to a near-solid
+  `color-mix` of it. So a new panel painted with `background: var(--surface)` looks right in
+  `styles.css` alone and comes out **almost transparent** in the app, with whatever is behind
+  it showing through. Anything that has to cover what is under it either reuses a component
+  the theme already dresses — the confirm sheet's ⋯ menu is `.menu__panel` / `.menu__item`,
+  the same ones the header's ⌄ uses — or asks for `--surface-solid` by name. A modifier on a
+  shared component (`--wide`, `--danger`) must be declared **after** the base rule: same
+  specificity, so the later one wins.
 - **Never give a modal `<dialog>` `position: relative`.** The user agent lays a modal dialog out
   `fixed` and centred; overriding `position` drops it back into normal document flow, where it
   sits wherever the element happens to fall in the page. The lightbox did this so its ✕ had

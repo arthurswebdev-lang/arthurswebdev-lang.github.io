@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="./styles.css?v=53">
+<link rel="stylesheet" href="./styles.css?v=54">
 <link rel="stylesheet" href="./theme.css?v=2">
 <script>
   // Where the API lives. Point this at the fly.io app once deployed.
@@ -153,11 +153,11 @@
 <dialog class="composer confirm" id="confirm">
   <div class="confirm__head">
     <h2 class="composer__title" id="confirm-title"></h2>
-    <div class="confirm__menu-wrap">
-      <button type="button" class="confirm__more" id="confirm-more" hidden
+    <div class="menu">
+      <button type="button" class="menu__toggle" id="confirm-more" hidden
               title="More" aria-label="More options"
               aria-haspopup="true" aria-expanded="false">⋯</button>
-      <div class="confirm__menu" id="confirm-menu" role="menu" hidden></div>
+      <div class="menu__panel menu__panel--wide" id="confirm-menu" role="menu" hidden></div>
     </div>
   </div>
   <p class="composer__note" id="confirm-message"></p>
@@ -472,6 +472,6 @@
 <script src="./firebase-config.js?v=30"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
-<script type="module" src="./app.js?v=60"></script>
+<script type="module" src="./app.js?v=61"></script>
 </body>
 </html>

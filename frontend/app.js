@@ -848,11 +848,15 @@ function confirmButton({ id, label, danger }, choose) {
  * repeat and deleting the repeat itself are different things, and a yes/no box
  * can only offer one of them.
  */
-/** One line in the ⋯ menu. A menu item, deliberately not a second button. */
+/**
+ * One line in the ⋯ menu — the app's own menu item, the same one the ⌄ in the
+ * header uses, so it is themed rather than hand-painted. `--danger` for the
+ * colour, because every answer this menu holds is one that cannot be undone.
+ */
 function menuItem({ id, label }, choose) {
   const item = document.createElement('button');
   item.type = 'button';
-  item.className = 'confirm__menu-item';
+  item.className = 'menu__item menu__item--danger';
   item.setAttribute('role', 'menuitem');
   item.textContent = label;
   item.addEventListener('click', () => { choose(id); });
@@ -867,7 +871,7 @@ function menuItem({ id, label }, choose) {
  */
 function menuNote(text) {
   const note = document.createElement('p');
-  note.className = 'confirm__menu-note';
+  note.className = 'menu__note';
   note.textContent = text;
 
   return note;
@@ -876,7 +880,7 @@ function menuNote(text) {
 function showMenu(open) {
   confirmMenu.hidden = !open;
   confirmMore.setAttribute('aria-expanded', open ? 'true' : 'false');
-  if (open) confirmMenu.querySelector('.confirm__menu-item')?.focus();
+  if (open) confirmMenu.querySelector('.menu__item')?.focus();
 }
 
 function ask({ title, message, actions, more = null }) {
