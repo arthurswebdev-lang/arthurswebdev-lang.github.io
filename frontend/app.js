@@ -13,7 +13,7 @@ import {
   fetchRepeatedTasks, fetchTasks, forgetCredentials, readCredentials, setRepeatEnabled,
   updateRepeatedTask,
   replaceTask, saveCredentials, sendTestNotification, setStepStatus, setTaskStatus, signUp,
-} from './api.js?v=32';
+} from './api.js?v=33';
 import {
   enableNotifications, notificationState, refreshRegistration,
 } from './notifications.js?v=32';
@@ -824,6 +824,7 @@ const confirmDialog = document.getElementById('confirm');
 const confirmTitle = document.getElementById('confirm-title');
 const confirmMessage = document.getElementById('confirm-message');
 const confirmActions = document.getElementById('confirm-actions');
+const confirmMore = document.getElementById('confirm-more');
 
 function confirmButton({ id, label, danger }, choose) {
   const button = document.createElement('button');
@@ -846,19 +847,36 @@ function confirmButton({ id, label, danger }, choose) {
  * repeat and deleting the repeat itself are different things, and a yes/no box
  * can only offer one of them.
  */
-function ask({ title, message, actions }) {
+function drawConfirm({ title, message, actions }, choose) {
   confirmTitle.textContent = title;
   confirmMessage.textContent = message ?? '';
   confirmMessage.hidden = message === undefined;
 
+  confirmActions.replaceChildren(
+    ...actions.map((action) => confirmButton(action, choose)),
+    confirmButton({ id: null, label: 'Cancel' }, choose),
+  );
+}
+
+function ask({ title, message, actions, more = null }) {
   return new Promise((resolve) => {
     let chosen = null;
     const choose = (id) => { chosen = id; confirmDialog.close(); };
 
-    confirmActions.replaceChildren(
-      ...actions.map((action) => confirmButton(action, choose)),
-      confirmButton({ id: null, label: 'Cancel' }, choose),
-    );
+    drawConfirm({ title, message, actions }, choose);
+
+    // The ⋯ swaps the sheet for its permanent form, and then takes itself off:
+    // there is nowhere further to go, and leaving it would suggest there is.
+    // Cancel is still on both faces, so the way out never moves.
+    //
+    // Assigned rather than added as a listener, because this dialog is reused
+    // for every question in the app — `addEventListener` would stack one
+    // handler per open and the oldest would win.
+    confirmMore.hidden = more === null;
+    confirmMore.onclick = () => {
+      confirmMore.hidden = true;
+      drawConfirm(more, choose);
+    };
 
     confirmDialog.addEventListener('close', () => { resolve(chosen); }, { once: true });
     confirmDialog.showModal();
@@ -894,6 +912,11 @@ function deleteChoiceFor(task) {
     return ask({
       title: `Delete "${task.name}"?`,
       actions: [{ id: 'one', label: 'Delete', danger: true }],
+      more: {
+        title: `Delete "${task.name}" for good?`,
+        message: 'This one cannot be undone.',
+        actions: [{ id: 'one-forever', label: 'Delete permanently', danger: true }],
+      },
     });
   }
 
@@ -904,6 +927,17 @@ function deleteChoiceFor(task) {
       { id: 'one', label: 'Only this one', danger: true },
       { id: 'all', label: 'The whole repeat', danger: true },
     ],
+    // The same two choices, because the question does not get simpler just
+    // because the answer is final. Offering one of them would quietly decide
+    // the other for you.
+    more: {
+      title: `Delete "${task.name}" for good?`,
+      message: 'This cannot be undone.',
+      actions: [
+        { id: 'one-forever', label: 'Only this one', danger: true },
+        { id: 'all-forever', label: 'The whole repeat', danger: true },
+      ],
+    },
   });
 }
 
@@ -911,14 +945,17 @@ function remove(task) {
   void deleteChoiceFor(task).then((choice) => {
     if (choice === null) return;
 
+    const forever = choice.endsWith('-forever');
+    const wholeRepeat = choice.startsWith('all');
+
     apply(
       () => { setTasks(tasks.filter((other) => other !== task)); },
       // `clearTasks` takes exactly what it is given; `deleteTask` escalates to
       // the whole rule when handed a generated event.
-      () => (choice === 'all'
-        ? deleteTask(credentials.token, task.id)
-        : clearTasks(credentials.token, [task.id])),
-      `${task.name} deleted`,
+      () => (wholeRepeat
+        ? deleteTask(credentials.token, task.id, forever)
+        : clearTasks(credentials.token, [task.id], forever)),
+      forever ? `${task.name} deleted for good` : `${task.name} deleted`,
     );
   });
 }
@@ -964,17 +1001,26 @@ cleanupButton.addEventListener('click', () => {
   const count = String(spent.length);
   const ids = spent.map((task) => task.id);
 
+  const plural = spent.length === 1 ? '' : 's';
+
   void ask({
-    title: `Clear ${count} ${sweepLabel()} task${spent.length === 1 ? '' : 's'}?`,
+    title: `Clear ${count} ${sweepLabel()} task${plural}?`,
     message: 'The repeats that made them are kept.',
     actions: [{ id: 'clear', label: `Clear ${count}`, danger: true }],
+    more: {
+      title: `Clear ${count} ${sweepLabel()} task${plural} for good?`,
+      message: 'This cannot be undone. The repeats that made them are still kept.',
+      actions: [{ id: 'forever', label: `Delete ${count} permanently`, danger: true }],
+    },
   }).then((choice) => {
     if (choice === null) return;
 
+    const forever = choice === 'forever';
+
     apply(
       () => { setTasks(tasks.filter((task) => !ids.includes(task.id))); },
-      () => clearTasks(credentials.token, ids),
-      `${count} cleared`,
+      () => clearTasks(credentials.token, ids, forever),
+      forever ? `${count} deleted for good` : `${count} cleared`,
     );
   });
 });
@@ -1368,11 +1414,16 @@ function repeatRow(config) {
     void ask({
       title: `Delete "${config.name}"?`,
       message: 'The tasks it has already made go with it.',
-      actions: [{ id: 'delete', label: 'Delete forever', danger: true }],
+      actions: [{ id: 'delete', label: 'Delete', danger: true }],
+      more: {
+        title: `Delete "${config.name}" for good?`,
+        message: 'The tasks it has already made go with it. This cannot be undone.',
+        actions: [{ id: 'forever', label: 'Delete permanently', danger: true }],
+      },
     }).then((choice) => {
       if (choice === null) return openRepeats();
 
-      return deleteRepeatedTask(credentials.token, config.id).then(() => {
+      return deleteRepeatedTask(credentials.token, config.id, choice === 'forever').then(() => {
         announcer.textContent = `${config.name} repeat deleted`;
 
         return Promise.all([openRepeats(), load()]);

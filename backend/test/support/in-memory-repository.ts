@@ -34,21 +34,30 @@ function stepsFor(config: RepeatedTask, existing: Subtask[]): Subtask[] {
 export class InMemoryTasksRepository implements ITasksRepository {
   constructor(private tasks: Task[] = []) {}
 
-  /** Everything currently stored — for assertions. */
+  /** Everything currently stored, stamped rows included — for assertions. */
   snapshot(): Task[] {
     return [...this.tasks];
   }
 
+  /**
+   * Mirrors the ALIVE clause the Mongo base class puts on every read: a task
+   * carrying `deletedAt` is not a result anywhere, so the generator and the
+   * services behave in tests exactly as they do against the database.
+   */
+  private get live(): Task[] {
+    return this.tasks.filter((task) => task.deletedAt === null);
+  }
+
   list(userId: string): Promise<Task[]> {
-    return Promise.resolve(this.tasks.filter((task) => task.userId === userId));
+    return Promise.resolve(this.live.filter((task) => task.userId === userId));
   }
 
   listAcrossUsers(): Promise<Task[]> {
-    return Promise.resolve([...this.tasks]);
+    return Promise.resolve(this.live);
   }
 
   getById(id: string): Promise<Task | null> {
-    return Promise.resolve(this.tasks.find((task) => task.id === id) ?? null);
+    return Promise.resolve(this.live.find((task) => task.id === id) ?? null);
   }
 
   create(input: CreateTask, userId: string): Promise<Task> {
@@ -59,6 +68,10 @@ export class InMemoryTasksRepository implements ITasksRepository {
     throw new Error(`not needed by these tests: updateById(${id}, ${changes.type})`);
   }
 
+  softDeleteById(id: string, at: Date): Promise<boolean> {
+    return Promise.resolve(this.stamp((task) => task.id === id, at) > 0);
+  }
+
   deleteById(id: string): Promise<boolean> {
     const before = this.tasks.length;
     this.tasks = this.tasks.filter((task) => task.id !== id);
@@ -66,11 +79,24 @@ export class InMemoryTasksRepository implements ITasksRepository {
     return Promise.resolve(this.tasks.length < before);
   }
 
+  /** Stamps every live task the predicate picks; returns how many were hit. */
+  private stamp(picks: (task: Task) => boolean, at: Date): number {
+    let stamped = 0;
+    this.tasks = this.tasks.map((task) => {
+      if (task.deletedAt !== null || !picks(task)) return task;
+      stamped += 1;
+
+      return { ...task, deletedAt: at };
+    });
+
+    return stamped;
+  }
+
   /** Mirrors the Mongo query in TasksRepository.listBy, field for field. */
   listBy(query: TaskQuery): Promise<Task[]> {
     const search = query.search?.toLowerCase();
 
-    return Promise.resolve(this.tasks.filter((task) => (
+    return Promise.resolve(this.live.filter((task) => (
       task.userId === query.userId
       && (query.category === undefined || task.category === query.category)
       && (query.type === undefined || task.type === query.type)
@@ -97,6 +123,7 @@ export class InMemoryTasksRepository implements ITasksRepository {
       date,
       passedDate: null,
       notifiedAt: null,
+      deletedAt: null,
       configTaskId: config.id,
     };
 
@@ -105,11 +132,24 @@ export class InMemoryTasksRepository implements ITasksRepository {
     return Promise.resolve(event);
   }
 
+  softDeleteManyByIds(ids: string[], userId: string, at: Date): Promise<number> {
+    return Promise.resolve(
+      this.stamp((task) => ids.includes(task.id) && task.userId === userId, at),
+    );
+  }
+
   deleteManyByIds(ids: string[], userId: string): Promise<number> {
     const before = this.tasks.length;
     this.tasks = this.tasks.filter((task) => !(ids.includes(task.id) && task.userId === userId));
 
     return Promise.resolve(before - this.tasks.length);
+  }
+
+  softDeleteEventsOfConfig(configTaskId: string, at: Date): Promise<number> {
+    return Promise.resolve(this.stamp(
+      (task) => task.type === TaskType.EVENT && task.configTaskId === configTaskId,
+      at,
+    ));
   }
 
   deleteEventsOfConfig(configTaskId: string): Promise<number> {
@@ -122,7 +162,7 @@ export class InMemoryTasksRepository implements ITasksRepository {
   }
 
   updateStatus(id: string, status: TaskStatus): Promise<Task | null> {
-    const index = this.tasks.findIndex((task) => task.id === id);
+    const index = this.tasks.findIndex((task) => task.id === id && task.deletedAt === null);
     const found = this.tasks[index];
     if (found === undefined) return Promise.resolve(null);
 
@@ -137,7 +177,9 @@ export class InMemoryTasksRepository implements ITasksRepository {
     subtaskId: string,
     status: TaskStatus.DONE | TaskStatus.TODO,
   ): Promise<Task | null> {
-    const index = this.tasks.findIndex((task) => task.id === taskId);
+    const index = this.tasks.findIndex(
+      (task) => task.id === taskId && task.deletedAt === null,
+    );
     const found = this.tasks[index];
     if (found === undefined || !('subtasks' in found)) return Promise.resolve(null);
 
@@ -151,7 +193,9 @@ export class InMemoryTasksRepository implements ITasksRepository {
   }
 
   applyConfigToEvent(event: EventTask, config: RepeatedTask): Promise<EventTask | null> {
-    const index = this.tasks.findIndex((task) => task.id === event.id);
+    const index = this.tasks.findIndex(
+      (task) => task.id === event.id && task.deletedAt === null,
+    );
     const found = this.tasks[index];
     if (found?.type !== TaskType.EVENT) return Promise.resolve(null);
 
@@ -176,7 +220,9 @@ export class InMemoryTasksRepository implements ITasksRepository {
   }
 
   markNotified(eventId: string, notifiedAt: Date): Promise<EventTask | null> {
-    const index = this.tasks.findIndex((task) => task.id === eventId);
+    const index = this.tasks.findIndex(
+      (task) => task.id === eventId && task.deletedAt === null,
+    );
     const found = this.tasks[index];
     if (found?.type !== TaskType.EVENT) return Promise.resolve(null);
 
@@ -187,7 +233,9 @@ export class InMemoryTasksRepository implements ITasksRepository {
   }
 
   markEventPassed(eventId: string, passedAt: Date): Promise<EventTask | null> {
-    const index = this.tasks.findIndex((task) => task.id === eventId);
+    const index = this.tasks.findIndex(
+      (task) => task.id === eventId && task.deletedAt === null,
+    );
     const found = this.tasks[index];
     if (found?.type !== TaskType.EVENT) return Promise.resolve(null);
 

@@ -147,27 +147,56 @@ export class TasksService implements ITasksService {
     }
   }
 
-  clear(ids: string[], userId: string): Promise<number> {
+  clear(ids: string[], userId: string, permanent = false): Promise<number> {
     // No ownership pre-check: the delete itself is scoped by owner, so an id
     // that is not yours simply does not match. Reporting which ids failed
     // would tell a caller whose they are.
-    return this.tasksRepository.deleteManyByIds(ids, userId);
+    return permanent
+      ? this.tasksRepository.deleteManyByIds(ids, userId)
+      : this.tasksRepository.softDeleteManyByIds(ids, userId, this.now());
   }
 
-  async deleteById(id: string, userId: string): Promise<void> {
-    const task = await this.ownedOrMissing(id, userId);
-
-    // A generated event is one occurrence of a rule. Deleting it alone would be
-    // undone by the next poll, so deleting it means deleting the rule — and
-    // with it every event that rule produced.
-    if (isEventTask(task) && task.configTaskId !== null) {
-      await this.tasksRepository.deleteEventsOfConfig(task.configTaskId);
-      await this.repeatedTasksRepository.deleteById(task.configTaskId);
+  /**
+   * Deleting a generated event means deleting the rule behind it: dropping the
+   * occurrence alone would be undone by the next poll.
+   *
+   * Events first, config second, in both modes. The two collections cannot be
+   * written atomically, and this order fails safe — a crash in between leaves a
+   * config whose events the next poll regenerates, rather than events pointing
+   * at a config that is gone.
+   */
+  private async deleteWithConfig(configTaskId: string, permanent: boolean): Promise<void> {
+    if (permanent) {
+      await this.tasksRepository.deleteEventsOfConfig(configTaskId);
+      await this.repeatedTasksRepository.deleteById(configTaskId);
 
       return;
     }
 
-    const deleted = await this.tasksRepository.deleteById(id);
+    // One instant for the whole cascade, so a restore can find the pieces by
+    // the stamp they share rather than by guessing at a range.
+    const at = this.now();
+    await this.tasksRepository.softDeleteEventsOfConfig(configTaskId, at);
+    await this.repeatedTasksRepository.softDeleteById(configTaskId, at);
+  }
+
+  /**
+   * `permanent` is the only way a row actually leaves the database by hand. It
+   * exists because soft delete alone turns "delete" into a promise the app
+   * cannot keep: there has to be a way to mean it.
+   */
+  async deleteById(id: string, userId: string, permanent = false): Promise<void> {
+    const task = await this.ownedOrMissing(id, userId);
+
+    if (isEventTask(task) && task.configTaskId !== null) {
+      await this.deleteWithConfig(task.configTaskId, permanent);
+
+      return;
+    }
+
+    const deleted = permanent
+      ? await this.tasksRepository.deleteById(id)
+      : await this.tasksRepository.softDeleteById(id, this.now());
     if (!deleted) throw new ResourceNotFoundError(`No task with id ${id}.`);
   }
 }

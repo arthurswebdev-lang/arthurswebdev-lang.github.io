@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="./styles.css?v=51">
+<link rel="stylesheet" href="./styles.css?v=52">
 <link rel="stylesheet" href="./theme.css?v=2">
 <script>
   // Where the API lives. Point this at the fly.io app once deployed.
@@ -144,9 +144,18 @@
 </dialog>
 
 <!-- Every confirmation in the app, so a question about deleting something
-     looks like the app asking rather than the browser interrupting. -->
+     looks like the app asking rather than the browser interrupting.
+
+     The ⋯ in the corner is the way to the answer the sheet does not offer:
+     deleting for good. A plain delete can be given back, so that is what the
+     buttons do; the one that cannot is deliberately one tap further away. It
+     is hidden unless the question has a permanent form. -->
 <dialog class="composer confirm" id="confirm">
-  <h2 class="composer__title" id="confirm-title"></h2>
+  <div class="confirm__head">
+    <h2 class="composer__title" id="confirm-title"></h2>
+    <button type="button" class="confirm__more" id="confirm-more" hidden
+            title="More" aria-label="More options">⋯</button>
+  </div>
   <p class="composer__note" id="confirm-message"></p>
   <div class="confirm__actions" id="confirm-actions"></div>
 </dialog>
@@ -459,6 +468,6 @@
 <script src="./firebase-config.js?v=30"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
-<script type="module" src="./app.js?v=58"></script>
+<script type="module" src="./app.js?v=59"></script>
 </body>
 </html>

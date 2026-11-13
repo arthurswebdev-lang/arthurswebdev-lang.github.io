@@ -41,14 +41,14 @@ export class RepeatedTasksRepository
     super(db, REPEATED_TASKS_COLLECTION);
   }
 
-  /** Configs are always read per owner. */
+  /** Configs are always read per owner, and always only the live ones. */
   async ensureIndexes(): Promise<void> {
-    await this.collection.createIndex({ userId: 1 });
+    await this.collection.createIndex({ userId: 1, deletedAt: 1 });
   }
 
-  /** Unscoped on purpose; see the interface. */
+  /** Unscoped by owner on purpose; see the interface. Still only live rows. */
   async listAcrossUsers(): Promise<RepeatedTask[]> {
-    const documents = await this.collection.find().toArray();
+    const documents = await this.collection.find({ deletedAt: null }).toArray();
 
     return documents.map((document) => this.toDomain(document));
   }
@@ -56,7 +56,9 @@ export class RepeatedTasksRepository
   async listByIds(ids: string[]): Promise<RepeatedTask[]> {
     if (ids.length === 0) return [];
 
-    const documents = await this.collection.find({ _id: { $in: ids } }).toArray();
+    const documents = await this.collection
+      .find({ _id: { $in: ids }, deletedAt: null })
+      .toArray();
 
     return documents.map((document) => this.toDomain(document));
   }
@@ -75,6 +77,8 @@ export class RepeatedTasksRepository
       // the schema so a config stored before the field existed gains it on its
       // first write.
       enabled: input.enabled ?? true,
+      // Server-owned: deleting is a route, never a field a payload can set.
+      deletedAt: null,
     };
 
     // Daily is the one schedule whose days are optional, because leaving them
@@ -100,6 +104,7 @@ export class RepeatedTasksRepository
       id: entity.id,
       userId: entity.userId,
       createdAt: entity.createdAt,
+      deletedAt: entity.deletedAt,
     };
   }
 }

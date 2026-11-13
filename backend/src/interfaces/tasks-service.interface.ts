@@ -47,8 +47,8 @@ export interface ITasksService {
    * touches a config: clearing one occurrence of a repeat drops that
    * occurrence, leaving the rule to carry on. Returns how many went.
    */
-  clear(ids: string[], userId: string): Promise<number>;
+  clear(ids: string[], userId: string, permanent?: boolean): Promise<number>;
 
   /** Removes the task; throws when the id is unknown. */
-  deleteById(id: string, userId: string): Promise<void>;
+  deleteById(id: string, userId: string, permanent?: boolean): Promise<void>;
 }

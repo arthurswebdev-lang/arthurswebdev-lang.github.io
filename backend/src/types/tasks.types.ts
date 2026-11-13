@@ -72,6 +72,20 @@ export interface BaseTask {
    * replaces, so leaving it out of an update is how a photo is removed.
    */
   photoUrl?: string;
+  /**
+   * When this task was deleted; `null` while it is still in the list.
+   *
+   * A delete writes a stamp instead of removing the row, because the one
+   * mistake this app had no answer for was deleting the wrong thing: a
+   * checklist of forty steps went in a single tap and nothing short of the
+   * database oplog could say what had been in it. The stamp costs a field and
+   * one clause on every read, and buys the row back.
+   *
+   * Hidden everywhere rather than filtered on: a deleted task is not a state
+   * the app has a view for, so every query carries `deletedAt: null` and the
+   * rest of the code never learns the field exists.
+   */
+  deletedAt: Date | null;
 }
 
 export interface BasicTask extends BaseTask {
@@ -118,8 +132,16 @@ export type Task = BasicTask | EventTask;
  */
 export type TaskWithConfig = Task & { config?: RepeatedTask };
 
-/** A subtask as the client sends it: the server assigns the id. */
-export type SubtaskDraft = Omit<Subtask, 'id'>;
+/**
+ * A subtask as the client sends it: the server assigns the id, and fills the
+ * status in when the sender left it out, because a new step is a step to do.
+ *
+ * `status` is optional here to match `SubtaskSchema`, which defaults it. It was
+ * required, which made the type stricter than the API it describes — a payload
+ * Joi accepts could not be written down, and a caller reaching the repository
+ * directly could store a step with no status at all.
+ */
+export type SubtaskDraft = Omit<Subtask, 'id' | 'status'> & { status?: Subtask['status'] };
 
 /**
  * Route params for the `/tasks/:id` endpoints.
@@ -135,7 +157,7 @@ export type TaskIdParams = Record<'id', string>;
  * and `status` defaults to TODO, so none of the three are required.
  */
 export type Draft<T extends BaseTask> =
-  Omit<T, 'id' | 'userId' | 'createdAt' | 'status' | 'category' | 'links'> & {
+  Omit<T, 'id' | 'userId' | 'createdAt' | 'status' | 'category' | 'links' | 'deletedAt'> & {
     status?: TaskStatus;
     category?: TaskCategory;
     links?: string[];

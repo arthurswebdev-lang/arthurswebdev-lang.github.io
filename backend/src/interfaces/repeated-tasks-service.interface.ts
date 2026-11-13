@@ -8,5 +8,5 @@ export interface IRepeatedTasksService {
   create(input: CreateRepeatedTask, userId: string): Promise<RepeatedTask>;
   updateById(id: string, userId: string, changes: UpdateRepeatedTask): Promise<RepeatedTask>;
   patchById(id: string, userId: string, changes: PatchRepeatedTask): Promise<RepeatedTask>;
-  deleteById(id: string, userId: string): Promise<void>;
+  deleteById(id: string, userId: string, permanent?: boolean): Promise<void>;
 }

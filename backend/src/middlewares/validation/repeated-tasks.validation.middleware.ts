@@ -2,9 +2,10 @@ import type { NextFunction, Request, Response } from 'express';
 
 import { TaskIdInParams } from '../../schemes/common.schemes.js';
 import {
-  CreateRepeatedTaskSchema, PatchRepeatedTaskSchema, UpdateRepeatedTaskSchema,
+  CreateRepeatedTaskSchema, DeleteRepeatedTaskQuerySchema, PatchRepeatedTaskSchema,
+  UpdateRepeatedTaskSchema,
 } from '../../schemes/repeated-tasks.schemes.js';
-import { validate } from './util/validation.util.js';
+import { validate, validateQuery } from './util/validation.util.js';
 
 export function validateCreate(request: Request, _response: Response, next: NextFunction): void {
   try {
@@ -51,6 +52,7 @@ export function validateDeleteById(
 ): void {
   try {
     validate(TaskIdInParams, request.params);
+    validateQuery(request, DeleteRepeatedTaskQuerySchema);
     next();
   } catch (error) {
     next(error);

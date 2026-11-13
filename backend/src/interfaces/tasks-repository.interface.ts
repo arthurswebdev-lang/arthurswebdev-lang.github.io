@@ -37,8 +37,19 @@ export interface ITasksRepository extends IBaseRepository<Task, CreateTask, Upda
   createGeneratedEvent(config: RepeatedTask, date: Date): Promise<EventTask>;
 
   /**
-   * Removes exactly these tasks and nothing else — no cascade to any config.
-   * Scoped by owner, so an id belonging to someone else is simply not matched.
+   * Stamps exactly these tasks deleted — no cascade to any config. Scoped by
+   * owner, so an id belonging to someone else is simply not matched. This is
+   * what the bin at the bottom of the list does.
+   */
+  softDeleteManyByIds(ids: string[], userId: string, at: Date): Promise<number>;
+
+  /**
+   * Removes exactly these tasks for good, with the same scoping.
+   *
+   * Not the same act as the one above, and not reachable from the list: this
+   * is the generator throwing away an occurrence nobody has touched because the
+   * schedule it came from has moved. Stamping those would fill the collection
+   * with rows no one deleted and bury the ones someone did.
    */
   deleteManyByIds(ids: string[], userId: string): Promise<number>;
 
@@ -49,7 +60,10 @@ export interface ITasksRepository extends IBaseRepository<Task, CreateTask, Upda
    */
   applyConfigToEvent(event: EventTask, config: RepeatedTask): Promise<EventTask | null>;
 
-  /** Removes every event a config produced. Returns how many went. */
+  /** Stamps every event a config produced. Returns how many were stamped. */
+  softDeleteEventsOfConfig(configTaskId: string, at: Date): Promise<number>;
+
+  /** Removes every event a config produced, for good. Returns how many went. */
   deleteEventsOfConfig(configTaskId: string): Promise<number>;
 
   /**

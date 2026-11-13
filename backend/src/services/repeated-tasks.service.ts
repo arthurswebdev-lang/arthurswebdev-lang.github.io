@@ -176,16 +176,34 @@ export class RepeatedTasksService implements IRepeatedTasksService {
     await this.taskGenerator.refreshEventsOfConfig(after, now);
   }
 
-  async deleteById(id: string, userId: string): Promise<void> {
+  /**
+   * `permanent` removes the rows; anything else stamps them, so a repeat and
+   * every occurrence it made can be given back together.
+   *
+   * Events first, config second, either way. The two stores cannot be written
+   * atomically, and this order fails safe: a crash in between leaves a config
+   * whose events the next poll simply regenerates. The other order would strand
+   * events pointing at a config that no longer exists.
+   */
+  async deleteById(id: string, userId: string, permanent = false): Promise<void> {
     await this.ownedOrMissing(id, userId);
 
-    // Events first, config second. The two stores cannot be written atomically,
-    // and this order fails safe: a crash in between leaves a config whose
-    // events the next poll simply regenerates. The other order would strand
-    // events pointing at a config that no longer exists.
-    await this.tasksRepository.deleteEventsOfConfig(id);
+    if (permanent) {
+      await this.tasksRepository.deleteEventsOfConfig(id);
 
-    const deleted = await this.repeatedTasksRepository.deleteById(id);
+      const removed = await this.repeatedTasksRepository.deleteById(id);
+      if (!removed) throw new ResourceNotFoundError(`No repeated task with id ${id}.`);
+
+      return;
+    }
+
+    // One instant for both stamps; see the same note in TasksService. Read
+    // inline rather than injected, like `reconcileEvents` above — this service
+    // has no clock of its own.
+    const at = new Date();
+    await this.tasksRepository.softDeleteEventsOfConfig(id, at);
+
+    const deleted = await this.repeatedTasksRepository.softDeleteById(id, at);
     if (!deleted) throw new ResourceNotFoundError(`No repeated task with id ${id}.`);
   }
 }

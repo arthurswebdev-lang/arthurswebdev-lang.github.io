@@ -17,7 +17,7 @@
 import {
   acceptAssistantPlan, closeAssistantSession, fetchAssistantHealth, fetchAssistantTemplates,
   sendAssistantMessage, startAssistantSession,
-} from './api.js?v=32';
+} from './api.js?v=33';
 
 const dialog = document.getElementById('assistant');
 const log = document.getElementById('assistant-log');

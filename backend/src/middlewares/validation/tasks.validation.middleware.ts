@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from 'express';
 import {
   ClearTasksSchema,
   CreateTaskSchema,
+  DeleteTaskQuerySchema,
   ListTasksQuerySchema,
   TaskIdInParams,
   UpdateTaskSchema,
@@ -91,6 +92,7 @@ export function validateClear(request: Request, _response: Response, next: NextF
   }
 }
 
+/** `validateQuery` for the flag, for the Express 5 reason given at the top. */
 export function validateDeleteById(
   request: Request,
   _response: Response,
@@ -98,6 +100,7 @@ export function validateDeleteById(
 ): void {
   try {
     validate(TaskIdInParams, request.params);
+    validateQuery(request, DeleteTaskQuerySchema);
     next();
   } catch (error) {
     next(error);

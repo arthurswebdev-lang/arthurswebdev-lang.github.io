@@ -75,6 +75,14 @@ export interface BaseRepeatedTask extends TaskWindow {
    * Defaults to true, so a config is running unless it is deliberately stopped.
    */
   enabled: boolean;
+  /**
+   * When this rule was deleted; `null` while it is still running. The same
+   * stamp a task carries, and for the same reason — see `BaseTask.deletedAt`.
+   *
+   * Deleting a config deletes its occurrences too, so the two stamps always go
+   * on together and a restore has to put both back.
+   */
+  deletedAt: Date | null;
 }
 
 /**
@@ -116,7 +124,7 @@ export type RepeatedDraft<T extends BaseRepeatedTask> =
   Omit<
     T,
     'id' | 'userId' | 'createdAt' | 'category' | 'links' | 'subtasks' | 'timesOfDay'
-    | 'enabled' | 'remindBeforeMins' | 'activeBeforeMins' | 'activeForMins'
+    | 'enabled' | 'deletedAt' | 'remindBeforeMins' | 'activeBeforeMins' | 'activeForMins'
   > & {
     /** Left out means running: a config has to be paused on purpose. */
     enabled?: boolean;

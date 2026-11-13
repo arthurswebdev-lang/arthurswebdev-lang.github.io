@@ -7,7 +7,7 @@ import { TaskType } from '../enum/task-type.enum.js';
 import type { CreateBasicTask, CreateEventTask } from '../types/tasks.types.js';
 import { ID, JoiObject } from '../middlewares/validation/util/validation.util.js';
 import {
-  assertWindowOrder, byType, fields, typeOf, windowFields,
+  assertWindowOrder, byType, fields, permanentFlag, typeOf, windowFields,
 } from './common.schemes.js';
 
 export const CreateBasicTaskSchema = JoiObject<CreateBasicTask>({
@@ -60,6 +60,12 @@ export const UpdateTaskSchema = CreateTaskSchema;
 export const ClearTasksSchema = Joi.object({
   ids: Joi.array().items(ID).min(1).max(200).unique()
     .required(),
+  permanent: permanentFlag,
+});
+
+/** Query for `DELETE /tasks/:id`. The only field is the escape from the bin. */
+export const DeleteTaskQuerySchema = Joi.object({
+  permanent: permanentFlag,
 });
 
 /** Params for the subtask route: both ids, both uuids. */

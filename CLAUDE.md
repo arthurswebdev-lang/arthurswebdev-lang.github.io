@@ -89,6 +89,23 @@ one blank line before a `return` that follows logic.
   none). Where an operation spans both, order it so a crash in between fails safe: deleting a
   config removes its **events first**, so an interruption leaves a config whose events the next
   poll regenerates, rather than events orphaned forever.
+- **A delete is a stamp, not a removal.** Every task and every config carries
+  `deletedAt: Date | null`, and every read in `MongoRepository` adds `deletedAt: null`
+  (the `ALIVE` filter). A stamped row is hidden from the lists *and* unreachable by id —
+  `byId` carries the clause too — so nothing above the repository can read it, write to it
+  or delete it twice. Mongo matches a missing key against null, so a row written before the
+  field existed reads as alive on its own: `backend/scripts/2026-11-13-deleted-at.ts` is
+  tidying, **not** a prerequisite for the deploy, which is the opposite of the `enabled`
+  migration. `?permanent=true` on `DELETE /tasks/:id` and `DELETE /repeated-tasks/:id`, and
+  `permanent: true` in the `POST /tasks/clear` body, remove the row instead; the frontend
+  only ever sends it from behind the **⋯** in the confirm sheet. One delete writes **one
+  instant** across both collections — deleting a repeat stamps its occurrences with the same
+  `Date` — so `backend/scripts/deleted.ts --restore <id>` puts back exactly what that delete
+  took by matching the stamp, and nothing deleted on another occasion. **The generator still
+  hard-deletes**: `pauseConfig` and `regenerateForConfig` throw away occurrences nobody has
+  touched (`isUnstartedEvent`), and stamping those would bury the rows a person actually
+  deleted under rows the poller churned. `deleteManyByIds` / `deleteEventsOfConfig` are the
+  hard pair, `softDeleteManyByIds` / `softDeleteEventsOfConfig` the soft one.
 - **Mongo, following the hapi-minimal boilerplate.** `MongoStorage` owns the connection and hands
   a `Db` to each repository's constructor; `MongoRepository` is the shared CRUD base. Deviation
   from the boilerplate: `_id` is a **uuid string**, not an `ObjectId`, because ids are uuids

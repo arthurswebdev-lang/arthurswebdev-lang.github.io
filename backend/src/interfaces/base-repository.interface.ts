@@ -18,6 +18,12 @@ export interface IBaseRepository<TEntity extends { id: string }, TCreate, TUpdat
   /** Applies `changes`, returning the updated entity or `null` if absent. */
   updateById(id: string, changes: TUpdate): Promise<TEntity | null>;
 
-  /** Removes the entity; `false` when there was nothing to remove. */
+  /**
+   * Marks the entity deleted without removing it, so it can be given back.
+   * `false` when there was nothing live to stamp.
+   */
+  softDeleteById(id: string, at: Date): Promise<boolean>;
+
+  /** Removes the entity for good; `false` when there was nothing to remove. */
   deleteById(id: string): Promise<boolean>;
 }

@@ -55,8 +55,10 @@ function statusOf(value: unknown): TaskStatus | undefined {
  */
 function keepTicks(payload: UpdateTask, task: Task, status: TaskStatus | undefined): UpdateTask {
   const ticks = new Map(task.subtasks.map((step: Subtask) => [step.name, step.status]));
+  // A step the stored task has no tick for, and whose draft named no status,
+  // is a step that did not exist until this change: it starts TODO.
   const subtasks = (payload.subtasks ?? []).map((step) => ({
-    ...step, status: ticks.get(step.name) ?? step.status,
+    ...step, status: ticks.get(step.name) ?? step.status ?? TaskStatus.TODO,
   }));
 
   return { ...payload, subtasks, status: status ?? task.status };

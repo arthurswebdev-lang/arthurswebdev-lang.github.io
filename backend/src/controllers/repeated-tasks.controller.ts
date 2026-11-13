@@ -1,12 +1,23 @@
 import type { NextFunction, Request, Response } from 'express';
 
 import type { IRepeatedTasksService } from '../interfaces/repeated-tasks-service.interface.js';
-import type { BodyRequest, ParamsRequest } from '../types/request.type.js';
+import type {
+  BodyRequest, ParamsQueryRequest, ParamsRequest,
+} from '../types/request.type.js';
 import type { TaskIdParams } from '../types/tasks.types.js';
 import type {
   CreateRepeatedTask, PatchRepeatedTask, RepeatedTask, UpdateRepeatedTask,
 } from '../types/repeated-tasks.types.js';
 import { currentUserId } from '../middlewares/auth.middleware.js';
+
+/**
+ * Query accepted by `DELETE /repeated-tasks/:id`. Optional for the Express
+ * typing reason noted on the tasks controller; validation fills it in.
+ */
+interface DeleteRepeatedTaskQuery {
+  permanent?: boolean;
+}
+
 import * as SuccessHandlerUtil from '../utils/success-handler.util.js';
 
 export class RepeatedTasksController {
@@ -91,12 +102,16 @@ export class RepeatedTasksController {
   }
 
   async deleteById(
-    request: ParamsRequest<TaskIdParams>,
+    request: ParamsQueryRequest<TaskIdParams, DeleteRepeatedTaskQuery>,
     response: Response,
     next: NextFunction,
   ): Promise<void> {
     try {
-      await this.repeatedTasksService.deleteById(request.params.id, currentUserId(response));
+      await this.repeatedTasksService.deleteById(
+        request.params.id,
+        currentUserId(response),
+        request.query.permanent,
+      );
       SuccessHandlerUtil.handleDelete(response, next);
     } catch (error) {
       next(error);

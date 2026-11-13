@@ -40,8 +40,7 @@ export function anEvent(
     name,
     createdAt: CREATED_AT,
     category: TaskCategory.OTHER,
-    links: [],
-    subtasks: [],
+    links: [], deletedAt: null, subtasks: [],
     date: utc(date),
     remindBeforeMins: DEFAULT_REMIND_BEFORE_MINS,
     activeBeforeMins: DEFAULT_ACTIVE_BEFORE_MINS,
@@ -86,6 +85,7 @@ export function aBasicTask(name: string): BasicTask {
     createdAt: CREATED_AT,
     category: TaskCategory.OTHER,
     links: [],
+    deletedAt: null,
     subtasks: [],
   };
 }
@@ -109,6 +109,7 @@ export function aWeeklyConfig(
     subtasks: [],
     timesOfDay: [DEFAULT_TIME_OF_DAY],
     enabled: true,
+    deletedAt: null,
     weekdays,
     ...overrides,
   };
@@ -163,6 +164,7 @@ export function aDailyConfig(
     subtasks: [],
     timesOfDay: schedule.timesOfDay,
     enabled: true,
+    deletedAt: null,
     weekdays: schedule.weekdays ?? ALL_WEEKDAYS,
   };
 }
@@ -185,6 +187,7 @@ export function aMonthlyConfig(
     subtasks: [],
     timesOfDay: [DEFAULT_TIME_OF_DAY],
     enabled: true,
+    deletedAt: null,
     ...schedule,
   };
 }

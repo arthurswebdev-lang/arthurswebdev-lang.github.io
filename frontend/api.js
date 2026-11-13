@@ -148,7 +148,12 @@ export const replaceTask = (token, id, payload) => send("PUT", `/tasks/${id}`, t
 export const createRepeatedTask = (token, payload) =>
   send("POST", "/repeated-tasks", token, payload);
 
-export const deleteRepeatedTask = (token, id) => send("DELETE", `/repeated-tasks/${id}`, token);
+/**
+ * Deleting a repeat takes the tasks it has made with it. `permanent` is the
+ * difference between a stamp the server can undo and a row that is gone.
+ */
+export const deleteRepeatedTask = (token, id, permanent = false) =>
+  send("DELETE", `/repeated-tasks/${id}${permanent ? "?permanent=true" : ""}`, token);
 
 export const fetchRepeatedTask = (token, id) => get(`/repeated-tasks/${id}`, token);
 
@@ -177,13 +182,26 @@ export const setTaskStatus = (token, id, status) =>
 export const setStepStatus = (token, taskId, stepId, status) =>
   send("PATCH", `/tasks/${taskId}/subtasks/${stepId}/status`, token, { status });
 
-export const deleteTask = (token, id) => send("DELETE", `/tasks/${id}`, token);
+/**
+ * Deletes a task, and the whole rule behind it when handed a generated event.
+ *
+ * Without `permanent` the server only stamps `deletedAt`, so nothing is really
+ * gone and `scripts/deleted.ts` can put it back. The flag is only ever sent
+ * because the person chose it behind the ⋯ in the confirm sheet.
+ */
+export const deleteTask = (token, id, permanent = false) =>
+  send("DELETE", `/tasks/${id}${permanent ? "?permanent=true" : ""}`, token);
 
 /**
  * Removes exactly these tasks, leaving any repeat behind them alone — unlike
  * deleteTask, which takes the whole rule when given one of its events.
  */
-export const clearTasks = (token, ids) => send("POST", "/tasks/clear", token, { ids });
+export const clearTasks = (token, ids, permanent = false) =>
+  // The flag is left out unless it is true, so this body is byte-for-byte what
+  // it always was in the ordinary case. The server's schemas are closed, and
+  // Pages publishes the moment a push lands, so for the minutes between that
+  // and the API deploy this page still talks to the API it finds.
+  send("POST", "/tasks/clear", token, permanent ? { ids, permanent } : { ids });
 
 /* --- assistant ------------------------------------------------------------ */
 

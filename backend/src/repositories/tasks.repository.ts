@@ -18,7 +18,32 @@ import { MongoRepository } from './mongo.repository.js';
 export const TASKS_COLLECTION = 'tasks';
 
 function toSubtasks(drafts: SubtaskDraft[] | undefined): Subtask[] {
-  return (drafts ?? []).map((draft) => ({ ...draft, id: randomUUID() }));
+  // The default leads, so a draft that names a status still wins. Joi fills
+  // this in too; doing it here as well means the repository cannot store a
+  // step without one when it is called directly.
+  return (drafts ?? []).map((draft) => ({ status: TaskStatus.TODO, ...draft, id: randomUUID() }));
+}
+
+/**
+ * What every new task carries whatever its type — the server's half of it.
+ *
+ * `deletedAt` is server-owned like `passedDate`: a client cannot create
+ * something that is already deleted, and because PUT rebuilds the task through
+ * here, it cannot resurrect one by leaving the field out either.
+ */
+function baseFieldsOf(
+  input: CreateTask,
+  userId: string,
+): Pick<Task, 'id' | 'userId' | 'createdAt' | 'status' | 'category' | 'links' | 'deletedAt'> {
+  return {
+    id: randomUUID(),
+    userId,
+    createdAt: new Date(),
+    status: input.status ?? TaskStatus.TODO,
+    category: input.category ?? TaskCategory.OTHER,
+    links: input.links ?? [],
+    deletedAt: null,
+  };
 }
 
 /** The window an occurrence inherits wholesale from the config that made it. */
@@ -83,13 +108,16 @@ export class TasksRepository
   async ensureIndexes(): Promise<void> {
     await this.collection.createIndex({ configTaskId: 1 });
     await this.collection.createIndex({ category: 1 });
-    // Every read is scoped by owner, so it leads every index.
+    // Every read is scoped by owner, so it leads every index — and every read
+    // also asks for the live rows, which is why `deletedAt` sits beside it.
+    await this.collection.createIndex({ userId: 1, deletedAt: 1 });
     await this.collection.createIndex({ userId: 1, type: 1 });
     await this.collection.createIndex({ type: 1, date: 1 });
   }
 
   async listBy(query: TaskQuery): Promise<Task[]> {
-    const filter: Record<string, unknown> = { userId: query.userId };
+    // Deleted rows are never a result: see the note on ALIVE in the base class.
+    const filter: Record<string, unknown> = { userId: query.userId, deletedAt: null };
     if (query.category !== undefined) filter['category'] = query.category;
     if (query.type !== undefined) filter['type'] = query.type;
     if (query.status !== undefined) filter['status'] = query.status;
@@ -125,6 +153,7 @@ export class TasksRepository
       date,
       passedDate: null,
       notifiedAt: null,
+      deletedAt: null,
       configTaskId: config.id,
     };
 
@@ -133,12 +162,32 @@ export class TasksRepository
     return event;
   }
 
+  async softDeleteManyByIds(ids: string[], userId: string, at: Date): Promise<number> {
+    if (ids.length === 0) return 0;
+
+    const result = await this.collection.updateMany(
+      { _id: { $in: ids }, userId, deletedAt: null },
+      { $set: { deletedAt: at } },
+    );
+
+    return result.modifiedCount;
+  }
+
   async deleteManyByIds(ids: string[], userId: string): Promise<number> {
     if (ids.length === 0) return 0;
 
     const result = await this.collection.deleteMany({ _id: { $in: ids }, userId });
 
     return result.deletedCount;
+  }
+
+  async softDeleteEventsOfConfig(configTaskId: string, at: Date): Promise<number> {
+    const result = await this.collection.updateMany(
+      { type: TaskType.EVENT, configTaskId, deletedAt: null },
+      { $set: { deletedAt: at } },
+    );
+
+    return result.modifiedCount;
   }
 
   async deleteEventsOfConfig(configTaskId: string): Promise<number> {
@@ -183,7 +232,7 @@ export class TasksRepository
     status: TaskStatus.DONE | TaskStatus.TODO,
   ): Promise<Task | null> {
     const updated = await this.collection.findOneAndUpdate(
-      { _id: taskId, 'subtasks.id': subtaskId },
+      { _id: taskId, 'subtasks.id': subtaskId, deletedAt: null },
       { $set: { 'subtasks.$.status': status } },
       { returnDocument: 'after' },
     );
@@ -205,7 +254,7 @@ export class TasksRepository
     const photo = photoOf(config);
 
     const updated = await this.collection.findOneAndUpdate(
-      { _id: event.id, type: TaskType.EVENT },
+      { _id: event.id, type: TaskType.EVENT, deletedAt: null },
       {
         $set: {
           name: config.name,
@@ -228,7 +277,7 @@ export class TasksRepository
 
   async markNotified(eventId: string, notifiedAt: Date): Promise<EventTask | null> {
     const updated = await this.collection.findOneAndUpdate(
-      { _id: eventId, type: TaskType.EVENT },
+      { _id: eventId, type: TaskType.EVENT, deletedAt: null },
       { $set: { notifiedAt } },
       { returnDocument: 'after' },
     );
@@ -238,7 +287,7 @@ export class TasksRepository
 
   async markEventPassed(eventId: string, passedAt: Date): Promise<EventTask | null> {
     const updated = await this.collection.findOneAndUpdate(
-      { _id: eventId, type: TaskType.EVENT },
+      { _id: eventId, type: TaskType.EVENT, deletedAt: null },
       { $set: { passedDate: passedAt } },
       { returnDocument: 'after' },
     );
@@ -246,22 +295,15 @@ export class TasksRepository
     return updated === null ? null : this.toDomain(updated) as EventTask;
   }
 
-  /** Unscoped on purpose; see the interface. */
+  /** Unscoped by owner on purpose; see the interface. Still only live rows. */
   async listAcrossUsers(): Promise<Task[]> {
-    const documents = await this.collection.find().toArray();
+    const documents = await this.collection.find({ deletedAt: null }).toArray();
 
     return documents.map((document) => this.toDomain(document));
   }
 
   protected toEntity(input: CreateTask, userId: string): Task {
-    const base = {
-      id: randomUUID(),
-      userId,
-      createdAt: new Date(),
-      status: input.status ?? TaskStatus.TODO,
-      category: input.category ?? TaskCategory.OTHER,
-      links: input.links ?? [],
-    };
+    const base = baseFieldsOf(input, userId);
 
     switch (input.type) {
       case TaskType.BASIC:
@@ -295,7 +337,15 @@ export class TasksRepository
     }
 
     const replacement = this.toEntity(changes, entity.userId);
-    const identity = { id: entity.id, userId: entity.userId, createdAt: entity.createdAt };
+    const identity = {
+      id: entity.id,
+      userId: entity.userId,
+      createdAt: entity.createdAt,
+      // A live task is the only kind PUT can reach, so this is always null —
+      // but taking it from the rebuilt entity rather than the stored one would
+      // be the sort of quiet reset that loses a stamp the day that changes.
+      deletedAt: entity.deletedAt,
+    };
 
     // Server-owned event fields have to survive a replacement too. They are
     // absent from the payload by design, so taking them from the rebuilt task

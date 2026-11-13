@@ -149,7 +149,8 @@ describe('assistant changes — ticks', () => {
       target: 'task', id: task.id, steps: [{ name: 'Milk' }, { name: 'Bread' }, { name: 'Eggs' }],
     }, 1, session);
     assert.ok(typeof prepared !== 'string');
-    const steps = ((prepared.payload as UpdateTask).subtasks ?? []).map((step) => `${step.name}:${step.status}`);
+    const steps = ((prepared.payload as UpdateTask).subtasks ?? [])
+      .map((step) => `${step.name}:${String(step.status)}`);
     assert.deepEqual(steps, ['Milk:DONE', 'Bread:TODO', 'Eggs:TODO']);
   });
 });

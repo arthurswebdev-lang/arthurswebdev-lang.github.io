@@ -230,7 +230,7 @@ describe('finishing a task ticks its steps', { skip: mongoUnavailable }, () => {
     const reopened = await repository.updateStatus(task.id, TaskStatus.TODO);
 
     assert.equal(reopened?.status, TaskStatus.TODO);
-    assert.ok(reopened?.subtasks.every((step) => step.status === TaskStatus.DONE));
+    assert.ok(reopened.subtasks.every((step) => step.status === TaskStatus.DONE));
   });
 });
 
@@ -242,7 +242,7 @@ describe('finishing a task with no steps', { skip: mongoUnavailable }, () => {
     const done = await repository.updateStatus(task.id, TaskStatus.DONE);
 
     assert.equal(done?.status, TaskStatus.DONE);
-    assert.deepEqual(done?.subtasks, []);
+    assert.deepEqual(done.subtasks, []);
   });
 });
 
@@ -258,5 +258,81 @@ describe('a half-done checklist', { skip: mongoUnavailable }, () => {
     const done = await repository.updateStatus(task.id, TaskStatus.DONE);
 
     assert.ok(done?.subtasks.every((step) => step.status === TaskStatus.DONE));
+  });
+});
+
+/* Soft delete against the real driver. The service tests say what the rules
+   are; these say that Mongo does what the queries assume. */
+describe('a stamped row', { skip: mongoUnavailable }, () => {
+  it('is hidden from every read', async () => {
+    const repository = freshRepository();
+    const task = await repository.create(anEventPayload('standup'), TEST_USER_ID);
+
+    assert.equal(await repository.softDeleteById(task.id, utc('2026-08-22 10:00')), true);
+
+    assert.deepEqual(await repository.list(TEST_USER_ID), []);
+    assert.deepEqual(await repository.listBy({ userId: TEST_USER_ID }), []);
+    assert.deepEqual(await repository.listAcrossUsers(), []);
+    assert.equal(await repository.getById(task.id), null);
+  });
+
+  it('cannot be stamped, written to or removed afterwards', async () => {
+    const repository = freshRepository();
+    const task = await repository.create(anEventPayload('standup'), TEST_USER_ID);
+    await repository.softDeleteById(task.id, utc('2026-08-22 10:00'));
+
+    assert.equal(await repository.softDeleteById(task.id, utc('2026-08-23 10:00')), false);
+    assert.equal(await repository.updateStatus(task.id, TaskStatus.DONE), null);
+    assert.equal(await repository.markNotified(task.id, utc('2026-08-22 11:00')), null);
+    assert.equal(await repository.deleteById(task.id), false);
+  });
+});
+
+/* The claim that lets this ship without the migration having to run first:
+   Mongo matches a missing key against null, so a document written before the
+   field existed reads as alive on its own. */
+describe('a document stored before deletedAt existed', { skip: mongoUnavailable }, () => {
+  it('still counts as alive', async () => {
+    const repository = freshRepository();
+    const task = await repository.create(anEventPayload('standup'), TEST_USER_ID);
+    const db = databases.at(-1);
+    assert.ok(db !== undefined);
+    await db.collection<{ _id: string }>('tasks')
+      .updateOne({ _id: task.id }, { $unset: { deletedAt: '' } });
+
+    const listed = await repository.list(TEST_USER_ID);
+
+    assert.deepEqual(listed.map((one) => one.name), ['standup']);
+    assert.notEqual(await repository.getById(task.id), null);
+  });
+});
+
+describe('stamping in bulk', { skip: mongoUnavailable }, () => {
+  it('takes a whole config in one write and leaves other events alone', async () => {
+    const repository = freshRepository();
+    const config = aWeeklyConfig('gym', [1, 5]);
+    await repository.createGeneratedEvent(config, utc('2026-08-24 09:00'));
+    await repository.createGeneratedEvent(config, utc('2026-08-28 09:00'));
+    const other = await repository.create(anEventPayload('standup'), TEST_USER_ID);
+
+    const stamped = await repository.softDeleteEventsOfConfig(config.id, utc('2026-08-22 10:00'));
+
+    assert.equal(stamped, 2);
+    assert.deepEqual((await repository.list(TEST_USER_ID)).map((one) => one.id), [other.id]);
+  });
+
+  it("takes only the ids given, and only this owner's", async () => {
+    const repository = freshRepository();
+    const mine = await repository.create(anEventPayload('standup'), TEST_USER_ID);
+    const theirs = await repository.create(anEventPayload('their standup'), 'someone-else');
+
+    const stamped = await repository.softDeleteManyByIds(
+      [mine.id, theirs.id],
+      TEST_USER_ID,
+      utc('2026-08-22 10:00'),
+    );
+
+    assert.equal(stamped, 1, "another owner's id simply does not match");
+    assert.notEqual(await repository.getById(theirs.id), null);
   });
 });

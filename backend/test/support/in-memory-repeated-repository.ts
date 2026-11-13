@@ -25,6 +25,7 @@ function toEntity(input: CreateRepeatedTask, userId: string): RepeatedTask {
     timesOfDay: [...input.timesOfDay ?? [DEFAULT_TIME_OF_DAY]]
       .sort((a, b) => (a.hour - b.hour) || (a.minute - b.minute)),
     enabled: input.enabled ?? true,
+    deletedAt: null,
   };
 
   if (input.type === TaskType.REPEATED_DAILY) {
@@ -38,20 +39,30 @@ function toEntity(input: CreateRepeatedTask, userId: string): RepeatedTask {
 export class InMemoryRepeatedTasksRepository implements IRepeatedTasksRepository {
   constructor(private configs: RepeatedTask[] = []) {}
 
+  /** Everything currently stored, stamped rows included — for assertions. */
+  snapshot(): RepeatedTask[] {
+    return [...this.configs];
+  }
+
+  /** Mirrors the base repository's ALIVE clause: a stamped config is gone. */
+  private get live(): RepeatedTask[] {
+    return this.configs.filter((config) => config.deletedAt === null);
+  }
+
   list(userId: string): Promise<RepeatedTask[]> {
-    return Promise.resolve(this.configs.filter((config) => config.userId === userId));
+    return Promise.resolve(this.live.filter((config) => config.userId === userId));
   }
 
   listAcrossUsers(): Promise<RepeatedTask[]> {
-    return Promise.resolve([...this.configs]);
+    return Promise.resolve(this.live);
   }
 
   listByIds(ids: string[]): Promise<RepeatedTask[]> {
-    return Promise.resolve(this.configs.filter((config) => ids.includes(config.id)));
+    return Promise.resolve(this.live.filter((config) => ids.includes(config.id)));
   }
 
   getById(id: string): Promise<RepeatedTask | null> {
-    return Promise.resolve(this.configs.find((config) => config.id === id) ?? null);
+    return Promise.resolve(this.live.find((config) => config.id === id) ?? null);
   }
 
   create(input: CreateRepeatedTask, userId: string): Promise<RepeatedTask> {
@@ -72,10 +83,23 @@ export class InMemoryRepeatedTasksRepository implements IRepeatedTasksRepository
       ...toEntity(changes, found.userId),
       id: found.id,
       createdAt: found.createdAt,
+      deletedAt: found.deletedAt,
     };
     this.configs[index] = updated;
 
     return Promise.resolve(updated);
+  }
+
+  softDeleteById(id: string, at: Date): Promise<boolean> {
+    const index = this.configs.findIndex(
+      (config) => config.id === id && config.deletedAt === null,
+    );
+    const found = this.configs[index];
+    if (found === undefined) return Promise.resolve(false);
+
+    this.configs[index] = { ...found, deletedAt: at };
+
+    return Promise.resolve(true);
   }
 
   deleteById(id: string): Promise<boolean> {

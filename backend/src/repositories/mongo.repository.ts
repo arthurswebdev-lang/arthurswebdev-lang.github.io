@@ -1,9 +1,20 @@
 import type {
-  Collection, Db, Filter, OptionalUnlessRequiredId, WithId,
+  Collection, Db, Filter, OptionalUnlessRequiredId, UpdateFilter, WithId,
 } from 'mongodb';
 
 import type { IBaseRepository } from '../interfaces/base-repository.interface.js';
 import type { Persisted } from './entity.interface.js';
+
+/**
+ * What every read adds, because a delete is a stamp and not a removal.
+ *
+ * Written as `deletedAt: null` rather than `{ $exists: false }` on purpose:
+ * Mongo matches a missing key against null, so a document stored before the
+ * field existed reads as alive on its own. The migration that fills the field
+ * in is therefore tidying, not a prerequisite — which is the opposite of the
+ * `enabled` flag, where a missing key read as paused and stopped the poller.
+ */
+const ALIVE = { deletedAt: null };
 
 /**
  * The CRUD every Mongo-backed repository shares, over one collection.
@@ -34,9 +45,9 @@ implements IBaseRepository<TEntity, TCreate, TUpdate> {
   /** Indexes this collection needs. Called once at startup. */
   abstract ensureIndexes(): Promise<void>;
 
-  /** Scoped to one owner: no caller ever sees another user's rows. */
+  /** Scoped to one owner, and to the rows that have not been deleted. */
   async list(userId: string): Promise<TEntity[]> {
-    const owned = { userId } as unknown as Filter<Persisted<TEntity>>;
+    const owned = { userId, ...ALIVE } as unknown as Filter<Persisted<TEntity>>;
     const documents = await this.collection.find(owned).toArray();
 
     return documents.map((document) => this.toDomain(document));
@@ -67,15 +78,36 @@ implements IBaseRepository<TEntity, TCreate, TUpdate> {
     return updated;
   }
 
+  /**
+   * Stamps the row deleted and leaves it where it is. This is what a person
+   * deleting something gets; `deleteById` is the one that cannot be taken back.
+   */
+  async softDeleteById(id: string, at: Date): Promise<boolean> {
+    // Cast for the same reason `byId` casts: `deletedAt` lives on every entity
+    // this class is instantiated with, but not on the unbounded type parameter.
+    const stamp = { $set: { deletedAt: at } } as unknown as UpdateFilter<Persisted<TEntity>>;
+    const result = await this.collection.updateOne(this.byId(id), stamp);
+
+    return result.modifiedCount > 0;
+  }
+
+  /**
+   * Removes the row outright. Reserved for two callers: a person who asked for
+   * this explicitly, and the generator tidying up an occurrence nobody touched.
+   */
   async deleteById(id: string): Promise<boolean> {
     const result = await this.collection.deleteOne(this.byId(id));
 
     return result.deletedCount > 0;
   }
 
-  /** `_id` is the uuid, so a lookup by domain id is a lookup by primary key. */
+  /**
+   * `_id` is the uuid, so a lookup by domain id is a lookup by primary key.
+   * Deleted rows are excluded here rather than at each call site, so nothing
+   * above the repository can read, write or re-delete one by accident.
+   */
   protected byId(id: string): Filter<Persisted<TEntity>> {
-    return { _id: id } as Filter<Persisted<TEntity>>;
+    return { _id: id, ...ALIVE } as unknown as Filter<Persisted<TEntity>>;
   }
 
   protected toDomain(document: WithId<Persisted<TEntity>>): TEntity {

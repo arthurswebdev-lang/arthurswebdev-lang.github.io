@@ -4,7 +4,9 @@ import type { TaskCategory } from '../enum/task-category.enum.js';
 import type { TaskFilter } from '../enum/task-filter.enum.js';
 import type { TaskStatus } from '../enum/task-status.enum.js';
 import type { ITasksService } from '../interfaces/tasks-service.interface.js';
-import type { BodyRequest, ParamsRequest, QueryRequest } from '../types/request.type.js';
+import type {
+  BodyRequest, ParamsQueryRequest, ParamsRequest, QueryRequest,
+} from '../types/request.type.js';
 import type {
   CreateTask, Task, TaskIdParams, UpdateTask,
 } from '../types/tasks.types.js';
@@ -14,6 +16,20 @@ import * as SuccessHandlerUtil from '../utils/success-handler.util.js';
 /** Body accepted by `POST /tasks/clear`. */
 interface ClearTasks {
   ids: string[];
+  /** Validated with a default, so it is always present by the time it is read. */
+  permanent: boolean;
+}
+
+/**
+ * Query accepted by `DELETE /tasks/:id`.
+ *
+ * Optional like `ListTasksQuery`, and for the same reason: Express types a raw
+ * query as `ParsedQs`, where nothing is guaranteed, so a required field here
+ * makes the handler unassignable at registration. Validation defaults it, so by
+ * the time it is read it is a real boolean.
+ */
+interface DeleteTaskQuery {
+  permanent?: boolean;
 }
 
 /** Route params for the subtask endpoint. */
@@ -139,7 +155,11 @@ export class TasksController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const deleted = await this.tasksService.clear(request.body.ids, currentUserId(response));
+      const deleted = await this.tasksService.clear(
+        request.body.ids,
+        currentUserId(response),
+        request.body.permanent,
+      );
       response.json({ deleted });
     } catch (error) {
       next(error);
@@ -147,12 +167,16 @@ export class TasksController {
   }
 
   async deleteById(
-    request: ParamsRequest<TaskIdParams>,
+    request: ParamsQueryRequest<TaskIdParams, DeleteTaskQuery>,
     response: Response,
     next: NextFunction,
   ): Promise<void> {
     try {
-      await this.tasksService.deleteById(request.params.id, currentUserId(response));
+      await this.tasksService.deleteById(
+        request.params.id,
+        currentUserId(response),
+        request.query.permanent,
+      );
       SuccessHandlerUtil.handleDelete(response, next);
     } catch (error) {
       next(error);

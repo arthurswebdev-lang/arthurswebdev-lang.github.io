@@ -57,6 +57,16 @@ export const DEFAULT_TIME_OF_DAY: TimeOfDay = {
   minute: 0,
 };
 
+/**
+ * `?permanent=true` on a delete: skip the bin and remove the row.
+ *
+ * A query string carries strings, and Joi's boolean accepts "true"/"false" as
+ * well as the real thing, so one definition serves the query and the body. It
+ * defaults to false everywhere, which is the point — permanence is asked for,
+ * never assumed.
+ */
+export const permanentFlag = Joi.boolean().default(false);
+
 /** More than one every half hour is not a routine, it is a stuck loop. */
 const MAX_TIMES_PER_DAY = 48;
 

@@ -7,7 +7,8 @@ import type {
 } from '../types/repeated-tasks.types.js';
 import { JoiObject } from '../middlewares/validation/util/validation.util.js';
 import {
-  ALL_WEEKDAYS, assertWindowOrder, byType, DEFAULT_TIME_OF_DAY, fields, typeOf, windowFields,
+  ALL_WEEKDAYS, assertWindowOrder, byType, DEFAULT_TIME_OF_DAY, fields, permanentFlag, typeOf,
+  windowFields,
 } from './common.schemes.js';
 
 export const CreateDailyTaskSchema = assertWindowOrder(JoiObject<CreateDailyTask>({
@@ -98,4 +99,9 @@ export const PatchRepeatedTaskSchema = JoiObject<PatchRepeatedTask>({
   months: fields.months,
 }).min(1).messages({
   'object.min': 'A patch must name at least one field to change.',
+});
+
+/** Query for `DELETE /repeated-tasks/:id`; the same flag as on a task. */
+export const DeleteRepeatedTaskQuerySchema = Joi.object({
+  permanent: permanentFlag,
 });
