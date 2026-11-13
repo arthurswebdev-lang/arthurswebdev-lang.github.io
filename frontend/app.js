@@ -825,6 +825,7 @@ const confirmTitle = document.getElementById('confirm-title');
 const confirmMessage = document.getElementById('confirm-message');
 const confirmActions = document.getElementById('confirm-actions');
 const confirmMore = document.getElementById('confirm-more');
+const confirmMenu = document.getElementById('confirm-menu');
 
 function confirmButton({ id, label, danger }, choose) {
   const button = document.createElement('button');
@@ -847,41 +848,90 @@ function confirmButton({ id, label, danger }, choose) {
  * repeat and deleting the repeat itself are different things, and a yes/no box
  * can only offer one of them.
  */
-function drawConfirm({ title, message, actions }, choose) {
+/** One line in the ⋯ menu. A menu item, deliberately not a second button. */
+function menuItem({ id, label }, choose) {
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = 'confirm__menu-item';
+  item.setAttribute('role', 'menuitem');
+  item.textContent = label;
+  item.addEventListener('click', () => { choose(id); });
+
+  return item;
+}
+
+/**
+ * The warning sits in the menu, under the answer it is about — the sheet
+ * behind is still on screen and still says the ordinary thing, so this is the
+ * only place the person can read what "permanently" costs.
+ */
+function menuNote(text) {
+  const note = document.createElement('p');
+  note.className = 'confirm__menu-note';
+  note.textContent = text;
+
+  return note;
+}
+
+function showMenu(open) {
+  confirmMenu.hidden = !open;
+  confirmMore.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) confirmMenu.querySelector('.confirm__menu-item')?.focus();
+}
+
+function ask({ title, message, actions, more = null }) {
   confirmTitle.textContent = title;
   confirmMessage.textContent = message ?? '';
   confirmMessage.hidden = message === undefined;
 
-  confirmActions.replaceChildren(
-    ...actions.map((action) => confirmButton(action, choose)),
-    confirmButton({ id: null, label: 'Cancel' }, choose),
-  );
-}
-
-function ask({ title, message, actions, more = null }) {
   return new Promise((resolve) => {
     let chosen = null;
     const choose = (id) => { chosen = id; confirmDialog.close(); };
 
-    drawConfirm({ title, message, actions }, choose);
+    confirmActions.replaceChildren(
+      ...actions.map((action) => confirmButton(action, choose)),
+      confirmButton({ id: null, label: 'Cancel' }, choose),
+    );
 
-    // The ⋯ swaps the sheet for its permanent form, and then takes itself off:
-    // there is nowhere further to go, and leaving it would suggest there is.
-    // Cancel is still on both faces, so the way out never moves.
+    // Deleting for good lives in a menu under the ⋯ rather than on the sheet:
+    // two deliberate taps, and the sheet itself never changes under the thumb.
     //
-    // Assigned rather than added as a listener, because this dialog is reused
-    // for every question in the app — `addEventListener` would stack one
-    // handler per open and the oldest would win.
+    // `onclick` rather than addEventListener, because this dialog is reused for
+    // every question in the app — a listener would stack one per open.
+    showMenu(false);
     confirmMore.hidden = more === null;
-    confirmMore.onclick = () => {
-      confirmMore.hidden = true;
-      drawConfirm(more, choose);
-    };
+    confirmMenu.replaceChildren(
+      ...(more === null ? [] : [menuItem(more.action, choose), menuNote(more.note)]),
+    );
+    confirmMore.onclick = () => { showMenu(confirmMenu.hidden); };
 
-    confirmDialog.addEventListener('close', () => { resolve(chosen); }, { once: true });
+    confirmDialog.addEventListener('close', () => {
+      showMenu(false);
+      resolve(chosen);
+    }, { once: true });
     confirmDialog.showModal();
   });
 }
+
+/* A tap anywhere else puts the menu away, the way a dropdown is expected to
+   behave. The sheet's own buttons count as elsewhere: reaching past an open
+   menu for Cancel should close the menu, not be swallowed by it. */
+confirmDialog.addEventListener('click', (event) => {
+  if (confirmMenu.hidden) return;
+  if (confirmMenu.contains(event.target) || confirmMore.contains(event.target)) return;
+
+  showMenu(false);
+});
+
+/* Escape closes the menu first and the dialog second, so one press does not
+   take both. Without this the user agent would close the whole sheet. */
+confirmDialog.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || confirmMenu.hidden) return;
+
+  event.preventDefault();
+  showMenu(false);
+  confirmMore.focus();
+});
 
 /**
  * A click outside the sheet means cancel. A modal dialog does not do this on
@@ -907,16 +957,18 @@ confirmDialog.addEventListener('click', (event) => {
  * and the user picks: drop this occurrence and leave the rule making more, or
  * take the rule and everything it has made. Anything else is a plain delete.
  */
+/** The one answer behind the ⋯, wherever the sheet has one. */
+const permanently = (note) => ({
+  action: { id: 'forever', label: 'Delete permanently' },
+  note,
+});
+
 function deleteChoiceFor(task) {
   if (!task.configTaskId) {
     return ask({
       title: `Delete "${task.name}"?`,
       actions: [{ id: 'one', label: 'Delete', danger: true }],
-      more: {
-        title: `Delete "${task.name}" for good?`,
-        message: 'This one cannot be undone.',
-        actions: [{ id: 'one-forever', label: 'Delete permanently', danger: true }],
-      },
+      more: permanently('Removes it from the database. This cannot be undone.'),
     });
   }
 
@@ -927,17 +979,11 @@ function deleteChoiceFor(task) {
       { id: 'one', label: 'Only this one', danger: true },
       { id: 'all', label: 'The whole repeat', danger: true },
     ],
-    // The same two choices, because the question does not get simpler just
-    // because the answer is final. Offering one of them would quietly decide
-    // the other for you.
-    more: {
-      title: `Delete "${task.name}" for good?`,
-      message: 'This cannot be undone.',
-      actions: [
-        { id: 'one-forever', label: 'Only this one', danger: true },
-        { id: 'all-forever', label: 'The whole repeat', danger: true },
-      ],
-    },
+    // One item, not two. Permanently deleting a single occurrence of a repeat
+    // is not a thing anyone wants, and it reads as the smaller of the two
+    // answers while being the one that cannot be taken back. So the menu
+    // offers the whole rule, and says so rather than leaving it to be guessed.
+    more: permanently('The repeat and every task it made. This cannot be undone.'),
   });
 }
 
@@ -945,8 +991,11 @@ function remove(task) {
   void deleteChoiceFor(task).then((choice) => {
     if (choice === null) return;
 
-    const forever = choice.endsWith('-forever');
-    const wholeRepeat = choice.startsWith('all');
+    // 'one' and 'all' are the sheet's recoverable answers; 'forever' is the
+    // menu's, and it always means the whole thing — the rule behind it too,
+    // when there is one. `deleteTask` is the call that escalates that far.
+    const forever = choice === 'forever';
+    const wholeRepeat = forever || choice === 'all';
 
     apply(
       () => { setTasks(tasks.filter((other) => other !== task)); },
@@ -1008,9 +1057,8 @@ cleanupButton.addEventListener('click', () => {
     message: 'The repeats that made them are kept.',
     actions: [{ id: 'clear', label: `Clear ${count}`, danger: true }],
     more: {
-      title: `Clear ${count} ${sweepLabel()} task${plural} for good?`,
-      message: 'This cannot be undone. The repeats that made them are still kept.',
-      actions: [{ id: 'forever', label: `Delete ${count} permanently`, danger: true }],
+      action: { id: 'forever', label: `Delete ${count} permanently` },
+      note: 'Removes them from the database. The repeats that made them are still kept.',
     },
   }).then((choice) => {
     if (choice === null) return;
@@ -1416,9 +1464,8 @@ function repeatRow(config) {
       message: 'The tasks it has already made go with it.',
       actions: [{ id: 'delete', label: 'Delete', danger: true }],
       more: {
-        title: `Delete "${config.name}" for good?`,
-        message: 'The tasks it has already made go with it. This cannot be undone.',
-        actions: [{ id: 'forever', label: 'Delete permanently', danger: true }],
+        action: { id: 'forever', label: 'Delete permanently' },
+        note: 'The repeat and every task it made. This cannot be undone.',
       },
     }).then((choice) => {
       if (choice === null) return openRepeats();

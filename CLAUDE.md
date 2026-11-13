@@ -98,7 +98,12 @@ one blank line before a `return` that follows logic.
   tidying, **not** a prerequisite for the deploy, which is the opposite of the `enabled`
   migration. `?permanent=true` on `DELETE /tasks/:id` and `DELETE /repeated-tasks/:id`, and
   `permanent: true` in the `POST /tasks/clear` body, remove the row instead; the frontend
-  only ever sends it from behind the **⋯** in the confirm sheet. One delete writes **one
+  only ever sends it from the one-item menu behind the **⋯** in the corner of the confirm
+  sheet — two deliberate taps, and the sheet itself never changes under the thumb. The
+  menu is one item on purpose, even for a task made by a repeat: permanently deleting a
+  single occurrence is not a thing anyone wants, and it reads as the smaller of two answers
+  while being the one that cannot be taken back, so the item takes the whole rule and the
+  note under it says so. One delete writes **one
   instant** across both collections — deleting a repeat stamps its occurrences with the same
   `Date` — so `backend/scripts/deleted.ts --restore <id>` puts back exactly what that delete
   took by matching the stamp, and nothing deleted on another occasion. **The generator still

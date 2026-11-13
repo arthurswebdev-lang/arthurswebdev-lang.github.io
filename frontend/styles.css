@@ -606,9 +606,14 @@ body {
   gap: 0.75rem;
 }
 
+/* The ⋯ and the menu it opens travel together, and the menu hangs off this
+   wrapper. The anchor has to be an inner element: `position: relative` on the
+   modal <dialog> itself would drop it out of the centred layer the user agent
+   lays it out in. */
+.confirm__menu-wrap { position: relative; flex: none; }
+
 /* Small and quiet: a second-choice control, not a second button. */
 .confirm__more {
-  flex: none;
   width: 2rem;
   height: 2rem;
   margin: -0.25rem -0.4rem 0 0;
@@ -626,6 +631,54 @@ body {
 
 .confirm__more:hover { background: var(--surface-sunk); color: var(--ink); }
 .confirm__more:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
+
+/* Hangs under the ⋯, right-aligned to it so it cannot run off the screen edge
+   on a phone. It floats above the sheet's own text rather than pushing it
+   down: opening the menu must not move the buttons under the thumb. */
+.confirm__menu {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  min-width: 12rem;
+  padding: 0.3rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+  text-align: left;
+}
+
+.confirm__menu[hidden] { display: none; }
+
+.confirm__menu-item {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--overdue-ink);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.confirm__menu-item:hover { background: var(--overdue-bg); }
+.confirm__menu-item:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: -2px; }
+
+/* The warning stays with the answer it is about, so it is read in the menu
+   rather than on a sheet the person has already left behind. */
+.confirm__menu-note {
+  margin: 0.15rem 0 0.1rem;
+  padding: 0 0.6rem;
+  color: var(--ink-faint);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  white-space: normal;
+}
 
 .confirm__actions {
   display: flex;

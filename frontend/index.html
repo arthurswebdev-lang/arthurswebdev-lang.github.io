@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="./styles.css?v=52">
+<link rel="stylesheet" href="./styles.css?v=53">
 <link rel="stylesheet" href="./theme.css?v=2">
 <script>
   // Where the API lives. Point this at the fly.io app once deployed.
@@ -146,15 +146,19 @@
 <!-- Every confirmation in the app, so a question about deleting something
      looks like the app asking rather than the browser interrupting.
 
-     The ⋯ in the corner is the way to the answer the sheet does not offer:
-     deleting for good. A plain delete can be given back, so that is what the
-     buttons do; the one that cannot is deliberately one tap further away. It
-     is hidden unless the question has a permanent form. -->
+     The ⋯ in the corner opens a small menu holding the answer the sheet does
+     not offer: deleting for good. A plain delete can be given back, so that is
+     what the buttons do; the one that cannot is kept out of the way, one
+     deliberate tap further. The ⋯ is hidden unless there is such an answer. -->
 <dialog class="composer confirm" id="confirm">
   <div class="confirm__head">
     <h2 class="composer__title" id="confirm-title"></h2>
-    <button type="button" class="confirm__more" id="confirm-more" hidden
-            title="More" aria-label="More options">⋯</button>
+    <div class="confirm__menu-wrap">
+      <button type="button" class="confirm__more" id="confirm-more" hidden
+              title="More" aria-label="More options"
+              aria-haspopup="true" aria-expanded="false">⋯</button>
+      <div class="confirm__menu" id="confirm-menu" role="menu" hidden></div>
+    </div>
   </div>
   <p class="composer__note" id="confirm-message"></p>
   <div class="confirm__actions" id="confirm-actions"></div>
@@ -468,6 +472,6 @@
 <script src="./firebase-config.js?v=30"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
-<script type="module" src="./app.js?v=59"></script>
+<script type="module" src="./app.js?v=60"></script>
 </body>
 </html>
